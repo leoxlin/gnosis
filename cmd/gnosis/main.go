@@ -26,6 +26,8 @@ func run(args []string) error {
 	}
 
 	switch args[0] {
+	case "index":
+		return runIndex(args[1:])
 	case "validate":
 		return runValidate(args[1:])
 	case "scaffold":
@@ -42,6 +44,42 @@ func run(args []string) error {
 		usage()
 		return fmt.Errorf("unknown command %q", args[0])
 	}
+}
+
+func runIndex(args []string) error {
+	fs := flag.NewFlagSet("index", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	vaultPath := fs.String("vault", defaultVault, "path to the OKF vault")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	root := *vaultPath
+	info, err := os.Stat(root)
+	if err != nil {
+		return err
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%s is not a directory", root)
+	}
+	_, vaultRoots, err := vault.LoadConfig(root)
+	if err != nil {
+		return err
+	}
+
+	var written []string
+	for _, vaultRoot := range vaultRoots {
+		paths, err := vault.GenerateIndexes(vaultRoot, vault.IndexOptions{Overwrite: true})
+		if err != nil {
+			return err
+		}
+		written = append(written, paths...)
+	}
+	for _, path := range written {
+		fmt.Println(path)
+	}
+	fmt.Printf("ok: index generated under %s\n", filepath.Clean(root))
+	return nil
 }
 
 func runValidate(args []string) error {
@@ -155,6 +193,7 @@ func usage() {
 
 Usage:
   gnosis setup [-vault <path>] [-force] [-concepts]
+  gnosis index [-vault <path>]
   gnosis validate [-vault <path>]
   gnosis scaffold [-vault <path>] [-force] [-concepts]
   gnosis version`)

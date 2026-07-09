@@ -39,6 +39,12 @@ Validate it:
 gnosis validate -vault ./my-vault
 ```
 
+Regenerate directory indexes:
+
+```bash
+gnosis index -vault ./my-vault
+```
+
 Repair the base vault shape without overwriting existing files:
 
 ```bash
@@ -51,4 +57,3 @@ You can also run tasks directly through mise without installing the binary:
 mise run build   # build to ./dist/gnosis
 mise run test    # run all Go tests
 ```
-

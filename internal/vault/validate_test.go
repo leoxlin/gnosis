@@ -77,7 +77,35 @@ func TestValidateRequiresRootIndexAndLog(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(result.Errors) != 2 {
-		t.Fatalf("errors = %v, want missing root index and log", result.Errors)
+		t.Fatalf("errors = %v, want missing root directory index and log", result.Errors)
+	}
+}
+
+func TestValidateRequiresIndexForEveryDirectory(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "index.md", `# Index
+
+[Concept](concepts/concept.md)
+`)
+	write(t, root, "log.md", `# Log
+
+## 2026-07-09
+
+* Entry.
+`)
+	write(t, root, "concepts/concept.md", `---
+type: Concept
+---
+
+# Concept
+`)
+
+	result, err := Validate(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Errors) != 1 {
+		t.Fatalf("errors = %v, want missing concepts index", result.Errors)
 	}
 }
 
@@ -196,6 +224,10 @@ type: Concept
 ---
 
 # Concept
+`)
+	write(t, root, "concepts/index.md", `# Concepts
+
+[Parent Index](../index.md)
 `)
 
 	result, err := Validate(root)

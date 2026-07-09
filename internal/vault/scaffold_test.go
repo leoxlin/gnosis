@@ -14,7 +14,7 @@ func TestScaffoldCreatesBaseVaultWithoutOptionalConcepts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, rel := range []string{"index.md", "log.md", "AGENTS.md", "concepts", "references"} {
+	for _, rel := range []string{"index.md", "log.md", "AGENTS.md", "concepts/index.md", "references/index.md"} {
 		if _, err := os.Stat(filepath.Join(root, rel)); err != nil {
 			t.Fatalf("expected %s to exist: %v", rel, err)
 		}
@@ -78,6 +78,56 @@ func TestScaffoldCanIncludeReusableConcepts(t *testing.T) {
 	}
 	if len(result.Warnings) != 0 {
 		t.Fatalf("unexpected validation warnings: %v", result.Warnings)
+	}
+}
+
+func TestGenerateIndexesWritesFolderIndexes(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "log.md", `# Log
+
+## 2026-07-09
+
+* Entry.
+`)
+	write(t, root, "concepts/repository-purpose.md", `---
+type: Concept Type
+title: Repository Purpose
+description: Definition of a reusable purpose record.
+---
+
+# Repository Purpose
+`)
+
+	written, err := GenerateIndexes(root, IndexOptions{Overwrite: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(written) != 2 {
+		t.Fatalf("written = %v, want root and concepts indexes", written)
+	}
+
+	rootIndex, err := os.ReadFile(filepath.Join(root, "index.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rootText := string(rootIndex)
+	if !strings.Contains(rootText, "[Concepts](concepts/index.md)") {
+		t.Fatalf("root index missing concepts subindex link:\n%s", rootText)
+	}
+	if strings.Contains(rootText, "repository-purpose.md") {
+		t.Fatalf("root index should not list individual pages:\n%s", rootText)
+	}
+
+	conceptsIndex, err := os.ReadFile(filepath.Join(root, "concepts", "index.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	conceptsText := string(conceptsIndex)
+	if !strings.Contains(conceptsText, "[Parent Index](../index.md)") {
+		t.Fatalf("subindex missing parent link:\n%s", conceptsText)
+	}
+	if !strings.Contains(conceptsText, "[Repository Purpose](repository-purpose.md) - Definition of a reusable purpose record.") {
+		t.Fatalf("subindex missing page metadata:\n%s", conceptsText)
 	}
 }
 

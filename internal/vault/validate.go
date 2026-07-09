@@ -49,10 +49,10 @@ func Validate(root string) (Result, error) {
 				return nil
 			}
 			if entry.IsDir() {
-				switch entry.Name() {
-				case ".git", ".obsidian":
+				if path != vaultRoot && ignoredVaultDir(entry.Name()) {
 					return filepath.SkipDir
 				}
+				checkDirectoryIndex(path, &result)
 				return nil
 			}
 			if filepath.Ext(path) != ".md" {
@@ -150,7 +150,7 @@ func validateLinks(root, path, text string, config Config, result *Result) {
 }
 
 func checkRootFiles(root string, result *Result) {
-	for _, rel := range []string{"index.md", "log.md"} {
+	for _, rel := range []string{"log.md"} {
 		path := filepath.Join(root, rel)
 		if _, err := os.Stat(path); err != nil {
 			if os.IsNotExist(err) {
@@ -158,6 +158,17 @@ func checkRootFiles(root string, result *Result) {
 			} else {
 				result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
 			}
+		}
+	}
+}
+
+func checkDirectoryIndex(dir string, result *Result) {
+	path := filepath.Join(dir, "index.md")
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: missing directory index file", path))
+		} else {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
 		}
 	}
 }
