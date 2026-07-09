@@ -17,6 +17,7 @@ This directory contains an [Open Knowledge Format (OKF)](/references/okf.md) bun
 * [Repository Directive](/ontology/repository-directive.md) — minimal, actionable handoff document that an agentic loop consumes to implement a change.
 * [Repository Delta](/ontology/repository-delta.md) — durable trace of a change implemented from one or more directives.
 * [Gnosis](/repository/purpose.md) — purpose of the Gnosis OKF toolkit and this repository.
+* [Repository Decisions](/repository/decisions/index.md) — durable record of the knowledge-first bootstrap decision.
 
 ## Log
 

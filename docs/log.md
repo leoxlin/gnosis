@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-07-09
+* **Creation**: Collapsed repository bootstrap decisions into a single [Repository Decision](/repository/decisions/bootstrap-knowledge-first.md) documenting the knowledge-first, OKF-based bootstrap and SDLC ontology.
 * **Creation**: Added the [Repository Decision](ontology/repository-decision.md) ontological category for durable, triage-level choices.
 * **Creation**: Added the [Repository Directive](ontology/repository-directive.md) ontological category for minimal implementation handoffs consumed by agentic loops.
 * **Creation**: Added the [Repository Delta](ontology/repository-delta.md) ontological category as the durable trace created when a directive is implemented.
