@@ -225,14 +225,16 @@ func markdownTitleAndDescription(path string) (string, string) {
 		return "", ""
 	}
 	text := string(data)
-	if strings.HasPrefix(text, "---\n") {
+	if strings.HasPrefix(text, "---\n") || strings.HasPrefix(text, "---\r\n") {
 		fields, body, err := parseFrontmatter(text)
 		if err == nil {
-			title := strings.TrimSpace(fields["title"])
+			title, _ := fields.scalar("title")
+			title = strings.TrimSpace(title)
 			if title == "" {
 				title = firstHeading(body)
 			}
-			return title, strings.TrimSpace(fields["description"])
+			description, _ := fields.scalar("description")
+			return title, strings.TrimSpace(description)
 		}
 	}
 	return firstHeading(text), ""

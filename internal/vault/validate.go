@@ -96,16 +96,25 @@ func validateFile(root, path string, config Config, result *Result) {
 	}
 
 	if !isReserved {
-		required := []string{"type"}
-		for _, field := range required {
-			if strings.TrimSpace(fields[field]) == "" {
-				result.Errors = append(result.Errors, fmt.Sprintf("%s: missing non-empty %q frontmatter", path, field))
+		if value, scalar := fields.scalar("type"); !scalar {
+			if fields.nonEmpty("type") {
+				result.Errors = append(result.Errors, fmt.Sprintf("%s: frontmatter %q must be a scalar", path, "type"))
+			} else {
+				result.Errors = append(result.Errors, fmt.Sprintf("%s: missing non-empty %q frontmatter", path, "type"))
 			}
+		} else if strings.TrimSpace(value) == "" {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: missing non-empty %q frontmatter", path, "type"))
 		}
-		for _, field := range []string{"title", "description", "tags", "timestamp"} {
-			if strings.TrimSpace(fields[field]) == "" {
+		for _, field := range []string{"title", "description", "timestamp"} {
+			value, scalar := fields.scalar(field)
+			if !scalar && fields.nonEmpty(field) {
+				result.Errors = append(result.Errors, fmt.Sprintf("%s: frontmatter %q must be a scalar", path, field))
+			} else if strings.TrimSpace(value) == "" {
 				result.Warnings = append(result.Warnings, fmt.Sprintf("%s: missing recommended %q frontmatter", path, field))
 			}
+		}
+		if !fields.nonEmpty("tags") {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("%s: missing recommended %q frontmatter", path, "tags"))
 		}
 
 		if strings.TrimSpace(body) == "" {
