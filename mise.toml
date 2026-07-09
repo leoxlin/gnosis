@@ -1,0 +1,20 @@
+[tools]
+go = "1.22"
+
+[tasks.build]
+run = [
+  "mkdir -p dist",
+  "go build -o ./dist/gnosis ./cmd/gnosis",
+]
+description = "Build the gnosis binary into dist/"
+
+[tasks.localbin]
+description = "Install gnosis to ~/.local/bin/gnosis"
+run = [
+  "mkdir -p ~/.local/bin",
+  "go build -o ~/.local/bin/gnosis ./cmd/gnosis",
+]
+
+[tasks.test]
+description = "Run all Go tests"
+run = "go test ./..."
