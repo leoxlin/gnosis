@@ -1,72 +1,102 @@
 package vault
 
 import (
+	"fmt"
 	"net/url"
 	"path/filepath"
-	"regexp"
 	"strings"
+
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/text"
 )
 
-var (
-	// markdownLinkPattern matches standard markdown links and captures the URL.
-	markdownLinkPattern = regexp.MustCompile(`\[[^\]]*\]\(([^\s)#]+)(?:#[^)]*)?\)`)
-
-	// fencedCodeBlockPattern matches fenced code blocks so their contents can be
-	// excluded from link extraction.
-	fencedCodeBlockPattern = regexp.MustCompile("(?s)```.*?```")
-)
-
-// Link represents an internal markdown link found in a document.
+// Link represents an internal Markdown destination found in a document.
 type Link struct {
 	Raw      string
+	Path     string
 	Absolute bool
 }
 
-// internalLinks extracts all internal markdown links from the given markdown,
-// excluding links that appear inside fenced code blocks.
-// Internal links are those that do not use a known external scheme and are not
-// pure anchors. Absolute bundle-relative links start with "/".
-func internalLinks(markdown string) []Link {
-	clean := fencedCodeBlockPattern.ReplaceAllString(markdown, "")
-	matches := markdownLinkPattern.FindAllStringSubmatch(clean, -1)
-	links := make([]Link, 0, len(matches))
-	for _, match := range matches {
-		if len(match) < 2 {
-			continue
+// internalLinks extracts standard links, reference links, and image
+// destinations from Markdown. Goldmark excludes fenced code from the AST nodes
+// visited here, and raw HTML is intentionally not interpreted.
+func internalLinks(markdown string) ([]Link, error) {
+	source := []byte(markdown)
+	document := goldmark.DefaultParser().Parse(text.NewReader(source))
+	links := []Link{}
+	err := ast.Walk(document, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
 		}
-		raw := strings.TrimSpace(match[1])
-		if raw == "" || strings.HasPrefix(raw, "#") {
-			continue
+
+		var destination []byte
+		switch node := node.(type) {
+		case *ast.Link:
+			destination = node.Destination
+		case *ast.Image:
+			destination = node.Destination
+		default:
+			return ast.WalkContinue, nil
 		}
-		if isExternalLink(raw) {
-			continue
+
+		link, include, err := parseLinkDestination(string(destination))
+		if err != nil {
+			return ast.WalkStop, err
 		}
-		links = append(links, Link{
-			Raw:      raw,
-			Absolute: strings.HasPrefix(raw, "/"),
-		})
-	}
-	return links
+		if include {
+			links = append(links, link)
+		}
+		return ast.WalkContinue, nil
+	})
+	return links, err
 }
 
-// isExternalLink reports whether the raw link points outside the bundle.
-func isExternalLink(raw string) bool {
-	u, err := url.Parse(raw)
+func parseLinkDestination(raw string) (Link, bool, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || strings.HasPrefix(raw, "#") {
+		return Link{}, false, nil
+	}
+
+	parsed, err := url.Parse(raw)
 	if err != nil {
-		return false
+		return Link{}, false, fmt.Errorf("invalid destination %q: %w", raw, err)
 	}
-	switch strings.ToLower(u.Scheme) {
-	case "http", "https", "ftp", "ftps", "mailto", "file":
-		return true
+	if parsed.IsAbs() || parsed.Host != "" || strings.HasPrefix(raw, "//") {
+		return Link{}, false, nil
 	}
-	return false
+	if parsed.Path == "" {
+		return Link{}, false, nil
+	}
+
+	path, err := url.PathUnescape(parsed.EscapedPath())
+	if err != nil {
+		return Link{}, false, fmt.Errorf("invalid destination %q: %w", raw, err)
+	}
+	path = filepath.FromSlash(path)
+	return Link{
+		Raw:      raw,
+		Path:     path,
+		Absolute: strings.HasPrefix(path, string(filepath.Separator)),
+	}, true, nil
 }
 
-// resolveLink resolves an internal link against the vault root and the file path.
-func resolveLink(root, file, raw string) string {
-	if strings.HasPrefix(raw, "/") {
-		return filepath.Join(root, strings.TrimPrefix(raw, "/"))
+// resolveLink resolves an internal link against the vault root and source file.
+func resolveLink(root, file, path string) string {
+	if filepath.IsAbs(path) {
+		return filepath.Join(root, strings.TrimPrefix(path, string(filepath.Separator)))
 	}
-	dir := filepath.Dir(file)
-	return filepath.Join(dir, raw)
+	return filepath.Join(filepath.Dir(file), path)
+}
+
+func linkTarget(root, file string, link Link) (string, error) {
+	target := filepath.Clean(resolveLink(root, file, link.Path))
+	rel, err := filepath.Rel(root, target)
+	if err != nil {
+		return "", err
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("destination %q escapes the vault root", link.Raw)
+	}
+	return target, nil
 }

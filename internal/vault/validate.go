@@ -128,7 +128,12 @@ func validateFile(root, path string, config Config, result *Result) {
 
 func validateLinks(root, path, text string, config Config, result *Result) {
 	preferred := config.LinkFormatValue()
-	for _, link := range internalLinks(text) {
+	links, err := internalLinks(text)
+	if err != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
+		return
+	}
+	for _, link := range links {
 		if link.Absolute && preferred == LinkFormatRelative {
 			msg := fmt.Sprintf("%s: absolute link %q; this vault is configured to prefer relative links", path, link.Raw)
 			if config.IsStrict() {
@@ -146,9 +151,12 @@ func validateLinks(root, path, text string, config Config, result *Result) {
 			}
 		}
 
-		target := resolveLink(root, path, link.Raw)
-		cleanTarget := filepath.Clean(target)
-		if _, err := os.Stat(cleanTarget); err != nil {
+		target, err := linkTarget(root, path, link)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
+			continue
+		}
+		if _, err := os.Stat(target); err != nil {
 			if os.IsNotExist(err) {
 				result.Errors = append(result.Errors, fmt.Sprintf("%s: unresolved internal link %s", path, link.Raw))
 			} else {
@@ -188,7 +196,8 @@ func validateReservedName(path string, body string, result *Result) {
 		if !strings.Contains(body, "# ") {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("%s: index file should include a heading", path))
 		}
-		if len(internalLinks(body)) == 0 {
+		links, _ := internalLinks(body)
+		if len(links) == 0 {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("%s: index file should include navigation links", path))
 		}
 	case "log.md":
