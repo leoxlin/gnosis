@@ -1,6 +1,10 @@
 # Gnosis
 
-Gnosis is a Go toolkit plus Obsidian-first markdown vault workflow for an OKF-compatible LLM wiki.
+Gnosis is a Go toolkit for an OKF-compatible LLM wiki.
+
+## Backends
+
+* [Obsidian](https://obsidian.md/) — local markdown vault workflow.
 
 ## CLI
 
