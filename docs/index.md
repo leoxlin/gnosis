@@ -12,6 +12,8 @@ This directory contains an [Open Knowledge Format (OKF)](/references/okf.md) bun
 * [OKF v0.1](/references/okf-v-0-1.md) — first published version of the OKF specification.
 * [LLM Wiki (Karpathy)](/references/karpathy-llm-wiki.md) — pattern for a persistent, LLM-maintained knowledge base.
 * [OntoGPT (SPIRES)](/references/ontogpt-spires.md) — open-source package and zero-shot, schema-guided knowledge extraction method using LLMs and ontology grounding.
+* [Repository Purpose](/ontology/repository-purpose.md) — top-level purpose of a repository or service, decomposable into component purposes.
+* [Gnosis](/repository/purpose.md) — purpose of the Gnosis OKF toolkit and this repository.
 
 ## Log
 
