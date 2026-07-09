@@ -27,35 +27,45 @@ func Validate(root string) (Result, error) {
 		return Result{}, fmt.Errorf("%s is not a directory", root)
 	}
 
-	config, err := LoadConfig(root)
+	config, vaultRoots, err := LoadConfig(root)
 	if err != nil {
 		return Result{}, err
 	}
 
 	result := Result{}
-	checkRootFiles(root, &result)
-	err = filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			result.Errors = append(result.Errors, walkErr.Error())
-			return nil
+	for _, vaultRoot := range vaultRoots {
+		vaultInfo, err := os.Stat(vaultRoot)
+		if err != nil {
+			return result, err
 		}
-		if entry.IsDir() {
-			switch entry.Name() {
-			case ".git", ".obsidian":
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if filepath.Ext(path) != ".md" {
-			return nil
+		if !vaultInfo.IsDir() {
+			return result, fmt.Errorf("%s is not a directory", vaultRoot)
 		}
 
-		result.FilesChecked++
-		validateFile(root, path, config, &result)
-		return nil
-	})
-	if err != nil {
-		return result, err
+		checkRootFiles(vaultRoot, &result)
+		err = filepath.WalkDir(vaultRoot, func(path string, entry os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				result.Errors = append(result.Errors, walkErr.Error())
+				return nil
+			}
+			if entry.IsDir() {
+				switch entry.Name() {
+				case ".git", ".obsidian":
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if filepath.Ext(path) != ".md" {
+				return nil
+			}
+
+			result.FilesChecked++
+			validateFile(vaultRoot, path, config, &result)
+			return nil
+		})
+		if err != nil {
+			return result, err
+		}
 	}
 
 	sort.Strings(result.Errors)

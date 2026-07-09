@@ -65,7 +65,7 @@ func runValidate(args []string) error {
 		}
 		return fmt.Errorf("validation failed: %d error(s)", len(result.Errors))
 	}
-	fmt.Printf("ok: %d markdown file(s) validated under %s\n", result.FilesChecked, filepath.Clean(*vaultPath))
+	fmt.Printf("ok: %d markdown file(s) validated\n", result.FilesChecked)
 	return nil
 }
 
@@ -78,14 +78,30 @@ func runScaffold(args []string) error {
 		return err
 	}
 
-	created, err := vault.Scaffold(*vaultPath, vault.ScaffoldOptions{Force: *force})
+	root := *vaultPath
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		return err
+	}
+	_, vaultRoots, err := vault.LoadConfig(root)
 	if err != nil {
 		return err
+	}
+
+	var created []string
+	for _, vaultRoot := range vaultRoots {
+		if err := os.MkdirAll(vaultRoot, 0o755); err != nil {
+			return err
+		}
+		paths, err := vault.Scaffold(vaultRoot, vault.ScaffoldOptions{Force: *force})
+		if err != nil {
+			return err
+		}
+		created = append(created, paths...)
 	}
 	for _, path := range created {
 		fmt.Println(path)
 	}
-	fmt.Printf("ok: scaffold checked under %s\n", filepath.Clean(*vaultPath))
+	fmt.Printf("ok: scaffold checked under %s\n", filepath.Clean(root))
 	return nil
 }
 
@@ -103,9 +119,21 @@ func runSetup(args []string) error {
 		return err
 	}
 
-	created, err := vault.Scaffold(root, vault.ScaffoldOptions{Force: *force})
+	_, vaultRoots, err := vault.LoadConfig(root)
 	if err != nil {
 		return err
+	}
+
+	var created []string
+	for _, vaultRoot := range vaultRoots {
+		if err := os.MkdirAll(vaultRoot, 0o755); err != nil {
+			return err
+		}
+		paths, err := vault.Scaffold(vaultRoot, vault.ScaffoldOptions{Force: *force})
+		if err != nil {
+			return err
+		}
+		created = append(created, paths...)
 	}
 	for _, path := range created {
 		fmt.Println(path)

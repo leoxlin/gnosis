@@ -25,8 +25,9 @@ type Config struct {
 
 // VaultConfig holds vault-specific settings.
 type VaultConfig struct {
-	LinkFormat       string `toml:"link_format"`
-	LinkFormatStrict bool   `toml:"link_format_strict"`
+	LinkFormat       string   `toml:"link_format"`
+	LinkFormatStrict bool     `toml:"link_format_strict"`
+	VaultRoots       []string `toml:"vault_roots"`
 }
 
 // DefaultConfig returns the default Gnosis configuration.
@@ -35,6 +36,7 @@ func DefaultConfig() Config {
 		Vault: VaultConfig{
 			LinkFormat:       string(LinkFormatRelative),
 			LinkFormatStrict: false,
+			VaultRoots:       nil,
 		},
 	}
 }
@@ -56,24 +58,35 @@ func (c Config) IsStrict() bool {
 	return c.Vault.LinkFormatStrict
 }
 
-// LoadConfig loads gnosis.toml starting from the vault root and walking up
-// through parent directories until the file is found or the filesystem root
-// is reached. If no gnosis.toml is found, the default configuration is returned.
-func LoadConfig(root string) (Config, error) {
+// LoadConfig loads gnosis.toml starting from root and walking up through
+// parent directories until the file is found or the filesystem root is reached.
+// It returns the parsed configuration and the resolved vault root directories.
+// If vault.vault_roots is set in gnosis.toml, each entry is resolved relative
+// to the directory containing gnosis.toml. If it is empty or no gnosis.toml is
+// found, the original root argument is returned as the single vault root.
+func LoadConfig(root string) (Config, []string, error) {
 	config := DefaultConfig()
 	root = filepath.Clean(root)
+	start := root
 
 	for {
 		path := filepath.Join(root, "gnosis.toml")
 		if info, err := os.Stat(path); err == nil && !info.IsDir() {
 			data, err := os.ReadFile(path)
 			if err != nil {
-				return config, fmt.Errorf("read %s: %w", path, err)
+				return config, nil, fmt.Errorf("read %s: %w", path, err)
 			}
 			if err := toml.Unmarshal(data, &config); err != nil {
-				return config, fmt.Errorf("parse %s: %w", path, err)
+				return config, nil, fmt.Errorf("parse %s: %w", path, err)
 			}
-			return config, nil
+			vaultRoots := make([]string, len(config.Vault.VaultRoots))
+			for i, rel := range config.Vault.VaultRoots {
+				vaultRoots[i] = filepath.Clean(filepath.Join(root, rel))
+			}
+			if len(vaultRoots) == 0 {
+				vaultRoots = []string{root}
+			}
+			return config, vaultRoots, nil
 		}
 
 		parent := filepath.Dir(root)
@@ -83,5 +96,5 @@ func LoadConfig(root string) (Config, error) {
 		root = parent
 	}
 
-	return config, nil
+	return config, []string{start}, nil
 }

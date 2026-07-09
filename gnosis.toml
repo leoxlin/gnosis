@@ -1,3 +1,4 @@
 [vault]
 link_format = "relative"
 link_format_strict = true
+vault_roots = ["docs"]
