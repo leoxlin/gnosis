@@ -1,0 +1,23 @@
+---
+type: Guide
+title: Gnosis Agent Rules
+description: Operating rules for agents working in the Gnosis vault.
+tags: [gnosis, agents, rules]
+timestamp: "{{.Timestamp}}"
+---
+
+# Gnosis Agent Rules
+
+## Core Rules
+
+- Preserve YAML frontmatter and keep every concept page with a non-empty `type`.
+- Prefer one concept per file where practical.
+- Update relevant indexes and logs after material changes.
+- Link sources and references explicitly instead of relying on implicit context.
+- Distinguish sourced claims from local decisions or implementation notes.
+- Keep generated or derived notes readable as ordinary markdown.
+- Do not overwrite unrelated user or agent work; adapt to existing files.
+
+## Session Handoff
+
+Before ending a material work session, record what changed, what remains, and any assumptions in an appropriate context note under `/docs/gnosis/agent-context/`.
