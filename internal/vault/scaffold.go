@@ -59,7 +59,6 @@ func Scaffold(root string, options ScaffoldOptions) ([]string, error) {
 
 	data := scaffoldData{Timestamp: time.Now().Format(time.RFC3339)}
 	files := map[string]string{
-		"README.md": "README.md.tmpl",
 		"index.md":  "index.md.tmpl",
 		"log.md":    "log.md.tmpl",
 		"AGENTS.md": "AGENTS.md.tmpl",
