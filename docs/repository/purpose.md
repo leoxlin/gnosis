@@ -12,7 +12,7 @@ timestamp: 2026-07-09T03:55:13Z
 
 Gnosis is building a unified interface for **agentic memory**. It brings together diverse memory systems — including LLM wikis, vector RAG, knowledge graphs, structured stores, episodic or long-context memory, and whatever memory backends emerge next — behind one memory model, one set of ingest tools, and one query surface.
 
-It supports pluggable backends so users are not locked into a single store or viewer. It encodes concepts from knowledge management and information science — such as ontologies, provenance, and conceptual decomposition — directly into agent workflows, starting with an [OKF-compatible](/references/okf.md) markdown foundation.
+It supports pluggable backends so users are not locked into a single store or viewer. It encodes concepts from knowledge management and information science — such as ontologies, provenance, and conceptual decomposition — directly into agent workflows, starting with an [OKF-compatible](../references/okf.md) markdown foundation.
 
 ## Sub-purposes
 
@@ -44,6 +44,6 @@ Gnosis is **not**:
 
 ## See also
 
-- [Repository Purpose](/ontology/repository-purpose.md) — the ontological category this concept instantiates.
-- [Open Knowledge Format (OKF)](/references/okf.md) — the format Gnosis implements.
-- [Gnosis README](../../README.md) — human entry point for the repository.
+- [Repository Purpose](../ontology/repository-purpose.md) — the ontological category this concept instantiates.
+- [Open Knowledge Format (OKF)](../references/okf.md) — the format Gnosis implements.
+- Gnosis README — human entry point for the repository.
