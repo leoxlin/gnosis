@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-07-09
+* **Creation**: Added the [Harden vault reliability](repository/directives/harden-vault-reliability.md) directive for strict parsing, safe generated writes, predictable CLI behavior, and automated quality checks.
 * **Update**: Moved README setup and quick-start command documentation into [Basic Usage](documentation/basic-usage.md).
 * **Creation**: Added the [Documentation](concepts/documentation.md) ontological category for guides, references, runbooks, and contributor or maintainer material.
 * **Update**: Rewrote the README and [`gnosis` purpose](repository/purpose.md) around the project name, singular knowledge access, self-bootstrapping repository knowledge, and the relationship to `praxis`.
