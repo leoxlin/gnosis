@@ -46,9 +46,4 @@ mise run build   # build to ./dist/gnosis
 mise run test    # run all Go tests
 ```
 
-## Layout
 
-- `docs/` — OKF v0.1 knowledge bundle.
-- `cmd/gnosis` — command-line surface for setup, validation, ingest, query, and backend operations.
-- `internal/vault` — Go libraries for OKF bundle handling, validation, and scaffolding.
-- `skills/gnosis-vault/` — agent skill instructions for working with Gnosis vaults.

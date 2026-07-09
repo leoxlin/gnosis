@@ -1,0 +1,13 @@
+{
+  "name": "gnosis",
+  "version": "0.1.0",
+  "description": "Gnosis agent skills for vault and repository workflows.",
+  "skills": [
+    "./plugins/gnosis-vault/skills/",
+    "./plugins/gnosis-repo/skills/"
+  ],
+  "interface": {
+    "displayName": "Gnosis",
+    "shortDescription": "Gnosis vault and repository skills for Claude."
+  }
+}

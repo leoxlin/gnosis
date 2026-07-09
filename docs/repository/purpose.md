@@ -23,9 +23,7 @@ It supports pluggable backends so users are not locked into a single store or vi
 | Ingest tools | Import, transform, validate, and ground knowledge from raw sources into the memory model. |
 | Query tools | Retrieve and synthesize across heterogeneous memory stores for agents. |
 | Ontology & OKF foundations | Encode knowledge-management concepts like ontologies, schemas, and provenance into agent-readable concepts. |
-| `cmd/gnosis` | Deliver the command-line surface for setup, validation, ingest, query, and backend operations. |
-| `internal/vault` | Offer reusable Go libraries for OKF bundle handling, validation, and scaffolding. |
-| `skills/gnosis-vault` | Give agents portable instructions for working with Gnosis vaults. |
+
 
 ## Boundaries
 
