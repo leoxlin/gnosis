@@ -64,28 +64,40 @@ func validateFile(root, path string, result *Result) {
 		return
 	}
 	text := string(bytes)
-	fields, body, err := parseFrontmatter(text)
-	if err != nil {
-		result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
-		return
-	}
 
-	required := []string{"type"}
-	for _, field := range required {
-		if strings.TrimSpace(fields[field]) == "" {
-			result.Errors = append(result.Errors, fmt.Sprintf("%s: missing non-empty %q frontmatter", path, field))
-		}
-	}
-	for _, field := range []string{"title", "description", "tags", "timestamp"} {
-		if strings.TrimSpace(fields[field]) == "" {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("%s: missing recommended %q frontmatter", path, field))
+	isReserved := filepath.Base(path) == "index.md" || filepath.Base(path) == "log.md"
+	var fields Frontmatter
+	var body string
+	if isReserved && !strings.HasPrefix(text, "---\n") {
+		fields = Frontmatter{}
+		body = text
+	} else {
+		fields, body, err = parseFrontmatter(text)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
+			return
 		}
 	}
 
-	if strings.TrimSpace(body) == "" {
-		result.Warnings = append(result.Warnings, fmt.Sprintf("%s: empty markdown body", path))
+	if !isReserved {
+		required := []string{"type"}
+		for _, field := range required {
+			if strings.TrimSpace(fields[field]) == "" {
+				result.Errors = append(result.Errors, fmt.Sprintf("%s: missing non-empty %q frontmatter", path, field))
+			}
+		}
+		for _, field := range []string{"title", "description", "tags", "timestamp"} {
+			if strings.TrimSpace(fields[field]) == "" {
+				result.Warnings = append(result.Warnings, fmt.Sprintf("%s: missing recommended %q frontmatter", path, field))
+			}
+		}
+
+		if strings.TrimSpace(body) == "" {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("%s: empty markdown body", path))
+		}
 	}
-	validateReservedName(path, fields, body, result)
+
+	validateReservedName(path, body, result)
 
 	for _, link := range absoluteInternalLinks(text) {
 		target := filepath.Join(root, strings.TrimPrefix(link, "/"))
@@ -112,7 +124,7 @@ func checkRootFiles(root string, result *Result) {
 	}
 }
 
-func validateReservedName(path string, fields Frontmatter, body string, result *Result) {
+func validateReservedName(path string, body string, result *Result) {
 	switch filepath.Base(path) {
 	case "index.md":
 		if !strings.Contains(body, "# ") {
@@ -122,14 +134,8 @@ func validateReservedName(path string, fields Frontmatter, body string, result *
 			result.Warnings = append(result.Warnings, fmt.Sprintf("%s: index file should include navigation links", path))
 		}
 	case "log.md":
-		if fields["type"] != "Log" {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("%s: log file should use type Log", path))
-		}
 		if !strings.Contains(body, "## ") {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("%s: log file should include dated sections", path))
-		}
-		if !strings.Contains(body, "Actor:") || !strings.Contains(body, "Action:") {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("%s: log file should include Actor and Action entries", path))
 		}
 	}
 }

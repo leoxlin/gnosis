@@ -8,27 +8,15 @@ import (
 
 func TestValidateAcceptsMinimalVault(t *testing.T) {
 	root := t.TempDir()
-	write(t, root, "index.md", `---
-type: Index
-title: Test
-description: Test vault.
-tags: [test]
-timestamp: 2026-07-07T00:00:00-04:00
----
-
-# Test
+	write(t, root, "index.md", `# Test
 
 [Log](/log.md)
 `)
-	write(t, root, "log.md", `---
-type: Log
-title: Log
-description: Activity log.
-tags: [test]
-timestamp: 2026-07-07T00:00:00-04:00
----
+	write(t, root, "log.md", `# Log
 
-# Log
+## 2026-07-07
+
+* Entry.
 `)
 
 	result, err := Validate(root)
@@ -95,24 +83,21 @@ func TestValidateRequiresRootIndexAndLog(t *testing.T) {
 
 func TestValidateWarnsForRecommendedFields(t *testing.T) {
 	root := t.TempDir()
-	write(t, root, "index.md", `---
-type: Index
----
+	write(t, root, "index.md", `# Index
 
-# Index
-
-[Log](/log.md)
+[Concept](/concept.md)
 `)
-	write(t, root, "log.md", `---
-type: Log
----
-
-# Log
+	write(t, root, "log.md", `# Log
 
 ## 2026-07-07
 
-- Actor: Test
-  Action: Test.
+* Entry.
+`)
+	write(t, root, "concept.md", `---
+type: Concept
+---
+
+# Concept
 `)
 
 	result, err := Validate(root)
