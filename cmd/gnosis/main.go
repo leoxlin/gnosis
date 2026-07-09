@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gnosis/internal/vault"
 )
@@ -36,10 +37,16 @@ func run(args []string, stdout, stderr io.Writer) error {
 	case "setup":
 		return runSetup(args[1:], stdout, stderr)
 	case "version":
+		if len(args) != 1 {
+			return unexpectedArguments("version", args[1:])
+		}
 		fmt.Fprintln(stdout, "gnosis 0.1.0")
 		return nil
 	case "help", "-h", "--help":
-		usage(stderr)
+		if len(args) != 1 {
+			return unexpectedArguments(args[0], args[1:])
+		}
+		usage(stdout)
 		return nil
 	default:
 		usage(stderr)
@@ -48,10 +55,10 @@ func run(args []string, stdout, stderr io.Writer) error {
 }
 
 func runIndex(args []string, stdout, stderr io.Writer) error {
-	fs := flag.NewFlagSet("index", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs := newFlagSet("index", "gnosis index [-vault <path>]", stderr)
 	vaultPath := fs.String("vault", defaultVault, "path to the OKF vault")
-	if err := fs.Parse(args); err != nil {
+	help, err := parseFlags(fs, args, stdout)
+	if err != nil || help {
 		return err
 	}
 
@@ -84,10 +91,10 @@ func runIndex(args []string, stdout, stderr io.Writer) error {
 }
 
 func runValidate(args []string, stdout, stderr io.Writer) error {
-	fs := flag.NewFlagSet("validate", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs := newFlagSet("validate", "gnosis validate [-vault <path>]", stderr)
 	vaultPath := fs.String("vault", defaultVault, "path to the OKF vault")
-	if err := fs.Parse(args); err != nil {
+	help, err := parseFlags(fs, args, stdout)
+	if err != nil || help {
 		return err
 	}
 
@@ -96,11 +103,11 @@ func runValidate(args []string, stdout, stderr io.Writer) error {
 		return err
 	}
 	for _, warning := range result.Warnings {
-		fmt.Fprintf(stdout, "warning: %s\n", warning)
+		fmt.Fprintf(stderr, "warning: %s\n", warning)
 	}
 	if len(result.Errors) > 0 {
 		for _, validationErr := range result.Errors {
-			fmt.Fprintf(stdout, "error: %s\n", validationErr)
+			fmt.Fprintf(stderr, "error: %s\n", validationErr)
 		}
 		return fmt.Errorf("validation failed: %d error(s)", len(result.Errors))
 	}
@@ -117,12 +124,12 @@ func runSetup(args []string, stdout, stderr io.Writer) error {
 }
 
 func runScaffoldCommand(name, vaultDescription, success string, args []string, stdout, stderr io.Writer) error {
-	fs := flag.NewFlagSet(name, flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs := newFlagSet(name, fmt.Sprintf("gnosis %s [-vault <path>] [-force] [-concepts]", name), stderr)
 	vaultPath := fs.String("vault", defaultVault, vaultDescription)
 	force := fs.Bool("force", false, "overwrite existing scaffold files")
 	includeConcepts := fs.Bool("concepts", false, "include reusable project concept definitions")
-	if err := fs.Parse(args); err != nil {
+	help, err := parseFlags(fs, args, stdout)
+	if err != nil || help {
 		return err
 	}
 
@@ -155,6 +162,36 @@ func runScaffoldCommand(name, vaultDescription, success string, args []string, s
 	}
 	fmt.Fprintf(stdout, "ok: %s under %s\n", success, filepath.Clean(root))
 	return nil
+}
+
+func newFlagSet(name, commandUsage string, stderr io.Writer) *flag.FlagSet {
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	fs.Usage = func() {
+		fmt.Fprintf(fs.Output(), "Usage: %s\n\nOptions:\n", commandUsage)
+		fs.PrintDefaults()
+	}
+	return fs
+}
+
+func parseFlags(fs *flag.FlagSet, args []string, helpOutput io.Writer) (bool, error) {
+	if len(args) == 1 && (args[0] == "-h" || args[0] == "--help") {
+		fs.SetOutput(helpOutput)
+	}
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return true, nil
+		}
+		return false, err
+	}
+	if fs.NArg() > 0 {
+		return false, unexpectedArguments(fs.Name(), fs.Args())
+	}
+	return false, nil
+}
+
+func unexpectedArguments(command string, args []string) error {
+	return fmt.Errorf("%s: unexpected argument(s): %s", command, strings.Join(args, " "))
 }
 
 func usage(output io.Writer) {
