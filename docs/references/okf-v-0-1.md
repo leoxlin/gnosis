@@ -3,7 +3,7 @@ type: Reference
 title: OKF v0.1
 description: Concise reference for the Open Knowledge Format v0.1 specification.
 resource: https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md
-tags: [okf, version, 0.1, specification]
+tags: [okf, version, v0.1, specification]
 timestamp: 2026-07-09T02:50:53Z
 ---
 

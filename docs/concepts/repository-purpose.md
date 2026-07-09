@@ -3,7 +3,7 @@ type: Concept Type
 title: Repository Purpose
 description: Definition of the Repository Purpose concept type — a top-level purpose for a repository or service, decomposable into component purposes.
 defines: Repository Purpose
-tags: [okf, ontology, purpose, repository, service, goal]
+tags: [okf, ontology, purpose, repository, service, goal, repository-purpose]
 timestamp: 2026-07-09T03:43:13Z
 ---
 

@@ -3,7 +3,7 @@ type: Concept Type
 title: Repository Directive
 description: Definition of the Repository Directive concept type — a minimal, actionable handoff document that an agentic loop consumes to implement a change in a project.
 defines: Repository Directive
-tags: [okf, ontology, directive, implementation, agent]
+tags: [okf, ontology, directive, implementation, agent, repository-directive]
 timestamp: 2026-07-09T04:08:43Z
 ---
 

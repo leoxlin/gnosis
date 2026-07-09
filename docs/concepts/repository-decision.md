@@ -3,7 +3,7 @@ type: Concept Type
 title: Repository Decision
 description: Definition of the Repository Decision concept type — a durable record of a resolved choice, including the selected option, alternatives considered, and the reasons for the choice.
 defines: Repository Decision
-tags: [okf, ontology, decision, architecture, triage]
+tags: [okf, ontology, decision, architecture, triage, repository-decision]
 timestamp: 2026-07-09T04:08:43Z
 ---
 

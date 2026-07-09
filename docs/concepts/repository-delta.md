@@ -3,7 +3,7 @@ type: Concept Type
 title: Repository Delta
 description: Definition of the Repository Delta concept type — a durable trace of a change that was implemented from one or more Repository Directives.
 defines: Repository Delta
-tags: [okf, ontology, delta, implementation, agent]
+tags: [okf, ontology, delta, implementation, agent, repository-delta]
 timestamp: 2026-07-09T04:08:43Z
 ---
 
