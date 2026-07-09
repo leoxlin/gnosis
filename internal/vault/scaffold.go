@@ -29,23 +29,8 @@ var scaffoldTemplates = template.Must(template.ParseFS(scaffoldTemplatesFS, "tem
 func Scaffold(root string, options ScaffoldOptions) ([]string, error) {
 	root = filepath.Clean(root)
 	dirs := []string{
-		"archive",
-		"guides",
-		"okr",
-		"ontogpt",
-		"people",
-		"projects",
+		"concepts",
 		"references",
-		"resources",
-		"routines",
-		"schemas",
-		"templates",
-		"tooling",
-		"workflows",
-		"docs/gnosis/agent-context",
-		"docs/gnosis/coding-agents",
-		"docs/gnosis/plans",
-		"docs/gnosis/qa",
 	}
 
 	created := []string{}
