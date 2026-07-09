@@ -88,7 +88,7 @@ func renderIndex(root, dir string) (string, error) {
 		for _, folder := range folders {
 			writeIndexBullet(&buf, folder)
 		}
-		return buf.String(), nil
+		return finishIndex(buf.String()), nil
 	}
 
 	fmt.Fprintf(&buf, "# %s\n\n", directoryTitle(rel))
@@ -114,7 +114,11 @@ func renderIndex(root, dir string) (string, error) {
 		buf.WriteString("No pages yet.\n")
 	}
 
-	return buf.String(), nil
+	return finishIndex(buf.String()), nil
+}
+
+func finishIndex(content string) string {
+	return strings.TrimRight(content, "\n") + "\n"
 }
 
 func indexEntries(root, dir string) ([]indexEntry, []indexEntry, error) {

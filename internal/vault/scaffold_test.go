@@ -162,6 +162,9 @@ description: Definition of a reusable purpose record.
 	if !strings.Contains(conceptsText, "[Repository Purpose](repository-purpose.md) - Definition of a reusable purpose record.") {
 		t.Fatalf("subindex missing page metadata:\n%s", conceptsText)
 	}
+	if strings.HasSuffix(conceptsText, "\n\n") {
+		t.Fatalf("subindex has an extra trailing blank line:\n%s", conceptsText)
+	}
 
 	unchanged, err := GenerateIndexes(root, IndexOptions{Overwrite: true})
 	if err != nil {
