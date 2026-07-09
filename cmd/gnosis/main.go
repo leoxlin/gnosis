@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -13,42 +14,42 @@ import (
 const defaultVault = "."
 
 func main() {
-	if err := run(os.Args[1:]); err != nil {
+	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(args []string) error {
+func run(args []string, stdout, stderr io.Writer) error {
 	if len(args) == 0 {
-		usage()
+		usage(stderr)
 		return errors.New("missing command")
 	}
 
 	switch args[0] {
 	case "index":
-		return runIndex(args[1:])
+		return runIndex(args[1:], stdout, stderr)
 	case "validate":
-		return runValidate(args[1:])
+		return runValidate(args[1:], stdout, stderr)
 	case "scaffold":
-		return runScaffold(args[1:])
+		return runScaffold(args[1:], stdout, stderr)
 	case "setup":
-		return runSetup(args[1:])
+		return runSetup(args[1:], stdout, stderr)
 	case "version":
-		fmt.Println("gnosis 0.1.0")
+		fmt.Fprintln(stdout, "gnosis 0.1.0")
 		return nil
 	case "help", "-h", "--help":
-		usage()
+		usage(stderr)
 		return nil
 	default:
-		usage()
+		usage(stderr)
 		return fmt.Errorf("unknown command %q", args[0])
 	}
 }
 
-func runIndex(args []string) error {
+func runIndex(args []string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("index", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
+	fs.SetOutput(stderr)
 	vaultPath := fs.String("vault", defaultVault, "path to the OKF vault")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -76,15 +77,15 @@ func runIndex(args []string) error {
 		written = append(written, paths...)
 	}
 	for _, path := range written {
-		fmt.Println(path)
+		fmt.Fprintln(stdout, path)
 	}
-	fmt.Printf("ok: index generated under %s\n", filepath.Clean(root))
+	fmt.Fprintf(stdout, "ok: index generated under %s\n", filepath.Clean(root))
 	return nil
 }
 
-func runValidate(args []string) error {
+func runValidate(args []string, stdout, stderr io.Writer) error {
 	fs := flag.NewFlagSet("validate", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
+	fs.SetOutput(stderr)
 	vaultPath := fs.String("vault", defaultVault, "path to the OKF vault")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -95,62 +96,30 @@ func runValidate(args []string) error {
 		return err
 	}
 	for _, warning := range result.Warnings {
-		fmt.Printf("warning: %s\n", warning)
+		fmt.Fprintf(stdout, "warning: %s\n", warning)
 	}
 	if len(result.Errors) > 0 {
 		for _, validationErr := range result.Errors {
-			fmt.Printf("error: %s\n", validationErr)
+			fmt.Fprintf(stdout, "error: %s\n", validationErr)
 		}
 		return fmt.Errorf("validation failed: %d error(s)", len(result.Errors))
 	}
-	fmt.Printf("ok: %d markdown file(s) validated\n", result.FilesChecked)
+	fmt.Fprintf(stdout, "ok: %d markdown file(s) validated\n", result.FilesChecked)
 	return nil
 }
 
-func runScaffold(args []string) error {
-	fs := flag.NewFlagSet("scaffold", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
-	vaultPath := fs.String("vault", defaultVault, "path to the OKF vault")
-	force := fs.Bool("force", false, "overwrite existing scaffold files")
-	includeConcepts := fs.Bool("concepts", false, "include reusable project concept definitions")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-
-	root := *vaultPath
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		return err
-	}
-	_, vaultRoots, err := vault.LoadConfig(root)
-	if err != nil {
-		return err
-	}
-
-	var created []string
-	for _, vaultRoot := range vaultRoots {
-		if err := os.MkdirAll(vaultRoot, 0o755); err != nil {
-			return err
-		}
-		paths, err := vault.Scaffold(vaultRoot, vault.ScaffoldOptions{
-			Force:           *force,
-			IncludeConcepts: *includeConcepts,
-		})
-		if err != nil {
-			return err
-		}
-		created = append(created, paths...)
-	}
-	for _, path := range created {
-		fmt.Println(path)
-	}
-	fmt.Printf("ok: scaffold checked under %s\n", filepath.Clean(root))
-	return nil
+func runScaffold(args []string, stdout, stderr io.Writer) error {
+	return runScaffoldCommand("scaffold", "path to the OKF vault", "scaffold checked", args, stdout, stderr)
 }
 
-func runSetup(args []string) error {
-	fs := flag.NewFlagSet("setup", flag.ContinueOnError)
-	fs.SetOutput(os.Stderr)
-	vaultPath := fs.String("vault", defaultVault, "path to the new OKF vault")
+func runSetup(args []string, stdout, stderr io.Writer) error {
+	return runScaffoldCommand("setup", "path to the new OKF vault", "vault setup", args, stdout, stderr)
+}
+
+func runScaffoldCommand(name, vaultDescription, success string, args []string, stdout, stderr io.Writer) error {
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	vaultPath := fs.String("vault", defaultVault, vaultDescription)
 	force := fs.Bool("force", false, "overwrite existing scaffold files")
 	includeConcepts := fs.Bool("concepts", false, "include reusable project concept definitions")
 	if err := fs.Parse(args); err != nil {
@@ -182,14 +151,14 @@ func runSetup(args []string) error {
 		created = append(created, paths...)
 	}
 	for _, path := range created {
-		fmt.Println(path)
+		fmt.Fprintln(stdout, path)
 	}
-	fmt.Printf("ok: vault setup under %s\n", filepath.Clean(root))
+	fmt.Fprintf(stdout, "ok: %s under %s\n", success, filepath.Clean(root))
 	return nil
 }
 
-func usage() {
-	fmt.Fprintln(os.Stderr, `gnosis manages an OKF-compatible Obsidian vault.
+func usage(output io.Writer) {
+	fmt.Fprintln(output, `gnosis manages an OKF-compatible Obsidian vault.
 
 Usage:
   gnosis setup [-vault <path>] [-force] [-concepts]
