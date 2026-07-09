@@ -46,3 +46,13 @@ The bootstrap logic is:
 2. The author and agent collaborate on a directive.
 3. The agent implements the directive.
 4. Author and agent corrections are captured as decisions or deltas.
+
+## Development
+
+Install and command usage are documented in
+[Basic Usage](docs/documentation/basic-usage.md). Run the complete repository
+quality gate before committing:
+
+```bash
+mise run check
+```

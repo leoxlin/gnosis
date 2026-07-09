@@ -4,7 +4,7 @@ title: Harden vault reliability
 description: Make configuration, parsing, generated writes, CLI behavior, and repository checks predictable.
 tags: [directive, reliability, vault, cli, validation]
 timestamp: 2026-07-09T23:40:47Z
-status: open
+status: done
 ---
 
 # Goal
@@ -41,4 +41,4 @@ Do not add ingest, query, storage backends, releases, or versioning behavior.
 
 # Completion
 
-Open.
+Completed by [Vault reliability hardening](../deltas/vault-reliability-hardening.md).

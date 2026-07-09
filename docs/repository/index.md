@@ -5,6 +5,7 @@
 ## Folders
 
 * [Repository Decisions](decisions/index.md)
+* [Repository Deltas](deltas/index.md)
 * [Repository Directives](directives/index.md)
 
 ## Pages

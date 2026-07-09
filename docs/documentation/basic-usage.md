@@ -1,7 +1,7 @@
 ---
 type: Documentation
 title: Basic Usage
-description: Install the `gnosis` CLI locally and use the core vault setup, validation, index, and scaffold commands.
+description: Install the `gnosis` CLI, configure vault roots, run core commands, and check repository quality.
 tags: [documentation, usage, cli, vault]
 timestamp: 2026-07-09T23:21:52Z
 ---
@@ -67,6 +67,43 @@ mise run build   # build to ./dist/gnosis
 mise run test    # run all Go tests
 ```
 
+## Configuration
+
+When `gnosis.toml` is present, `gnosis` searches for it from the requested path
+up through its parent directories. Supported vault settings are:
+
+```toml
+[vault]
+link_format = "relative"
+link_format_strict = false
+vault_roots = ["docs"]
+```
+
+`link_format` must be `relative` or `absolute`. Vault roots must be non-empty,
+unique relative paths contained by the directory holding `gnosis.toml`.
+Unknown settings and unsafe roots are errors.
+
+## Output and failures
+
+Changed paths and success summaries are written to standard output. Warnings,
+validation errors, invalid flags, and usage failures are written to standard
+error. Top-level and subcommand help is successful and writes to standard
+output. Commands reject unexpected positional arguments.
+
+## Repository checks
+
+Run the complete local quality gate before committing:
+
+```bash
+mise run check
+```
+
+This checks formatting without rewriting files, then runs vet, uncached tests,
+race tests, build, and validation of the repository knowledge bundle. GitHub
+Actions runs the same script for pushes and pull requests.
+
 # Maintenance
 
-Keep this page aligned with the CLI command surface in `cmd/gnosis/main.go`, the mise tasks in `mise.toml`, and the repository README.
+Keep this page aligned with the CLI command surface in `cmd/gnosis/main.go`,
+vault configuration in `internal/vault/config.go`, the shared check script, the
+mise tasks, and the repository README.

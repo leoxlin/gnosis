@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-07-09
+* **Update**: Completed [Harden vault reliability](repository/directives/harden-vault-reliability.md), recorded the [Vault reliability hardening](repository/deltas/vault-reliability-hardening.md) delta, and documented strict configuration, CLI diagnostics, and shared quality checks.
 * **Creation**: Added the [Harden vault reliability](repository/directives/harden-vault-reliability.md) directive for strict parsing, safe generated writes, predictable CLI behavior, and automated quality checks.
 * **Update**: Moved README setup and quick-start command documentation into [Basic Usage](documentation/basic-usage.md).
 * **Creation**: Added the [Documentation](concepts/documentation.md) ontological category for guides, references, runbooks, and contributor or maintainer material.

@@ -4,5 +4,4 @@
 
 ## Pages
 
-* [Basic Usage](basic-usage.md) - Install the `gnosis` CLI locally and use the core vault setup, validation, index, and scaffold commands.
-
+* [Basic Usage](basic-usage.md) - Install the `gnosis` CLI, configure vault roots, run core commands, and check repository quality.
