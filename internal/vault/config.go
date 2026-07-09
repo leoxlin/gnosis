@@ -1,9 +1,11 @@
 package vault
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -76,12 +78,13 @@ func LoadConfig(root string) (Config, []string, error) {
 			if err != nil {
 				return config, nil, fmt.Errorf("read %s: %w", path, err)
 			}
-			if err := toml.Unmarshal(data, &config); err != nil {
+			decoder := toml.NewDecoder(bytes.NewReader(data)).DisallowUnknownFields()
+			if err := decoder.Decode(&config); err != nil {
 				return config, nil, fmt.Errorf("parse %s: %w", path, err)
 			}
-			vaultRoots := make([]string, len(config.Vault.VaultRoots))
-			for i, rel := range config.Vault.VaultRoots {
-				vaultRoots[i] = filepath.Clean(filepath.Join(root, rel))
+			vaultRoots, err := validateConfig(config, root)
+			if err != nil {
+				return config, nil, fmt.Errorf("validate %s: %w", path, err)
 			}
 			if len(vaultRoots) == 0 {
 				vaultRoots = []string{root}
@@ -97,4 +100,39 @@ func LoadConfig(root string) (Config, []string, error) {
 	}
 
 	return config, []string{start}, nil
+}
+
+func validateConfig(config Config, configRoot string) ([]string, error) {
+	switch config.Vault.LinkFormat {
+	case string(LinkFormatRelative), string(LinkFormatAbsolute):
+	default:
+		return nil, fmt.Errorf("vault.link_format must be %q or %q, got %q", LinkFormatRelative, LinkFormatAbsolute, config.Vault.LinkFormat)
+	}
+
+	vaultRoots := make([]string, 0, len(config.Vault.VaultRoots))
+	seen := make(map[string]struct{}, len(config.Vault.VaultRoots))
+	for i, rel := range config.Vault.VaultRoots {
+		if strings.TrimSpace(rel) == "" {
+			return nil, fmt.Errorf("vault.vault_roots[%d] must not be empty", i)
+		}
+		if filepath.IsAbs(rel) {
+			return nil, fmt.Errorf("vault.vault_roots[%d] must be relative: %q", i, rel)
+		}
+
+		resolved := filepath.Clean(filepath.Join(configRoot, rel))
+		fromRoot, err := filepath.Rel(configRoot, resolved)
+		if err != nil {
+			return nil, fmt.Errorf("resolve vault.vault_roots[%d] %q: %w", i, rel, err)
+		}
+		if fromRoot == ".." || strings.HasPrefix(fromRoot, ".."+string(filepath.Separator)) {
+			return nil, fmt.Errorf("vault.vault_roots[%d] escapes the configuration directory: %q", i, rel)
+		}
+		if _, exists := seen[resolved]; exists {
+			return nil, fmt.Errorf("vault.vault_roots[%d] duplicates another root: %q", i, rel)
+		}
+
+		seen[resolved] = struct{}{}
+		vaultRoots = append(vaultRoots, resolved)
+	}
+	return vaultRoots, nil
 }

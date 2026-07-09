@@ -3,6 +3,7 @@ package vault
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -124,5 +125,63 @@ vault_roots = ["docs", "notes"]
 		if got != want[i] {
 			t.Fatalf("vault roots = %v, want %v", vaultRoots, want)
 		}
+	}
+}
+
+func TestLoadConfigRejectsUnknownFields(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, "[vault]\nunknown = true\n")
+
+	_, _, err := LoadConfig(root)
+	if err == nil || !strings.Contains(err.Error(), "strict mode") {
+		t.Fatalf("error = %v, want unknown field error", err)
+	}
+}
+
+func TestLoadConfigRejectsInvalidLinkFormat(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, "[vault]\nlink_format = \"wiki\"\n")
+
+	_, _, err := LoadConfig(root)
+	if err == nil || !strings.Contains(err.Error(), "link_format") {
+		t.Fatalf("error = %v, want link format error", err)
+	}
+}
+
+func TestLoadConfigRejectsUnsafeVaultRoots(t *testing.T) {
+	tests := []struct {
+		name    string
+		roots   string
+		message string
+	}{
+		{name: "empty", roots: `[""]`, message: "must not be empty"},
+		{name: "absolute quoted", roots: `["/tmp"]`, message: "must be relative"},
+		{name: "parent", roots: `["../notes"]`, message: "escapes"},
+		{name: "duplicate", roots: `["docs", "./docs"]`, message: "duplicates"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			writeConfig(t, root, "[vault]\nvault_roots = "+test.roots+"\n")
+
+			_, _, err := LoadConfig(root)
+			if err == nil || !strings.Contains(err.Error(), test.message) {
+				t.Fatalf("error = %v, want error containing %q", err, test.message)
+			}
+		})
+	}
+}
+
+func TestLoadConfigAllowsCurrentDirectoryVaultRoot(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, "[vault]\nvault_roots = [\".\"]\n")
+
+	_, vaultRoots, err := LoadConfig(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(vaultRoots) != 1 || vaultRoots[0] != root {
+		t.Fatalf("vault roots = %v, want [%s]", vaultRoots, root)
 	}
 }
