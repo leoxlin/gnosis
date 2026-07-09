@@ -27,6 +27,12 @@ Set up a vault:
 gnosis setup -vault ./my-vault
 ```
 
+Include reusable project concepts for purpose, decisions, directives, and deltas:
+
+```bash
+gnosis setup -vault ./my-vault -concepts
+```
+
 Validate it:
 
 ```bash
@@ -45,5 +51,4 @@ You can also run tasks directly through mise without installing the binary:
 mise run build   # build to ./dist/gnosis
 mise run test    # run all Go tests
 ```
-
 

@@ -47,7 +47,7 @@ func run(args []string) error {
 func runValidate(args []string) error {
 	fs := flag.NewFlagSet("validate", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
-	vaultPath := fs.String("vault", defaultVault, "path to the Gnosis vault")
+	vaultPath := fs.String("vault", defaultVault, "path to the OKF vault")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -72,8 +72,9 @@ func runValidate(args []string) error {
 func runScaffold(args []string) error {
 	fs := flag.NewFlagSet("scaffold", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
-	vaultPath := fs.String("vault", defaultVault, "path to the Gnosis vault")
+	vaultPath := fs.String("vault", defaultVault, "path to the OKF vault")
 	force := fs.Bool("force", false, "overwrite existing scaffold files")
+	includeConcepts := fs.Bool("concepts", false, "include reusable project concept definitions")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -92,7 +93,10 @@ func runScaffold(args []string) error {
 		if err := os.MkdirAll(vaultRoot, 0o755); err != nil {
 			return err
 		}
-		paths, err := vault.Scaffold(vaultRoot, vault.ScaffoldOptions{Force: *force})
+		paths, err := vault.Scaffold(vaultRoot, vault.ScaffoldOptions{
+			Force:           *force,
+			IncludeConcepts: *includeConcepts,
+		})
 		if err != nil {
 			return err
 		}
@@ -108,8 +112,9 @@ func runScaffold(args []string) error {
 func runSetup(args []string) error {
 	fs := flag.NewFlagSet("setup", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
-	vaultPath := fs.String("vault", defaultVault, "path to the new Gnosis vault")
+	vaultPath := fs.String("vault", defaultVault, "path to the new OKF vault")
 	force := fs.Bool("force", false, "overwrite existing scaffold files")
+	includeConcepts := fs.Bool("concepts", false, "include reusable project concept definitions")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -129,7 +134,10 @@ func runSetup(args []string) error {
 		if err := os.MkdirAll(vaultRoot, 0o755); err != nil {
 			return err
 		}
-		paths, err := vault.Scaffold(vaultRoot, vault.ScaffoldOptions{Force: *force})
+		paths, err := vault.Scaffold(vaultRoot, vault.ScaffoldOptions{
+			Force:           *force,
+			IncludeConcepts: *includeConcepts,
+		})
 		if err != nil {
 			return err
 		}
@@ -146,8 +154,8 @@ func usage() {
 	fmt.Fprintln(os.Stderr, `gnosis manages an OKF-compatible Obsidian vault.
 
 Usage:
-  gnosis setup [-vault <path>] [-force]
+  gnosis setup [-vault <path>] [-force] [-concepts]
   gnosis validate [-vault <path>]
-  gnosis scaffold [-vault <path>] [-force]
+  gnosis scaffold [-vault <path>] [-force] [-concepts]
   gnosis version`)
 }
