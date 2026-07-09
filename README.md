@@ -1,31 +1,54 @@
 # Gnosis
 
-Gnosis is a Go toolkit for an OKF-compatible LLM wiki.
+A toolkit for a unified, OKF-compatible agentic memory layer across wiki,
+vector, graph, structured, and episodic backends.
 
-## Backends
+It is bootstrapped knowledge-first: the `docs/` directory is an OKF v0.1 bundle
+that records the repository purpose, ontology, decisions, directives, and deltas
+before the implementation code. The first wiki backend is Obsidian-compatible
+markdown.
 
-* [Obsidian](https://obsidian.md/) — local markdown vault workflow.
+## Setup
 
-## CLI
-
-Set up a new vault:
+Install the `gnosis` binary to `~/.local/bin` using mise:
 
 ```bash
-go run ./cmd/gnosis setup -vault ./my-vault
+mise run localbin
 ```
 
-Validate a vault:
+Make sure `~/.local/bin` is on your `PATH`, then run `gnosis --help` to see
+available commands.
+
+## Quick start
+
+Set up a vault:
 
 ```bash
-go run ./cmd/gnosis validate -vault ./my-vault
+gnosis setup -vault ./my-vault
+```
+
+Validate it:
+
+```bash
+gnosis validate -vault ./my-vault
 ```
 
 Repair the base vault shape without overwriting existing files:
 
 ```bash
-go run ./cmd/gnosis scaffold -vault ./my-vault
+gnosis scaffold -vault ./my-vault
 ```
 
-## Agent Skill
+You can also run tasks directly through mise without installing the binary:
 
-Repo-local skill instructions live in [skills/gnosis-vault/SKILL.md](skills/gnosis-vault/SKILL.md).
+```bash
+mise run build   # build to ./dist/gnosis
+mise run test    # run all Go tests
+```
+
+## Layout
+
+- `docs/` — OKF v0.1 knowledge bundle.
+- `cmd/gnosis` — command-line surface for setup, validation, ingest, query, and backend operations.
+- `internal/vault` — Go libraries for OKF bundle handling, validation, and scaffolding.
+- `skills/gnosis-vault/` — agent skill instructions for working with Gnosis vaults.
