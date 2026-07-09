@@ -30,22 +30,17 @@ func GenerateIndexes(root string, options IndexOptions) ([]string, error) {
 	written := []string{}
 	for _, dir := range dirs {
 		path := filepath.Join(dir, "index.md")
-		if !options.Overwrite {
-			if _, err := os.Stat(path); err == nil {
-				continue
-			} else if !os.IsNotExist(err) {
-				return written, err
-			}
-		}
-
 		content, err := renderIndex(root, dir)
 		if err != nil {
 			return written, err
 		}
-		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		changed, err := writeGeneratedFile(path, []byte(content), options.Overwrite)
+		if err != nil {
 			return written, err
 		}
-		written = append(written, path)
+		if changed {
+			written = append(written, path)
+		}
 	}
 
 	return written, nil

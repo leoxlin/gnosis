@@ -41,7 +41,6 @@ func Scaffold(root string, options ScaffoldOptions) ([]string, error) {
 		if err := os.MkdirAll(path, 0o755); err != nil {
 			return created, err
 		}
-		created = append(created, path)
 	}
 
 	now := time.Now()
@@ -68,23 +67,17 @@ func Scaffold(root string, options ScaffoldOptions) ([]string, error) {
 	}
 	for _, file := range files {
 		path := filepath.Join(root, file.rel)
-		if !options.Force {
-			if _, err := os.Stat(path); err == nil {
-				continue
-			} else if !os.IsNotExist(err) {
-				return created, err
-			}
-		}
-
 		var buf strings.Builder
 		if err := scaffoldTemplates.ExecuteTemplate(&buf, file.tmplName, data); err != nil {
 			return created, err
 		}
-
-		if err := os.WriteFile(path, []byte(buf.String()), 0o644); err != nil {
+		changed, err := writeGeneratedFile(path, []byte(buf.String()), options.Force)
+		if err != nil {
 			return created, err
 		}
-		created = append(created, path)
+		if changed {
+			created = append(created, path)
+		}
 	}
 
 	paths, err := GenerateIndexes(root, IndexOptions{Overwrite: options.Force})

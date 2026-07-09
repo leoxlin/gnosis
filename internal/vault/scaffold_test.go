@@ -10,8 +10,25 @@ import (
 func TestScaffoldCreatesBaseVaultWithoutOptionalConcepts(t *testing.T) {
 	root := t.TempDir()
 
-	if _, err := Scaffold(root, ScaffoldOptions{}); err != nil {
+	created, err := Scaffold(root, ScaffoldOptions{})
+	if err != nil {
 		t.Fatal(err)
+	}
+	for _, path := range created {
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.IsDir() {
+			t.Fatalf("created paths should contain files only: %s", path)
+		}
+	}
+	unchanged, err := Scaffold(root, ScaffoldOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(unchanged) != 0 {
+		t.Fatalf("second scaffold reported unchanged files: %v", unchanged)
 	}
 
 	for _, rel := range []string{"index.md", "log.md", "AGENTS.md", "concepts/index.md", "references/index.md"} {
@@ -144,6 +161,14 @@ description: Definition of a reusable purpose record.
 	}
 	if !strings.Contains(conceptsText, "[Repository Purpose](repository-purpose.md) - Definition of a reusable purpose record.") {
 		t.Fatalf("subindex missing page metadata:\n%s", conceptsText)
+	}
+
+	unchanged, err := GenerateIndexes(root, IndexOptions{Overwrite: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(unchanged) != 0 {
+		t.Fatalf("regenerating identical indexes reported changes: %v", unchanged)
 	}
 }
 
