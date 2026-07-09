@@ -11,7 +11,7 @@ Use this skill when modifying the Gnosis repository itself — its Go code, docu
 
 1. Read `docs/repository/purpose.md` for the repository's durable purpose.
 2. Read `docs/repository/decisions/` for major design decisions.
-3. Read `docs/ontology/` for the OKF concept types this repo defines.
+3. Read `docs/concepts/` for the OKF concept types this repo defines.
 
 ## Knowledge-first workflow
 

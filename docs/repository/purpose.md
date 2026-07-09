@@ -42,6 +42,6 @@ Gnosis is **not**:
 
 ## See also
 
-- [Repository Purpose](../ontology/repository-purpose.md) — the ontological category this concept instantiates.
+- [Repository Purpose](../concepts/repository-purpose.md) — the ontological category this concept instantiates.
 - [Open Knowledge Format (OKF)](../references/okf.md) — the format Gnosis implements.
 - Gnosis README — human entry point for the repository.

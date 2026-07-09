@@ -12,10 +12,10 @@ This directory contains an [Open Knowledge Format (OKF)](references/okf.md) bund
 * [OKF v0.1](references/okf-v-0-1.md) — first published version of the OKF specification.
 * [LLM Wiki (Karpathy)](references/karpathy-llm-wiki.md) — pattern for a persistent, LLM-maintained knowledge base.
 * [OntoGPT (SPIRES)](references/ontogpt-spires.md) — open-source package and zero-shot, schema-guided knowledge extraction method using LLMs and ontology grounding.
-* [Repository Purpose](ontology/repository-purpose.md) — top-level purpose of a repository or service, decomposable into component purposes.
-* [Repository Decision](ontology/repository-decision.md) — durable record of a resolved choice, including alternatives considered and the reasons for the choice.
-* [Repository Directive](ontology/repository-directive.md) — minimal, actionable handoff document that an agentic loop consumes to implement a change.
-* [Repository Delta](ontology/repository-delta.md) — durable trace of a change implemented from one or more directives.
+* [Repository Purpose](concepts/repository-purpose.md) — top-level purpose of a repository or service, decomposable into component purposes.
+* [Repository Decision](concepts/repository-decision.md) — durable record of a resolved choice, including alternatives considered and the reasons for the choice.
+* [Repository Directive](concepts/repository-directive.md) — minimal, actionable handoff document that an agentic loop consumes to implement a change.
+* [Repository Delta](concepts/repository-delta.md) — durable trace of a change implemented from one or more directives.
 * [Gnosis](repository/purpose.md) — purpose of the Gnosis OKF toolkit and this repository.
 * [Repository Decisions](repository/decisions/index.md) — durable record of the knowledge-first bootstrap decision.
 
