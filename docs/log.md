@@ -1,6 +1,8 @@
 # Directory Update Log
 
 ## 2026-07-09
+* **Update**: Moved README setup and quick-start command documentation into [Basic Usage](documentation/basic-usage.md).
+* **Creation**: Added the [Documentation](concepts/documentation.md) ontological category for guides, references, runbooks, and contributor or maintainer material.
 * **Update**: Rewrote the README and [`gnosis` purpose](repository/purpose.md) around the project name, singular knowledge access, self-bootstrapping repository knowledge, and the relationship to `praxis`.
 * **Update**: Trimmed the repository concept types to their reusable essentials and added them as optional scaffold material for other projects.
 * **Creation**: Collapsed repository bootstrap decisions into a single [Repository Decision](repository/decisions/bootstrap-knowledge-first.md) documenting the knowledge-first, OKF-based bootstrap and SDLC ontology.

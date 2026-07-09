@@ -1,0 +1,57 @@
+---
+type: Concept Type
+title: Documentation
+description: Definition of a reusable documentation record for guides, references, runbooks, and contributor or maintainer material.
+defines: Documentation
+tags: [okf, ontology, documentation, guide, reference]
+timestamp: 2026-07-09T23:18:01Z
+---
+
+# Documentation
+
+A **Documentation** record is authored explanatory material that helps an intended audience understand, use, operate, maintain, or contribute to a project, product, system, or process. It is broad enough for guides, references, runbooks, tutorials, how-tos, README-style overviews, contributor notes, and maintainer notes, but distinct from lifecycle records whose main purpose is to preserve a decision, directive, delta, or purpose.
+
+It captures the answers to four questions:
+
+- Who is this for?
+- What subject or workflow does it explain?
+- What should the reader know or be able to do after reading it?
+- What source of truth or related records must it stay aligned with?
+
+## Use this for
+
+- User guides, tutorials, how-tos, and workflow documentation.
+- Command, API, configuration, and schema reference pages.
+- Runbooks, operating notes, troubleshooting material, maintainer notes, and contributor guides.
+- README-style orientation pages for projects, packages, services, or major components.
+
+Do not use it for decisions, directives, deltas, purposes, external source references, raw notes, meeting notes, or task lists where the main purpose is not explanation for a future reader.
+
+## Minimum record
+
+| Section | Captures |
+|---|---|
+| `# Audience` | The reader group the documentation is written for. |
+| `# Subject` | The project, component, command, API, workflow, or operating concern being explained. |
+| `# Content` | The explanatory material itself. |
+| `# Maintenance` | The source of truth, related records, or freshness rule the documentation should stay aligned with. |
+
+## Schema
+
+```yaml
+---
+type: Documentation
+title: <short name>
+description: <one-line summary>
+tags: [documentation, <domain>]
+timestamp: <ISO 8601 datetime>
+---
+
+# Audience
+
+# Subject
+
+# Content
+
+# Maintenance
+```
