@@ -18,3 +18,7 @@ run = [
 [tasks.test]
 description = "Run all Go tests"
 run = "go test ./..."
+
+[tasks.check]
+description = "Run formatting, vet, tests, build, and documentation validation"
+run = "./scripts/check.sh"
