@@ -1,11 +1,11 @@
 ---
-name: gnosis-repo
-description: Use when working on the Gnosis codebase, repository conventions, OKF knowledge bundle, or SDLC decisions.
+name: gnosis-bootstrap
+description: Use when working on the `gnosis` codebase, repository conventions, OKF knowledge bundle, or SDLC decisions.
 ---
 
-# Gnosis Repo
+# `gnosis` Bootstrap
 
-Use this skill when modifying the Gnosis repository itself — its Go code, documentation bundle, build tooling, or repository conventions.
+Use this skill when modifying the `gnosis` repository itself — its Go code, documentation bundle, build tooling, or repository conventions.
 
 ## Start here
 
@@ -15,7 +15,7 @@ Use this skill when modifying the Gnosis repository itself — its Go code, docu
 
 ## Knowledge-first workflow
 
-Gnosis is bootstrapped knowledge-first. The `docs/` directory is an OKF v0.1 bundle that records purpose, ontology, decisions, directives, and deltas before the implementation code.
+`gnosis` is bootstrapped knowledge-first. The `docs/` directory is an OKF v0.1 bundle that records purpose, ontology, decisions, directives, and deltas before the implementation code.
 
 - Keep docs and code in sync. Document design intent in `docs/` before or alongside code changes.
 - Every markdown concept must have parseable YAML frontmatter with a non-empty `type`.
@@ -41,7 +41,7 @@ Gnosis is bootstrapped knowledge-first. The `docs/` directory is an OKF v0.1 bun
 
 ## Boundaries
 
-Gnosis is not:
+`gnosis` is not:
 
 - A model provider or inference platform.
 - A single-backend or single-viewer tool.

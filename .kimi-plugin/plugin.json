@@ -4,7 +4,7 @@
   "description": "Gnosis agent skills for vault and repository workflows.",
   "skills": [
     "./plugins/gnosis-vault/skills/",
-    "./plugins/gnosis-repo/skills/"
+    "./plugins/gnosis-bootstrap/skills/"
   ],
   "interface": {
     "displayName": "Gnosis",

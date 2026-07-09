@@ -8,5 +8,5 @@
 
 ## Pages
 
-* [Gnosis](purpose.md) - Gnosis seeks to create a single interface for all agentic memory, unifying LLM wikis, vector RAG, knowledge graphs, structured stores, and future memory backends.
+* [`gnosis`](purpose.md) - `gnosis` creates a singular interface for agentic knowledge and memory, where text, skills, repository intent, and backend stores can bootstrap one another.
 

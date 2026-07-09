@@ -1,11 +1,11 @@
 ---
 name: gnosis-vault
-description: Use when creating, editing, or validating Gnosis vault content, OKF-compatible markdown notes, Gnosis templates, or the Go validator/scaffolder.
+description: Use when creating, editing, or validating `gnosis` vault content, OKF-compatible markdown notes, `gnosis` templates, or the Go validator/scaffolder.
 ---
 
-# Gnosis Vault
+# `gnosis` Vault
 
-Use this skill when creating, editing, or validating Gnosis vault content.
+Use this skill when creating, editing, or validating `gnosis` vault content.
 
 ## Workflow
 
