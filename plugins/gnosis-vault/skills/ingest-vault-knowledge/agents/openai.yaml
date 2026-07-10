@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ingest Vault Knowledge"
+  short_description: "Compile sources into durable vault knowledge"
+  default_prompt: "Use $ingest-vault-knowledge to integrate this source into the current gnosis vault."

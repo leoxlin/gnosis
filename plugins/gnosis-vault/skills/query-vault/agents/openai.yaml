@@ -1,0 +1,4 @@
+interface:
+  display_name: "Query Vault"
+  short_description: "Answer questions from grounded vault knowledge"
+  default_prompt: "Use $query-vault to answer this question from the current gnosis vault."

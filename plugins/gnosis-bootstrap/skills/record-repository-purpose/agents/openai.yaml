@@ -1,0 +1,4 @@
+interface:
+  display_name: "Record Repository Purpose"
+  short_description: "Capture durable repository purpose and boundaries"
+  default_prompt: "Use $record-repository-purpose to record this repository intent."

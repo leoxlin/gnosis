@@ -1,0 +1,4 @@
+interface:
+  display_name: "Maintain Vault"
+  short_description: "Audit and repair an OKF knowledge vault"
+  default_prompt: "Use $maintain-vault to audit and repair the current gnosis vault."
