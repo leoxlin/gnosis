@@ -1,13 +1,13 @@
 {
   "name": "gnosis",
   "version": "0.1.0",
-  "description": "Gnosis agent skills for vault and repository workflows.",
+  "description": "gnosis skills for knowledge management and knowledge-driven software development.",
   "skills": [
     "./plugins/gnosis-vault/skills/",
-    "./plugins/gnosis-bootstrap/skills/"
+    "./plugins/gnosis-forge/skills/"
   ],
   "interface": {
-    "displayName": "Gnosis",
-    "shortDescription": "Gnosis vault and repository skills for Codex."
+    "displayName": "gnosis",
+    "shortDescription": "Vault and forge skills for Codex."
   }
 }

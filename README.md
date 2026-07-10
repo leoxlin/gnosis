@@ -9,6 +9,12 @@ OKF v0.1 bundle that records purpose, concepts, decisions, directives, and
 deltas before the implementation code. The first wiki backend is
 Obsidian-compatible markdown.
 
+## Components
+
+- **`gnosis-vault`** is a generic framework for managing and querying knowledge.
+- **`gnosis-forge`** supports knowledge-driven software development: it grounds
+  work in recorded knowledge and preserves what the work teaches.
+
 ## Why `gnosis`
 
 `gnosis` comes from the Greek word for knowledge or knowing. The name matters
