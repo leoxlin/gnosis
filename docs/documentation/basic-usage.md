@@ -14,7 +14,7 @@ Authors, maintainers, and agents who need to install the `gnosis` CLI locally an
 
 # Subject
 
-Basic `gnosis` CLI usage for local installation, vault setup, validation, optional index generation, and scaffold repair.
+Basic `gnosis` CLI usage for local installation, vault setup, validation, and optional index generation.
 
 # Content
 
@@ -54,12 +54,6 @@ Regenerate directory indexes:
 gnosis index -vault ./my-vault
 ```
 
-Repair the base vault shape without overwriting existing files:
-
-```bash
-gnosis scaffold -vault ./my-vault
-```
-
 You can also run tasks directly through mise without installing the binary:
 
 ```bash
@@ -83,9 +77,8 @@ vault_log = true
 
 `link_format` must be `relative` or `absolute`. Vault roots must be non-empty,
 unique relative paths contained by the directory holding `gnosis.toml`.
-`vault_index` and `vault_log` default to `true`. When disabled, setup and
-scaffold do not create the corresponding files and validation does not require
-them; `gnosis index` is a successful no-op when `vault_index` is false. Changing
+`vault_index` and `vault_log` default to `true`. When disabled, setup does not
+create the corresponding files and validation does not require them; `gnosis index` is a successful no-op when `vault_index` is false. Changing
 an option to false does not delete existing files. Unknown settings and unsafe
 roots are errors.
 

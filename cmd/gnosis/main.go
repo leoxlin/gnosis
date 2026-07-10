@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gnosis/internal/forge"
 	"gnosis/internal/vault"
 )
 
@@ -32,8 +33,6 @@ func run(args []string, stdout, stderr io.Writer) error {
 		return runIndex(args[1:], stdout, stderr)
 	case "validate":
 		return runValidate(args[1:], stdout, stderr)
-	case "scaffold":
-		return runScaffold(args[1:], stdout, stderr)
 	case "setup":
 		return runSetup(args[1:], stdout, stderr)
 	case "version":
@@ -119,18 +118,10 @@ func runValidate(args []string, stdout, stderr io.Writer) error {
 	return nil
 }
 
-func runScaffold(args []string, stdout, stderr io.Writer) error {
-	return runScaffoldCommand("scaffold", "path to the OKF vault", "scaffold checked", args, stdout, stderr)
-}
-
 func runSetup(args []string, stdout, stderr io.Writer) error {
-	return runScaffoldCommand("setup", "path to the new OKF vault", "vault setup", args, stdout, stderr)
-}
-
-func runScaffoldCommand(name, vaultDescription, success string, args []string, stdout, stderr io.Writer) error {
-	fs := newFlagSet(name, fmt.Sprintf("gnosis %s [-vault <path>] [-force] [-concepts]", name), stderr)
-	vaultPath := fs.String("vault", defaultVault, vaultDescription)
-	force := fs.Bool("force", false, "overwrite existing scaffold files")
+	fs := newFlagSet("setup", "gnosis setup [-vault <path>] [-force] [-concepts]", stderr)
+	vaultPath := fs.String("vault", defaultVault, "path to the new OKF vault")
+	force := fs.Bool("force", false, "overwrite existing files")
 	includeConcepts := fs.Bool("concepts", false, "include reusable project concept definitions")
 	help, err := parseFlags(fs, args, stdout)
 	if err != nil || help {
@@ -153,20 +144,38 @@ func runScaffoldCommand(name, vaultDescription, success string, args []string, s
 			return err
 		}
 		paths, err := vault.Scaffold(vaultRoot, vault.ScaffoldOptions{
-			Force:           *force,
-			IncludeConcepts: *includeConcepts,
-			DisableIndex:    !config.IndexEnabled(),
-			DisableLog:      !config.LogEnabled(),
+			Force:        *force,
+			DisableIndex: !config.IndexEnabled(),
+			DisableLog:   !config.LogEnabled(),
 		})
 		if err != nil {
 			return err
 		}
 		created = append(created, paths...)
+
+		if *includeConcepts {
+			conceptPaths, err := forge.Concepts(vaultRoot, forge.ConceptOptions{Force: *force})
+			if err != nil {
+				return err
+			}
+			created = append(created, conceptPaths...)
+			if config.IndexEnabled() {
+				// Refresh indexes so newly written concept pages are listed.
+				// The base scaffold generated indexes before the concepts
+				// existed, so overwrite when concepts changed this run.
+				overwrite := *force || len(conceptPaths) > 0
+				indexPaths, err := vault.GenerateIndexes(vaultRoot, vault.IndexOptions{Overwrite: overwrite})
+				if err != nil {
+					return err
+				}
+				created = append(created, indexPaths...)
+			}
+		}
 	}
 	for _, path := range created {
 		fmt.Fprintln(stdout, path)
 	}
-	fmt.Fprintf(stdout, "ok: %s under %s\n", success, filepath.Clean(root))
+	fmt.Fprintf(stdout, "ok: vault setup under %s\n", filepath.Clean(root))
 	return nil
 }
 
@@ -207,6 +216,5 @@ Usage:
   gnosis setup [-vault <path>] [-force] [-concepts]
   gnosis index [-vault <path>]
   gnosis validate [-vault <path>]
-  gnosis scaffold [-vault <path>] [-force] [-concepts]
   gnosis version`)
 }

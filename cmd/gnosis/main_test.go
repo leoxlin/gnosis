@@ -106,7 +106,7 @@ func TestRunValidateRoutesDiagnostics(t *testing.T) {
 	})
 }
 
-func TestRunSetupScaffoldAndIndex(t *testing.T) {
+func TestRunSetupAndIndex(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "vault")
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -117,14 +117,6 @@ func TestRunSetupScaffoldAndIndex(t *testing.T) {
 		t.Fatalf("stdout = %q stderr = %q", stdout.String(), stderr.String())
 	}
 
-	stdout.Reset()
-	if err := run([]string{"scaffold", "-vault", root}, &stdout, &stderr); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(stdout.String(), "ok: scaffold checked") {
-		t.Fatalf("stdout = %q", stdout.String())
-	}
-
 	writeTestFile(t, root, "concepts/new-note.md", "---\ntype: Note\ntitle: New Note\ndescription: Test.\n---\n\n# New Note\n")
 	stdout.Reset()
 	if err := run([]string{"index", "-vault", root}, &stdout, &stderr); err != nil {
@@ -132,6 +124,33 @@ func TestRunSetupScaffoldAndIndex(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), filepath.Join(root, "concepts", "index.md")) {
 		t.Fatalf("stdout = %q", stdout.String())
+	}
+}
+
+func TestRunSetupWithConceptsIndexesThem(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "vault")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	if err := run([]string{"setup", "-vault", root, "-concepts"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	for _, rel := range []string{
+		"concepts/repository-purpose.md",
+		"concepts/repository-decision.md",
+		"concepts/repository-directive.md",
+	} {
+		if _, err := os.Stat(filepath.Join(root, rel)); err != nil {
+			t.Fatalf("expected %s to exist: %v", rel, err)
+		}
+	}
+
+	conceptsIndex, err := os.ReadFile(filepath.Join(root, "concepts", "index.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(conceptsIndex), "Repository Purpose") {
+		t.Fatalf("concepts index should list the concept definitions:\n%s", conceptsIndex)
 	}
 }
 

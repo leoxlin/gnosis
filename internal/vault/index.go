@@ -34,7 +34,7 @@ func GenerateIndexes(root string, options IndexOptions) ([]string, error) {
 		if err != nil {
 			return written, err
 		}
-		changed, err := writeGeneratedFile(path, []byte(content), options.Overwrite)
+		changed, err := WriteGeneratedFile(path, []byte(content), options.Overwrite)
 		if err != nil {
 			return written, err
 		}

@@ -18,5 +18,5 @@ Decisions preserve intent that implementation and git cannot reliably reconstruc
 
 - Agents consult path-scoped git history only when current knowledge, code, and tests do not explain a choice.
 - `record-directive` cannot trigger implicitly.
-- Disabled indexes and logs are neither scaffolded nor required by validation.
+- Disabled indexes and logs are not created by setup and are not required by validation.
 - Existing users retain index and log behavior unless they opt out in `gnosis.toml`.

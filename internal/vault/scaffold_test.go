@@ -52,52 +52,6 @@ func TestScaffoldCreatesBaseVaultWithoutOptionalConcepts(t *testing.T) {
 	}
 }
 
-func TestScaffoldCanIncludeReusableConcepts(t *testing.T) {
-	root := t.TempDir()
-
-	if _, err := Scaffold(root, ScaffoldOptions{IncludeConcepts: true}); err != nil {
-		t.Fatal(err)
-	}
-
-	for _, rel := range []string{
-		"concepts/index.md",
-		"concepts/repository-purpose.md",
-		"concepts/repository-decision.md",
-		"concepts/repository-directive.md",
-	} {
-		if _, err := os.Stat(filepath.Join(root, rel)); err != nil {
-			t.Fatalf("expected %s to exist: %v", rel, err)
-		}
-	}
-
-	body, err := os.ReadFile(filepath.Join(root, "concepts", "repository-purpose.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := string(body)
-	for _, want := range []string{
-		"type: Concept Type",
-		"single durable statement of why a repository exists",
-		"## Minimum record",
-		"# Sub-purposes",
-	} {
-		if !strings.Contains(text, want) {
-			t.Fatalf("repository purpose template missing %q", want)
-		}
-	}
-
-	result, err := Validate(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(result.Errors) != 0 {
-		t.Fatalf("unexpected validation errors: %v", result.Errors)
-	}
-	if len(result.Warnings) != 0 {
-		t.Fatalf("unexpected validation warnings: %v", result.Warnings)
-	}
-}
-
 func TestScaffoldCanDisableIndexesAndLog(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]
@@ -193,53 +147,7 @@ description: Definition of a reusable purpose record.
 	}
 }
 
-func TestScaffoldPreservesExistingConceptFilesUnlessForced(t *testing.T) {
-	root := t.TempDir()
-	rel := filepath.Join("concepts", "repository-purpose.md")
-	existing := `---
-type: Concept Type
-title: Custom Purpose
-description: Local custom concept.
-tags: [custom]
-timestamp: 2026-07-09T00:00:00Z
----
-
-# Custom Purpose
-`
-	write(t, root, rel, existing)
-
-	if _, err := Scaffold(root, ScaffoldOptions{IncludeConcepts: true}); err != nil {
-		t.Fatal(err)
-	}
-	assertFileContent(t, filepath.Join(root, rel), existing)
-
-	if _, err := Scaffold(root, ScaffoldOptions{Force: true, IncludeConcepts: true}); err != nil {
-		t.Fatal(err)
-	}
-	updated, err := os.ReadFile(filepath.Join(root, rel))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(updated) == existing {
-		t.Fatal("expected force scaffold to replace existing concept file")
-	}
-	if !strings.Contains(string(updated), "title: Repository Purpose") {
-		t.Fatal("expected forced concept file to use scaffold template")
-	}
-}
-
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
-}
-
-func assertFileContent(t *testing.T, path, want string) {
-	t.Helper()
-	got, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != want {
-		t.Fatalf("%s content changed unexpectedly", path)
-	}
 }

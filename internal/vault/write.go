@@ -7,7 +7,10 @@ import (
 	"path/filepath"
 )
 
-func writeGeneratedFile(path string, content []byte, overwrite bool) (bool, error) {
+// WriteGeneratedFile writes content to path atomically, skipping the write when
+// the existing file already holds identical content. When overwrite is false an
+// existing file is always left untouched. It reports whether the file changed.
+func WriteGeneratedFile(path string, content []byte, overwrite bool) (bool, error) {
 	existing, err := os.ReadFile(path)
 	switch {
 	case err == nil:

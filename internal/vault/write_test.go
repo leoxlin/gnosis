@@ -12,7 +12,7 @@ func TestWriteGeneratedFileSkipsUnchangedContent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	changed, err := writeGeneratedFile(path, []byte("same"), true)
+	changed, err := WriteGeneratedFile(path, []byte("same"), true)
 	if err != nil {
 		t.Fatal(err)
 	}
