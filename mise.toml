@@ -19,6 +19,22 @@ run = [
 description = "Run all Go tests"
 run = "go test ./..."
 
-[tasks.check]
+[tasks.checks]
 description = "Run formatting, vet, tests, build, and documentation validation"
-run = "./scripts/check.sh"
+run = '''
+#!/bin/sh
+
+set -eu
+
+unformatted=$(gofmt -l .)
+if [ -n "$unformatted" ]; then
+  printf 'gofmt required for:\n%s\n' "$unformatted" >&2
+  exit 1
+fi
+
+go vet ./...
+go test ./... -count=1
+go test -race ./... -count=1
+go build ./...
+go run ./cmd/gnosis validate
+'''
