@@ -1,6 +1,7 @@
 # Directory Update Log
 
 ## 2026-07-10
+* **Update**: Renamed `record-purpose` to `refine-purpose` and required one-question-at-a-time author interrogation before purpose edits; see the [workflow decision](repository/decisions/refine-repository-purpose-through-author-interrogation.md) and [Refine purpose skill](repository/deltas/refine-purpose-skill.md) delta.
 * **Update**: Renamed the knowledge-driven development bundle from `gnosis-bootstrap` to `gnosis-forge`; see the [naming decision](repository/decisions/name-knowledge-driven-development-bundle-gnosis-forge.md) and [`gnosis-forge` rename](repository/deltas/gnosis-forge-rename.md).
 * **Update**: Shortened plugin skill names, added single-concept ingest, and made repository purpose one high-level file with sub-purposes; see [Skill names and purpose refinement](repository/deltas/skill-names-and-purpose.md).
 

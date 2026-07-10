@@ -30,4 +30,5 @@ The former name, `gnosis-bootstrap`, described initialization. Its skills instea
 # Related decisions
 
 - [Bootstrap `gnosis` knowledge first on OKF](bootstrap-knowledge-first.md)
+- [Refine repository purpose through author interrogation](refine-repository-purpose-through-author-interrogation.md)
 - [`gnosis` purpose](../purpose.md)
