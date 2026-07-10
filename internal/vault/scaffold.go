@@ -62,7 +62,6 @@ func Scaffold(root string, options ScaffoldOptions) ([]string, error) {
 	}
 	if options.IncludeConcepts {
 		files = append(files,
-			scaffoldFile{"concepts/documentation.md", "documentation.md.tmpl"},
 			scaffoldFile{"concepts/repository-purpose.md", "repository-purpose.md.tmpl"},
 			scaffoldFile{"concepts/repository-decision.md", "repository-decision.md.tmpl"},
 			scaffoldFile{"concepts/repository-directive.md", "repository-directive.md.tmpl"},

@@ -61,7 +61,6 @@ func TestScaffoldCanIncludeReusableConcepts(t *testing.T) {
 
 	for _, rel := range []string{
 		"concepts/index.md",
-		"concepts/documentation.md",
 		"concepts/repository-purpose.md",
 		"concepts/repository-decision.md",
 		"concepts/repository-directive.md",
@@ -84,21 +83,6 @@ func TestScaffoldCanIncludeReusableConcepts(t *testing.T) {
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("repository purpose template missing %q", want)
-		}
-	}
-
-	body, err = os.ReadFile(filepath.Join(root, "concepts", "documentation.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	text = string(body)
-	for _, want := range []string{
-		"type: Concept Type",
-		"title: Documentation",
-		"guides, references, runbooks",
-	} {
-		if !strings.Contains(text, want) {
-			t.Fatalf("documentation template missing %q", want)
 		}
 	}
 
