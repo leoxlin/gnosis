@@ -1,0 +1,14 @@
+{
+  "name": "gnosis-vault",
+  "displayName": "gnosis-vault",
+  "version": "0.1.0",
+  "description": "Manage, ingest, query, and maintain gnosis OKF/LLM knowledge vaults.",
+  "author": {
+    "name": "Leo Xuzhang Lin",
+    "url": "https://github.com/leoxlin"
+  },
+  "homepage": "https://github.com/leoxlin/gnosis",
+  "repository": "https://github.com/leoxlin/gnosis",
+  "keywords": ["gnosis", "knowledge", "vault", "okf", "wiki"],
+  "skills": "./skills/"
+}

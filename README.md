@@ -15,6 +15,37 @@ Obsidian-compatible markdown.
 - **`gnosis-forge`** supports knowledge-driven software development: it grounds
   work in recorded knowledge and preserves what the work teaches.
 
+Each component is a self-contained Codex, Kimi, and Claude plugin under
+`plugins/`. The repository also exposes every plugin skill directly to agents
+working in this checkout: Codex and Kimi discover `.agents/skills/`, while
+Claude discovers `.claude/skills/`. Both directories link to the canonical
+skill sources under `plugins/`.
+
+To install the packaged plugins with Codex:
+
+```bash
+codex plugin marketplace add .
+codex plugin add gnosis-vault@gnosis
+codex plugin add gnosis-forge@gnosis
+```
+
+To install them with Claude:
+
+```bash
+claude plugin marketplace add ./ --scope project
+claude plugin install gnosis-vault@gnosis --scope project
+claude plugin install gnosis-forge@gnosis --scope project
+```
+
+From a Kimi session, install either local plugin directly or browse the local
+marketplace:
+
+```text
+/plugins install ./plugins/gnosis-vault
+/plugins install ./plugins/gnosis-forge
+/plugins marketplace ./kimi-marketplace.json
+```
+
 ## Why `gnosis`
 
 `gnosis` comes from the Greek word for knowledge or knowing. The name matters

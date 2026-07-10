@@ -1,0 +1,32 @@
+{
+  "name": "gnosis",
+  "interface": {
+    "displayName": "gnosis"
+  },
+  "plugins": [
+    {
+      "name": "gnosis-vault",
+      "source": {
+        "source": "local",
+        "path": "./plugins/gnosis-vault"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "gnosis-forge",
+      "source": {
+        "source": "local",
+        "path": "./plugins/gnosis-forge"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}
