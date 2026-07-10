@@ -1,12 +1,15 @@
 ---
 name: record-directive
-description: Create an implementation-ready repository handoff. Use when triaged work needs durable scope, dependencies, and observable acceptance criteria.
+description: Create a durable implementation handoff for automated or unattended agents. Use only when the user explicitly invokes this skill or explicitly asks to record a repository directive; never infer it from ordinary planning or implementation work.
 ---
 
 # Record Directive
 
-1. Read `docs/concepts/repository-directive.md` when classification or schema needs clarification, plus relevant purpose and decisions.
-2. Write the handoff to `docs/repository/directives/<kebab-name>.md` with a concrete goal, bounded scope, dependencies, and testable acceptance criteria.
-3. Update affected indexes and `docs/log.md`, then validate the vault.
+This skill is explicit-only. Do not invoke it merely because a task could benefit from a plan or handoff.
+
+1. Read relevant purpose and active decisions. Read `docs/concepts/repository-directive.md` only when classification or shape needs clarification.
+2. Write `docs/repository/directives/<kebab-name>.md` with `status: open`, a concrete goal, bounded scope, material dependencies, and testable acceptance criteria sufficient for an automated agent.
+3. Do not implement the directive unless the user separately asks for execution.
+4. Regenerate indexes only when `vault_index` is enabled, then validate the vault. Do not create a completion record; git carries delivered work.
 
 Finish when another maintainer can implement and verify the work without replaying triage.

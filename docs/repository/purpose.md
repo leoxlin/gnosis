@@ -2,8 +2,6 @@
 type: Repository Purpose
 title: "`gnosis`"
 description: "`gnosis` makes human and agent knowledge durable, portable, and progressively useful."
-tags: [gnosis, knowledge, agents, memory, interoperability, repository-purpose]
-timestamp: 2026-07-10T12:09:54Z
 ---
 
 # `gnosis`

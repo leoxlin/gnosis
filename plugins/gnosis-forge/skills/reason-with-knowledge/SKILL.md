@@ -1,15 +1,15 @@
 ---
 name: reason-with-knowledge
-description: Reason about repository work from recorded purpose, decisions, concepts, directives, and deltas. Use when planning or implementing changes with knowledge-first context.
+description: Reason about repository work from its purpose, durable decisions, concepts, current implementation, and git history. Use when planning or implementing changes with knowledge-first context.
 ---
 
 # Reason with Knowledge
 
-1. Read `docs/repository/purpose.md`, then only the `docs/repository/decisions/` and `docs/concepts/` pages relevant to the task.
-2. Treat recorded knowledge as intent and constraints. Trace the concepts and decisions that bear on the work before changing it.
-3. Record new purpose, decisions, directives, or completed deltas with the matching `record-*` skill.
-4. Keep implementation and knowledge aligned; every concept page needs parseable YAML frontmatter with a non-empty `type`.
-5. Follow `gnosis.toml` for vault roots and link format. Preserve reserved `index.md` and `log.md` files.
+1. Read `docs/repository/purpose.md`, then only the active decisions and concept pages relevant to the task.
+2. Treat recorded knowledge as intent and constraints. Inspect current code and tests for implementation truth.
+3. Use path-scoped `git log`, `git show`, or `git blame` only when current knowledge and implementation do not explain a choice.
+4. Record only non-obvious, durable choices with `record-decision`. Never create a routine completion record. Never invoke `record-directive` unless the user explicitly requests a directive for automated-agent work.
+5. Keep implementation and knowledge aligned. Follow `gnosis.toml`; regenerate indexes only when `vault_index` is enabled, and do not require a log when `vault_log` is disabled.
 6. Run `mise run checks` before handoff.
 
-Finish when the change agrees with recorded purpose and decisions, its durable knowledge is captured, and the repository check passes.
+Finish when the change agrees with purpose and active decisions, any new durable constraint is recorded, and the repository check passes.

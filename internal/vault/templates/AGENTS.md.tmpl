@@ -12,7 +12,7 @@ timestamp: "{{.Timestamp}}"
 
 - Preserve YAML frontmatter and keep every concept page with a non-empty `type`.
 - Prefer one concept per file where practical.
-- Update relevant indexes and logs after material changes.
+- Honor `vault_index` and `vault_log` in `gnosis.toml`; update only the enabled navigation artifacts.
 - Link sources and references explicitly instead of relying on implicit context.
 - Distinguish sourced claims from local decisions or implementation notes.
 - Keep generated or derived notes readable as ordinary markdown.

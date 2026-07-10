@@ -70,9 +70,13 @@ func runIndex(args []string, stdout, stderr io.Writer) error {
 	if !info.IsDir() {
 		return fmt.Errorf("%s is not a directory", root)
 	}
-	_, vaultRoots, err := vault.LoadConfig(root)
+	config, vaultRoots, err := vault.LoadConfig(root)
 	if err != nil {
 		return err
+	}
+	if !config.IndexEnabled() {
+		fmt.Fprintf(stdout, "ok: index disabled under %s\n", filepath.Clean(root))
+		return nil
 	}
 
 	var written []string
@@ -138,7 +142,7 @@ func runScaffoldCommand(name, vaultDescription, success string, args []string, s
 		return err
 	}
 
-	_, vaultRoots, err := vault.LoadConfig(root)
+	config, vaultRoots, err := vault.LoadConfig(root)
 	if err != nil {
 		return err
 	}
@@ -151,6 +155,8 @@ func runScaffoldCommand(name, vaultDescription, success string, args []string, s
 		paths, err := vault.Scaffold(vaultRoot, vault.ScaffoldOptions{
 			Force:           *force,
 			IncludeConcepts: *includeConcepts,
+			DisableIndex:    !config.IndexEnabled(),
+			DisableLog:      !config.LogEnabled(),
 		})
 		if err != nil {
 			return err

@@ -1,40 +1,28 @@
 ---
 type: Concept Type
 title: Repository Directive
-description: Definition of a reusable implementation handoff for project work that should be picked up later by a person or agent.
-defines: Repository Directive
-tags: [okf, ontology, directive, implementation, project]
-timestamp: "{{.Timestamp}}"
+description: An explicitly requested implementation handoff for an automated agent.
 ---
 
 # Repository Directive
 
-A **Repository Directive** is a small implementation handoff for work that is ready to be picked up later by a person or agent. It should be concrete enough to implement without replaying the triage conversation.
-
-It captures the answers to four questions:
-
-- What change should be made?
-- What is in and out of scope?
-- What dependencies or prior decisions matter?
-- How will completion be verified?
+A **Repository Directive** is a durable handoff for automated or unattended agent execution. It exists only when an author explicitly requests one.
 
 ## Use this for
 
-- Work that has been triaged but should be implemented in a later pass.
-- Risky or multi-step changes that need explicit acceptance criteria.
-- Handoffs between planning, review, and implementation agents.
+- Work an automated agent should pick up in a later run.
+- Risky or multi-step execution requiring durable scope and acceptance criteria.
+- Handoffs that must remain usable without replaying triage.
 
-Do not use it for unsettled choices, long-term roadmaps, meeting notes, or completed work.
+Do not create one implicitly for ordinary planning, implementation, task tracking, or completed work.
 
 ## Minimum record
 
-| Section | Captures |
-|---|---|
-| `# Goal` | The concrete change the directive exists to produce. |
-| `# Scope` | What is included and what is excluded. |
-| `# Dependencies` | Blockers, prerequisites, or related decisions. |
-| `# Acceptance criteria` | Observable conditions that must be true when the work is done. |
-| `# Completion` | Optional links to the delivered change once the directive is done. |
+- `# Goal` — the concrete result to produce.
+- `# Scope` — what is included and excluded.
+- `# Acceptance criteria` — observable completion conditions.
+- `# Dependencies` — optional blockers or prior decisions.
+- `status` — whether the handoff is open, blocked, or done.
 
 ## Schema
 
@@ -42,10 +30,8 @@ Do not use it for unsettled choices, long-term roadmaps, meeting notes, or compl
 ---
 type: Repository Directive
 title: <short name>
-description: <one-line summary>
-tags: [directive, <domain>]
-timestamp: <ISO 8601 datetime>
-status: <open | blocked | in-progress | done>
+description: <one-line result>
+status: <open | blocked | done>
 ---
 
 # Goal
@@ -55,6 +41,4 @@ status: <open | blocked | in-progress | done>
 # Dependencies
 
 # Acceptance criteria
-
-# Completion
 ```

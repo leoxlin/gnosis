@@ -19,8 +19,33 @@ func TestLoadConfigDefault(t *testing.T) {
 	if config.IsStrict() {
 		t.Fatal("expected strict to default to false")
 	}
+	if !config.IndexEnabled() {
+		t.Fatal("expected vault index to default to true")
+	}
+	if !config.LogEnabled() {
+		t.Fatal("expected vault log to default to true")
+	}
 	if len(vaultRoots) != 1 || vaultRoots[0] != root {
 		t.Fatalf("vault roots = %v, want [%s]", vaultRoots, root)
+	}
+}
+
+func TestLoadConfigVaultNavigationFlags(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, `[vault]
+vault_index = false
+vault_log = false
+`)
+
+	config, _, err := LoadConfig(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.IndexEnabled() {
+		t.Fatal("expected vault index to be disabled")
+	}
+	if config.LogEnabled() {
+		t.Fatal("expected vault log to be disabled")
 	}
 }
 
@@ -43,6 +68,9 @@ link_format_strict = true
 	}
 	if !config.IsStrict() {
 		t.Fatal("expected strict to be true")
+	}
+	if !config.IndexEnabled() || !config.LogEnabled() {
+		t.Fatal("expected omitted vault navigation settings to retain true defaults")
 	}
 	if len(vaultRoots) != 1 || vaultRoots[0] != root {
 		t.Fatalf("vault roots = %v, want [%s]", vaultRoots, root)

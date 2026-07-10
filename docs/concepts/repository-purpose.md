@@ -1,36 +1,26 @@
 ---
 type: Concept Type
 title: Repository Purpose
-description: Definition of the single high-level purpose record for a repository.
-defines: Repository Purpose
-tags: [okf, ontology, purpose, repository, project]
-timestamp: 2026-07-10T12:09:54Z
+description: The single durable statement of why a repository exists and where it stops.
 ---
 
 # Repository Purpose
 
-A **Repository Purpose** is the one concise record of why a repository exists. It states the durable outcome and boundaries that should guide all work without describing how the repository is built.
-
-It captures the answers to three questions:
-
-- What high-level outcome should this repository produce?
-- Which enduring sub-purposes make that outcome concrete?
-- What durable boundaries keep that purpose focused?
+A **Repository Purpose** is the one concise record of the repository's durable outcome and boundaries. It states intent that agents cannot infer completely from implementation.
 
 ## Use this for
 
-- The repository as a whole.
-- Its enduring reason, intended beneficiaries, high-level sub-purposes, outcome, and boundaries.
+- The repository's enduring outcome and beneficiaries.
+- Essential sub-purposes that clarify that outcome.
+- Boundaries that prevent plausible but unwanted directions.
 
-Keep sub-purposes in this record. Place choices, designs, delivery plans, milestones, and tasks in their corresponding record types.
+Do not put architecture, delivery plans, milestones, or tasks here.
 
 ## Minimum record
 
-| Section | Captures |
-|---|---|
-| `# Purpose` | The durable outcome this artifact exists to produce. |
-| `# Sub-purposes` | A concise decomposition of that outcome within the same purpose record. |
-| `# Boundaries` | What the artifact explicitly will not do. |
+- `# Purpose` — the durable outcome.
+- `# Boundaries` — what the repository explicitly will not do.
+- `# Sub-purposes` — optional decomposition when it adds clarity.
 
 ## Schema
 
@@ -38,9 +28,7 @@ Keep sub-purposes in this record. Place choices, designs, delivery plans, milest
 ---
 type: Repository Purpose
 title: <short name>
-description: <one-line summary>
-tags: [purpose, <domain>]
-timestamp: <ISO 8601 datetime>
+description: <one-line outcome>
 ---
 
 # Purpose

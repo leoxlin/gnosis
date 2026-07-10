@@ -1,41 +1,27 @@
 ---
 type: Concept Type
 title: Repository Decision
-description: Definition of a reusable decision record for choices that affect a project, repository, service, or operating process.
-defines: Repository Decision
-tags: [okf, ontology, decision, architecture, project]
-timestamp: 2026-07-09T04:08:43Z
+description: A durable, non-obvious choice that constrains future repository work.
 ---
 
 # Repository Decision
 
-A **Repository Decision** records a settled choice that future maintainers or agents should not have to rediscover. It is useful when the chosen path constrains later work.
-
-It captures the answers to four questions:
-
-- What did we decide?
-- What context made the choice necessary?
-- What alternatives did we reject or defer?
-- What consequences should future work respect?
+A **Repository Decision** preserves a settled choice whose rationale or constraints cannot be recovered reliably from the current implementation.
 
 ## Use this for
 
-- Architecture, storage, API, data model, dependency, or deployment choices.
-- Scope boundaries that reject plausible alternatives.
-- Team or agent workflow rules that affect how work is done.
-- Revisited decisions where the old context needs to stay visible.
+- Durable architecture, scope, dependency, data-model, or workflow choices.
+- Choices with plausible alternatives that future maintainers may revisit.
+- Replacements for earlier decisions whose supersession must remain explicit.
 
-Do not use it for open proposals, implementation instructions, status updates, or meeting notes.
+Do not use it for routine implementation choices, change summaries, delivery status, or facts available from git.
 
 ## Minimum record
 
-| Section | Captures |
-|---|---|
-| `# Decision` | The resolved choice in one or two sentences. |
-| `# Context` | The situation or constraint that made the choice necessary. |
-| `# Alternatives considered` | Options considered and why they were rejected, deferred, or accepted. |
-| `# Consequences` | What the choice enables, prevents, or makes more expensive. |
-| `# Related decisions` | Optional links to decisions this one depends on, replaces, or revisits. |
+- `# Decision` — the settled choice.
+- `# Why` — only the context and rejected alternatives needed to avoid rediscovery.
+- `# Constraints` — optional consequences future work must preserve.
+- `supersedes` — optional frontmatter link to a replaced decision.
 
 ## Schema
 
@@ -43,18 +29,13 @@ Do not use it for open proposals, implementation instructions, status updates, o
 ---
 type: Repository Decision
 title: <short name>
-description: <one-line summary>
-tags: [decision, <domain>]
-timestamp: <ISO 8601 datetime>
+description: <one-line effect>
+supersedes: <optional decision link>
 ---
 
 # Decision
 
-# Context
+# Why
 
-# Alternatives considered
-
-# Consequences
-
-# Related decisions
+# Constraints
 ```

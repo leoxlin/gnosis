@@ -1,7 +1,7 @@
 ---
 type: Documentation
 title: Basic Usage
-description: Install the `gnosis` CLI, configure vault roots, run core commands, and check repository quality.
+description: Install the `gnosis` CLI, configure vault behavior, run core commands, and check repository quality.
 tags: [documentation, usage, cli, vault]
 timestamp: 2026-07-10T11:28:39Z
 ---
@@ -14,7 +14,7 @@ Authors, maintainers, and agents who need to install the `gnosis` CLI locally an
 
 # Subject
 
-Basic `gnosis` CLI usage for local installation, vault setup, validation, index generation, and scaffold repair.
+Basic `gnosis` CLI usage for local installation, vault setup, validation, optional index generation, and scaffold repair.
 
 # Content
 
@@ -36,7 +36,7 @@ Set up a vault:
 gnosis setup -vault ./my-vault
 ```
 
-Include reusable project concepts for documentation, purpose, decisions, directives, and deltas:
+Include reusable project concepts for documentation, purpose, decisions, and explicit automation directives:
 
 ```bash
 gnosis setup -vault ./my-vault -concepts
@@ -77,11 +77,17 @@ up through its parent directories. Supported vault settings are:
 link_format = "relative"
 link_format_strict = false
 vault_roots = ["docs"]
+vault_index = true
+vault_log = true
 ```
 
 `link_format` must be `relative` or `absolute`. Vault roots must be non-empty,
 unique relative paths contained by the directory holding `gnosis.toml`.
-Unknown settings and unsafe roots are errors.
+`vault_index` and `vault_log` default to `true`. When disabled, setup and
+scaffold do not create the corresponding files and validation does not require
+them; `gnosis index` is a successful no-op when `vault_index` is false. Changing
+an option to false does not delete existing files. Unknown settings and unsafe
+roots are errors.
 
 ## Output and failures
 

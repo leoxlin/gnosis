@@ -65,7 +65,6 @@ func TestScaffoldCanIncludeReusableConcepts(t *testing.T) {
 		"concepts/repository-purpose.md",
 		"concepts/repository-decision.md",
 		"concepts/repository-directive.md",
-		"concepts/repository-delta.md",
 	} {
 		if _, err := os.Stat(filepath.Join(root, rel)); err != nil {
 			t.Fatalf("expected %s to exist: %v", rel, err)
@@ -79,7 +78,7 @@ func TestScaffoldCanIncludeReusableConcepts(t *testing.T) {
 	text := string(body)
 	for _, want := range []string{
 		"type: Concept Type",
-		"single high-level purpose record for a repository",
+		"single durable statement of why a repository exists",
 		"## Minimum record",
 		"# Sub-purposes",
 	} {
@@ -112,6 +111,40 @@ func TestScaffoldCanIncludeReusableConcepts(t *testing.T) {
 	}
 	if len(result.Warnings) != 0 {
 		t.Fatalf("unexpected validation warnings: %v", result.Warnings)
+	}
+}
+
+func TestScaffoldCanDisableIndexesAndLog(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, `[vault]
+vault_index = false
+vault_log = false
+`)
+
+	created, err := Scaffold(root, ScaffoldOptions{DisableIndex: true, DisableLog: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range created {
+		if filepath.Base(path) == "index.md" || filepath.Base(path) == "log.md" {
+			t.Fatalf("disabled navigation file was created: %s", path)
+		}
+	}
+	for _, rel := range []string{"index.md", "log.md", "concepts/index.md", "references/index.md"} {
+		if fileExists(filepath.Join(root, rel)) {
+			t.Fatalf("disabled navigation file exists: %s", rel)
+		}
+	}
+	if !fileExists(filepath.Join(root, "AGENTS.md")) {
+		t.Fatal("expected agent rules to be scaffolded")
+	}
+
+	result, err := Validate(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Errors) != 0 {
+		t.Fatalf("unexpected validation errors: %v", result.Errors)
 	}
 }
 

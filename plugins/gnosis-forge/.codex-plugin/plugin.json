@@ -1,27 +1,36 @@
 {
   "name": "gnosis-forge",
-  "version": "0.1.0",
-  "description": "Ground software work in repository knowledge and record what the work produces and teaches.",
+  "version": "0.1.0+codex.20260710134356",
+  "description": "Ground software work in repository purpose and durable decisions.",
   "author": {
     "name": "Leo Xuzhang Lin",
     "url": "https://github.com/leoxlin"
   },
   "homepage": "https://github.com/leoxlin/gnosis",
   "repository": "https://github.com/leoxlin/gnosis",
-  "keywords": ["gnosis", "knowledge", "software-development", "decisions", "directives"],
+  "keywords": [
+    "gnosis",
+    "knowledge",
+    "software-development",
+    "decisions",
+    "directives"
+  ],
   "skills": "./skills/",
   "interface": {
     "displayName": "gnosis-forge",
     "shortDescription": "Build software from recorded knowledge.",
-    "longDescription": "Skills for grounding software work in recorded knowledge and preserving purpose, decisions, directives, and completed deltas.",
+    "longDescription": "Skills for grounding software work in purpose and durable decisions, with explicit directives for automated agents.",
     "developerName": "Leo Xuzhang Lin",
     "category": "Developer Tools",
-    "capabilities": ["Read", "Write"],
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
     "websiteURL": "https://github.com/leoxlin/gnosis",
     "defaultPrompt": [
       "Reason about this change from the repository's recorded knowledge.",
       "Record this settled repository decision.",
-      "Record this completed repository change."
+      "Create an explicit implementation directive for an automated agent."
     ]
   }
 }

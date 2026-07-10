@@ -13,6 +13,8 @@ import (
 type ScaffoldOptions struct {
 	Force           bool
 	IncludeConcepts bool
+	DisableIndex    bool
+	DisableLog      bool
 }
 
 // scaffoldData provides values for scaffold templates.
@@ -53,8 +55,10 @@ func Scaffold(root string, options ScaffoldOptions) ([]string, error) {
 		tmplName string
 	}
 	files := []scaffoldFile{
-		{"log.md", "log.md.tmpl"},
 		{"AGENTS.md", "AGENTS.md.tmpl"},
+	}
+	if !options.DisableLog {
+		files = append(files, scaffoldFile{"log.md", "log.md.tmpl"})
 	}
 	if options.IncludeConcepts {
 		files = append(files,
@@ -62,7 +66,6 @@ func Scaffold(root string, options ScaffoldOptions) ([]string, error) {
 			scaffoldFile{"concepts/repository-purpose.md", "repository-purpose.md.tmpl"},
 			scaffoldFile{"concepts/repository-decision.md", "repository-decision.md.tmpl"},
 			scaffoldFile{"concepts/repository-directive.md", "repository-directive.md.tmpl"},
-			scaffoldFile{"concepts/repository-delta.md", "repository-delta.md.tmpl"},
 		)
 	}
 	for _, file := range files {
@@ -80,11 +83,13 @@ func Scaffold(root string, options ScaffoldOptions) ([]string, error) {
 		}
 	}
 
-	paths, err := GenerateIndexes(root, IndexOptions{Overwrite: options.Force})
-	if err != nil {
-		return created, err
+	if !options.DisableIndex {
+		paths, err := GenerateIndexes(root, IndexOptions{Overwrite: options.Force})
+		if err != nil {
+			return created, err
+		}
+		created = append(created, paths...)
 	}
-	created = append(created, paths...)
 
 	return created, nil
 }

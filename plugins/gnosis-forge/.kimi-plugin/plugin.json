@@ -1,7 +1,7 @@
 {
   "name": "gnosis-forge",
   "version": "0.1.0",
-  "description": "Ground software work in repository knowledge and record what the work produces and teaches.",
+  "description": "Ground software work in repository purpose and durable decisions.",
   "author": {
     "name": "Leo Xuzhang Lin",
     "url": "https://github.com/leoxlin"
@@ -12,7 +12,7 @@
   "interface": {
     "displayName": "gnosis-forge",
     "shortDescription": "Build software from recorded knowledge.",
-    "longDescription": "Skills for grounding software work in recorded knowledge and preserving purpose, decisions, directives, and completed deltas.",
+    "longDescription": "Skills for grounding software work in purpose and durable decisions, with explicit directives for automated agents.",
     "developerName": "Leo Xuzhang Lin",
     "websiteURL": "https://github.com/leoxlin/gnosis"
   }

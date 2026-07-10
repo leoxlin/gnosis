@@ -20,7 +20,7 @@ const (
 	LinkFormatAbsolute LinkFormat = "absolute"
 )
 
-// Config is the top-level Gnosis configuration.
+// Config is the top-level gnosis configuration.
 type Config struct {
 	Vault VaultConfig `toml:"vault"`
 }
@@ -30,15 +30,19 @@ type VaultConfig struct {
 	LinkFormat       string   `toml:"link_format"`
 	LinkFormatStrict bool     `toml:"link_format_strict"`
 	VaultRoots       []string `toml:"vault_roots"`
+	VaultIndex       bool     `toml:"vault_index"`
+	VaultLog         bool     `toml:"vault_log"`
 }
 
-// DefaultConfig returns the default Gnosis configuration.
+// DefaultConfig returns the default gnosis configuration.
 func DefaultConfig() Config {
 	return Config{
 		Vault: VaultConfig{
 			LinkFormat:       string(LinkFormatRelative),
 			LinkFormatStrict: false,
 			VaultRoots:       nil,
+			VaultIndex:       true,
+			VaultLog:         true,
 		},
 	}
 }
@@ -58,6 +62,16 @@ func (c Config) LinkFormatValue() LinkFormat {
 // IsStrict reports whether the configured link format is enforced as an error.
 func (c Config) IsStrict() bool {
 	return c.Vault.LinkFormatStrict
+}
+
+// IndexEnabled reports whether directory indexes are maintained for the vault.
+func (c Config) IndexEnabled() bool {
+	return c.Vault.VaultIndex
+}
+
+// LogEnabled reports whether the root activity log is maintained for the vault.
+func (c Config) LogEnabled() bool {
+	return c.Vault.VaultLog
 }
 
 // LoadConfig loads gnosis.toml starting from root and walking up through

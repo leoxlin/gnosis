@@ -135,6 +135,33 @@ func TestRunSetupScaffoldAndIndex(t *testing.T) {
 	}
 }
 
+func TestRunSetupAndIndexHonorDisabledNavigation(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, root, "gnosis.toml", `[vault]
+vault_index = false
+vault_log = false
+`)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	if err := run([]string{"setup", "-vault", root}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	for _, rel := range []string{"index.md", "log.md", "concepts/index.md", "references/index.md"} {
+		if _, err := os.Stat(filepath.Join(root, rel)); !os.IsNotExist(err) {
+			t.Fatalf("disabled navigation file exists: %s", rel)
+		}
+	}
+
+	stdout.Reset()
+	if err := run([]string{"index", "-vault", root}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), "ok: index disabled") {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+}
+
 func writeTestFile(t *testing.T, root, rel, content string) {
 	t.Helper()
 	path := filepath.Join(root, rel)

@@ -42,7 +42,9 @@ func Validate(root string) (Result, error) {
 			return result, fmt.Errorf("%s is not a directory", vaultRoot)
 		}
 
-		checkRootFiles(vaultRoot, &result)
+		if config.LogEnabled() {
+			checkRootLog(vaultRoot, &result)
+		}
 		err = filepath.WalkDir(vaultRoot, func(path string, entry os.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				result.Errors = append(result.Errors, walkErr.Error())
@@ -52,7 +54,9 @@ func Validate(root string) (Result, error) {
 				if path != vaultRoot && ignoredVaultDir(entry.Name()) {
 					return filepath.SkipDir
 				}
-				checkDirectoryIndex(path, &result)
+				if config.IndexEnabled() {
+					checkDirectoryIndex(path, &result)
+				}
 				return nil
 			}
 			if filepath.Ext(path) != ".md" {
@@ -105,16 +109,13 @@ func validateFile(root, path string, config Config, result *Result) {
 		} else if strings.TrimSpace(value) == "" {
 			result.Errors = append(result.Errors, fmt.Sprintf("%s: missing non-empty %q frontmatter", path, "type"))
 		}
-		for _, field := range []string{"title", "description", "timestamp"} {
+		for _, field := range []string{"title", "description"} {
 			value, scalar := fields.scalar(field)
 			if !scalar && fields.nonEmpty(field) {
 				result.Errors = append(result.Errors, fmt.Sprintf("%s: frontmatter %q must be a scalar", path, field))
 			} else if strings.TrimSpace(value) == "" {
 				result.Warnings = append(result.Warnings, fmt.Sprintf("%s: missing recommended %q frontmatter", path, field))
 			}
-		}
-		if !fields.nonEmpty("tags") {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("%s: missing recommended %q frontmatter", path, "tags"))
 		}
 
 		if strings.TrimSpace(body) == "" {
@@ -166,15 +167,13 @@ func validateLinks(root, path, text string, config Config, result *Result) {
 	}
 }
 
-func checkRootFiles(root string, result *Result) {
-	for _, rel := range []string{"log.md"} {
-		path := filepath.Join(root, rel)
-		if _, err := os.Stat(path); err != nil {
-			if os.IsNotExist(err) {
-				result.Errors = append(result.Errors, fmt.Sprintf("%s: missing reserved root file", path))
-			} else {
-				result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
-			}
+func checkRootLog(root string, result *Result) {
+	path := filepath.Join(root, "log.md")
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: missing reserved root file", path))
+		} else {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
 		}
 	}
 }

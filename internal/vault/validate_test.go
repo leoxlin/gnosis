@@ -81,6 +81,88 @@ func TestValidateRequiresRootIndexAndLog(t *testing.T) {
 	}
 }
 
+func TestValidateAllowsDisabledIndexAndLog(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, `[vault]
+vault_index = false
+vault_log = false
+`)
+	write(t, root, "note.md", `---
+type: Concept
+title: Concept
+description: Minimal concept.
+---
+
+# Concept
+`)
+
+	result, err := Validate(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Errors) != 0 {
+		t.Fatalf("unexpected validation errors: %v", result.Errors)
+	}
+	if len(result.Warnings) != 0 {
+		t.Fatalf("unexpected validation warnings: %v", result.Warnings)
+	}
+}
+
+func TestValidateHonorsIndexAndLogIndependently(t *testing.T) {
+	tests := []struct {
+		name   string
+		config string
+		files  map[string]string
+	}{
+		{
+			name: "index disabled",
+			config: `[vault]
+vault_index = false
+vault_log = true
+`,
+			files: map[string]string{
+				"log.md": "# Log\n\n## 2026-07-10\n",
+			},
+		},
+		{
+			name: "log disabled",
+			config: `[vault]
+vault_index = true
+vault_log = false
+`,
+			files: map[string]string{
+				"index.md": "# Index\n\n[Purpose](purpose.md)\n",
+				"purpose.md": `---
+type: Purpose
+title: Purpose
+description: Test purpose.
+---
+
+# Purpose
+`,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			writeConfig(t, root, test.config)
+			for rel, content := range test.files {
+				write(t, root, rel, content)
+			}
+
+			result, err := Validate(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(result.Errors) != 0 {
+				t.Fatalf("unexpected validation errors: %v", result.Errors)
+			}
+		})
+	}
+}
+
 func TestValidateRequiresIndexForEveryDirectory(t *testing.T) {
 	root := t.TempDir()
 	write(t, root, "index.md", `# Index
