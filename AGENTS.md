@@ -1,1 +1,2 @@
+- Never modify README.md without explicitly being asked
 - Use `gnosis` or gnosis to refer to this project. Never Gnosis
