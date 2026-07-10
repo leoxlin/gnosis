@@ -3,7 +3,7 @@ type: Documentation
 title: Basic Usage
 description: Install the `gnosis` CLI, configure vault roots, run core commands, and check repository quality.
 tags: [documentation, usage, cli, vault]
-timestamp: 2026-07-09T23:21:52Z
+timestamp: 2026-07-10T11:28:39Z
 ---
 
 # Basic Usage
@@ -95,7 +95,7 @@ output. Commands reject unexpected positional arguments.
 Run the complete local quality gate before committing:
 
 ```bash
-mise run check
+mise run checks
 ```
 
 This checks formatting without rewriting files, then runs vet, uncached tests,

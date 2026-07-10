@@ -79,8 +79,9 @@ func TestScaffoldCanIncludeReusableConcepts(t *testing.T) {
 	text := string(body)
 	for _, want := range []string{
 		"type: Concept Type",
-		"project, repository, service, or major component",
+		"single high-level purpose record for a repository",
 		"## Minimum record",
+		"# Sub-purposes",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("repository purpose template missing %q", want)

@@ -1,9 +1,9 @@
 ---
-name: ingest-vault-knowledge
-description: Integrate sources, notes, conversations, or findings into a gnosis OKF/LLM wiki. Use when ingesting, capturing, compiling, or refreshing vault knowledge.
+name: ingest-knowledge
+description: Compile a source into one or more concepts in a gnosis OKF/LLM wiki. Use when ingesting knowledge that may update several related concept pages.
 ---
 
-# Ingest Vault Knowledge
+# Ingest Knowledge
 
 1. Resolve the vault from `gnosis.toml` or the current bundle. Read its agent rules, root `index.md` and `log.md`, relevant concept definitions, and nearby pages.
 2. Treat the input as evidence. Extract durable claims, relationships, uncertainties, and citations; separate sourced facts from agent inference.

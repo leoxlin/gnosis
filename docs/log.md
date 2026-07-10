@@ -1,5 +1,8 @@
 # Directory Update Log
 
+## 2026-07-10
+* **Update**: Shortened plugin skill names, added single-concept ingest, and made repository purpose one high-level file with sub-purposes; see [Skill names and purpose refinement](repository/deltas/skill-names-and-purpose.md).
+
 ## 2026-07-09
 * **Creation**: Added focused `gnosis-vault` management skills and concise `gnosis-bootstrap` repository recorders, captured in the [Plugin skill bootstrap](repository/deltas/plugin-skill-bootstrap.md) delta.
 * **Update**: Completed [Harden vault reliability](repository/directives/harden-vault-reliability.md), recorded the [Vault reliability hardening](repository/deltas/vault-reliability-hardening.md) delta, and documented strict configuration, CLI diagnostics, and shared quality checks.

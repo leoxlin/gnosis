@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ingest Concept"
+  short_description: "Integrate one concept into a knowledge vault"
+  default_prompt: "Use $ingest-concept to integrate this single concept into the current gnosis vault."

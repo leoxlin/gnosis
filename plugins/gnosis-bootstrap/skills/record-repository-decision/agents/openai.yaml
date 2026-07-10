@@ -1,4 +1,0 @@
-interface:
-  display_name: "Record Repository Decision"
-  short_description: "Preserve a settled repository decision"
-  default_prompt: "Use $record-repository-decision to preserve this settled choice."

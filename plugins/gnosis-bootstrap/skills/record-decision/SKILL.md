@@ -1,9 +1,9 @@
 ---
-name: record-repository-decision
+name: record-decision
 description: Preserve a settled repository choice. Use when an architecture, scope, dependency, data-model, or workflow decision should constrain future work.
 ---
 
-# Record Repository Decision
+# Record Decision
 
 1. Read `docs/concepts/repository-decision.md` when classification or schema needs clarification, plus related purpose and decision records.
 2. Write the settled choice to `docs/repository/decisions/<kebab-name>.md`, including its context, alternatives, consequences, and relationships.

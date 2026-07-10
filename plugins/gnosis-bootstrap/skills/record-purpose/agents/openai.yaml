@@ -1,0 +1,4 @@
+interface:
+  display_name: "Record Purpose"
+  short_description: "Capture one concise high-level repository purpose"
+  default_prompt: "Use $record-purpose to record the high-level purpose for this repository."

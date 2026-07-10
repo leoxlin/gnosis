@@ -1,4 +1,0 @@
-interface:
-  display_name: "Record Repository Delta"
-  short_description: "Trace completed work and its verification"
-  default_prompt: "Use $record-repository-delta to record this completed change."

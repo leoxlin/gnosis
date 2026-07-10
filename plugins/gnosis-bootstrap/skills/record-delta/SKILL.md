@@ -1,9 +1,9 @@
 ---
-name: record-repository-delta
+name: record-delta
 description: Trace completed repository work. Use after implementation when changes, fulfilled directives, verification, or deviations should remain durable.
 ---
 
-# Record Repository Delta
+# Record Delta
 
 1. Read `docs/concepts/repository-delta.md` when classification or schema needs clarification, plus the fulfilled directive and relevant decisions.
 2. Derive the record from the delivered diff and verification evidence; write it to `docs/repository/deltas/<kebab-name>.md`.

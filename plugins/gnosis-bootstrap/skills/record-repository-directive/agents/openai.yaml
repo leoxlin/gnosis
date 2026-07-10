@@ -1,4 +1,0 @@
-interface:
-  display_name: "Record Repository Directive"
-  short_description: "Create an implementation-ready repository handoff"
-  default_prompt: "Use $record-repository-directive to capture this implementation handoff."

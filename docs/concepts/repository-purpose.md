@@ -1,37 +1,36 @@
 ---
 type: Concept Type
 title: Repository Purpose
-description: Definition of a reusable purpose record for a project, repository, service, or major component.
+description: Definition of the single high-level purpose record for a repository.
 defines: Repository Purpose
 tags: [okf, ontology, purpose, repository, project]
-timestamp: 2026-07-09T03:43:13Z
+timestamp: 2026-07-10T12:09:54Z
 ---
 
 # Repository Purpose
 
-A **Repository Purpose** records why a project, repository, service, or major component exists. It should be stable enough to outlive a sprint but small enough to revisit when the artifact's reason for existing changes.
+A **Repository Purpose** is the one concise record of why a repository exists. It states the durable outcome and boundaries that should guide all work without describing how the repository is built.
 
 It captures the answers to three questions:
 
-- What outcome should this artifact produce?
-- What is intentionally out of scope?
-- Which major parts have their own purpose?
+- What high-level outcome should this repository produce?
+- Which enduring sub-purposes make that outcome concrete?
+- What durable boundaries keep that purpose focused?
 
 ## Use this for
 
-- The whole project, repository, product, or service.
-- A major package, subsystem, or operational area whose reason for existing is not obvious.
-- Durable boundaries that prevent the project from absorbing unrelated work.
+- The repository as a whole.
+- Its enduring reason, intended beneficiaries, high-level sub-purposes, outcome, and boundaries.
 
-Do not use it for feature requests, delivery plans, OKRs, milestones, or task lists.
+Keep sub-purposes in this record. Place choices, designs, delivery plans, milestones, and tasks in their corresponding record types.
 
 ## Minimum record
 
 | Section | Captures |
 |---|---|
 | `# Purpose` | The durable outcome this artifact exists to produce. |
+| `# Sub-purposes` | A concise decomposition of that outcome within the same purpose record. |
 | `# Boundaries` | What the artifact explicitly will not do. |
-| `# Sub-purposes` | Optional links to purpose records for major components. |
 
 ## Schema
 
@@ -46,7 +45,7 @@ timestamp: <ISO 8601 datetime>
 
 # Purpose
 
-# Boundaries
-
 # Sub-purposes
+
+# Boundaries
 ```

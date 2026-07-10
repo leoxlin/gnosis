@@ -10,4 +10,4 @@
 
 ## Pages
 
-* [`gnosis`](purpose.md) - `gnosis` creates a singular interface for agentic knowledge and memory, where text, skills, repository intent, and backend stores can bootstrap one another.
+* [`gnosis`](purpose.md) - `gnosis` makes human and agent knowledge durable, portable, and progressively useful.
