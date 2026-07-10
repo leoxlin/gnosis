@@ -1,0 +1,1 @@
+- Use `gnosis` or gnosis to refer to this project. Never Gnosis
