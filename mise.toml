@@ -15,6 +15,50 @@ run = [
   "go build -o ~/.local/bin/gnosis ./cmd/gnosis",
 ]
 
+[tasks.maintain-skills]
+description = "Maintain .claude/skills and .agents/skills symlinks"
+run = '''
+#!/bin/sh
+
+set -eu
+
+skill_sources="plugins/gnosis-vault/skills plugins/gnosis-forge/skills"
+skill_targets=".claude/skills .agents/skills"
+
+for target_dir in $skill_targets; do
+  mkdir -p "$target_dir"
+  find "$target_dir" -mindepth 1 -maxdepth 1 -xtype l -exec rm {} +
+
+  for source_dir in $skill_sources; do
+    if [ ! -d "$source_dir" ]; then
+      printf 'missing skill source directory: %s\n' "$source_dir" >&2
+      exit 1
+    fi
+
+    for source in "$source_dir"/*; do
+      [ -d "$source" ] || continue
+      [ -f "$source/SKILL.md" ] || continue
+
+      name=${source##*/}
+      link="$target_dir/$name"
+      relative_target="../../$source"
+
+      if [ -L "$link" ]; then
+        if [ "$(readlink "$link")" = "$relative_target" ]; then
+          continue
+        fi
+        rm "$link"
+      elif [ -e "$link" ]; then
+        printf 'refusing to overwrite non-symlink: %s\n' "$link" >&2
+        exit 1
+      fi
+
+      ln -s "$relative_target" "$link"
+    done
+  done
+done
+'''
+
 [tasks.test]
 description = "Run all Go tests"
 run = "go test ./..."
