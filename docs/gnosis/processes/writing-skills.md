@@ -3,7 +3,7 @@ type: Gnosis Process
 title: writing-skills
 description: Use when creating, editing, or validating a runtime skill or its repository-owned process knowledge.
 invocation: model
-effects: [workspace-write]
+effects: [vault-write, workspace-write]
 relationships:
   - type: instance_of
     target: ../../concepts/gnosis-process.md
@@ -33,13 +33,13 @@ Writing skills applies red-green-refactor to agent behavior. Gnosis Process page
    - Put a repeatable repository-owned workflow in one Gnosis Process page.
    - Package a skill when runtime invocation, tool integration, or a portable cross-repository procedure is required.
    - Implement a deterministic check in code when judgment is unnecessary.
-2. Define concrete usage examples and the behavior that currently fails. For an existing process, read its durable record before changing the adapter.
+2. Define concrete usage examples and the behavior that currently fails. For an existing process, read its durable record with `gnosis read --id '<process URI>'` before changing the adapter.
 3. **Red:** Run realistic fresh-context scenarios without the new guidance and capture the observed failure or rationalization. If the baseline does not fail, do not add guidance for that hypothetical problem.
-4. **Green:** Write the smallest instruction change that corrects the observed behavior. Keep ordered runtime steps in the skill and detailed repository workflow knowledge in the Gnosis Process page, with one explicit context pointer from the skill.
+4. **Green:** Write the smallest instruction change that corrects the observed behavior. Keep ordered runtime steps in the skill and detailed repository workflow knowledge in the process record, with one explicit context pointer from the skill. Persist a complete changed process with `gnosis write --type 'Gnosis Process' --title '<title>' <draft-file>`.
 5. Make invocation deliberate. User-invoked skills declare that policy and keep human-facing metadata concise; model-invoked skills describe concrete trigger conditions without summarizing a shortcut version of the workflow.
 6. Preserve one source of truth, progressive disclosure, observable completion criteria, and only the guardrails demonstrated necessary by testing. Keep examples and support files only when they materially improve execution.
 7. Run the same scenarios with the skill or process present and confirm the target behavior. Refine against newly observed loopholes without accumulating unrelated prose.
-8. Validate skill frontmatter, agent metadata, plugin manifests, links, and repository checks. For local plugin development, use the supported cachebuster and reinstall flow rather than editing installation state by hand.
+8. Run `gnosis validate --vault <root>`, then validate skill frontmatter, agent metadata, plugin manifests, links, and repository checks. For local plugin development, use the supported cachebuster and reinstall flow rather than editing installation state by hand.
 
 ## Completion
 

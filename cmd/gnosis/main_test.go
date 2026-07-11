@@ -714,6 +714,10 @@ The answer is grounded.
 func writeCommandTestVault(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
+	root, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatal(err)
+	}
 	writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_root = \".\"")
 	writeTestFile(t, root, "concepts/note.md", "---\ntype: Concept Type\ntitle: Note\npath: notes\n---\n")
 	return root

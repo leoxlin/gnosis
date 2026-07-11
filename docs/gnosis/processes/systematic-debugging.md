@@ -3,7 +3,7 @@ type: Gnosis Process
 title: systematic-debugging
 description: Use for any bug, failing test, build failure, performance problem, or unexpected technical behavior before proposing a fix.
 invocation: model
-effects: [workspace-write]
+effects: [vault-write, workspace-write]
 relationships:
   - type: instance_of
     target: ../../concepts/gnosis-process.md
@@ -33,8 +33,8 @@ The hard gate is root-cause evidence before a proposed fix.
 1. **Root cause investigation:** Read errors and stack traces completely, reproduce consistently, inspect recent relevant changes, and trace bad data or state backward to its origin. At multi-component boundaries, gather evidence for inputs, outputs, configuration, and state before localizing the failure.
 2. **Pattern analysis:** Find a working analogue, read the applicable reference completely, enumerate every difference, and identify the dependencies and assumptions the broken path requires.
 3. **Hypothesis testing:** State one specific causal hypothesis and its evidence. Test it with the smallest possible change and one variable. A failed test produces a new hypothesis, not a stack of speculative fixes.
-4. **Root-cause fix:** Create the smallest failing reproduction and follow [test-driven-development](test-driven-development.md). Implement one change at the source, then verify the reproduction and the relevant suite.
-5. After three failed fix attempts, stop and question the architecture with the author. Use [writing-directives-and-decisions](writing-directives-and-decisions.md) before changing the design and record a decision only if a new durable architectural choice is settled.
+4. **Root-cause fix:** Create the smallest failing reproduction and invoke `gnosis process invoke --id 'gnosis://core/gnosis/processes/test-driven-development.md' --pretty`. Implement one change at the source, then verify the reproduction and the relevant suite.
+5. After three failed fix attempts, stop and question the architecture with the author. Invoke `gnosis process invoke --id 'gnosis://core/gnosis/processes/writing-directives-and-decisions.md' --pretty` before changing the design.
 6. If evidence shows an external or timing-dependent cause, record what was ruled out in the task evidence, add appropriate handling and observability, and verify that behavior.
 
 ## Completion

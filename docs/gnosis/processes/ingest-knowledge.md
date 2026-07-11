@@ -1,7 +1,7 @@
 ---
 type: Gnosis Process
 title: ingest-knowledge
-description: Use when a source may update several related concept pages.
+description: Use when supplied evidence should create or update one or more concept pages.
 invocation: model
 effects: [vault-write]
 relationships:
@@ -11,11 +11,11 @@ relationships:
 
 # ingest-knowledge
 
-`ingest-knowledge` compiles source material into the smallest useful set of durable, connected, and traceable concept records.
+`ingest-knowledge` compiles supplied evidence into the smallest useful set of durable, connected, and traceable concept records, including the single-concept case.
 
 ## Use when
 
-- Ingesting a source that may update several related concepts.
+- Ingesting a source about one named concept or several related concepts.
 - Extracting durable claims, relationships, uncertainty, and provenance from supplied evidence.
 
 ## Knowledge inputs
@@ -26,13 +26,13 @@ relationships:
 
 ## Process
 
-1. Resolve the vault from `gnosis.toml` or the current bundle. Read its agent rules, relevant concept definitions, and nearby pages; read root `index.md` or `log.md` only when its matching option is enabled.
-2. Treat the input as evidence. Extract durable claims, relationships, uncertainties, and citations; separate sourced facts from agent inference.
-3. Integrate by concept identity. Update matching pages and create only the smallest useful set of new pages. Preserve unknown frontmatter and follow the configured link format.
-4. Keep claims traceable to their source. Surface contradictions or ambiguous identity instead of silently choosing a side.
-5. When `vault_index` is enabled, regenerate affected indexes with `gnosis index -vault <root>`. When `vault_log` is enabled, add a concise newest-first entry to the nearest `log.md`.
-6. Run `gnosis validate -vault <root>`.
+1. List exact types with `gnosis concepts --pretty`, then read only the applicable Concept Type definitions with `gnosis read --id '<concept-type URI>'`. Read candidate identity matches returned by `gnosis query graph --vault <root> --pretty '<identity question>'`.
+2. Treat the input as evidence. Extract durable claims, relationships, uncertainties, and citations; separate sourced facts from agent inference. When the request identifies one concept, retain exactly one concept identity.
+3. Integrate by identity. Update matching pages and create only the smallest useful set of new records. When no existing type fits, invoke `gnosis process invoke --id 'gnosis://core/gnosis/processes/create-concept-type.md' --pretty` and resume after that process completes.
+4. Build every record from its Concept Type definition, preserve unknown frontmatter, follow the configured link format, and keep claims traceable. Surface contradictions or ambiguous identity instead of silently choosing a side.
+5. Persist each complete record with `gnosis write --type '<exact type>' --title '<exact title>' <draft-file>`. When `vault_log` is enabled, add one concise newest-first entry to the nearest `log.md`.
+6. When `vault_index` is enabled, run `gnosis index --vault <root>`. Run `gnosis validate --vault <root>` in every case.
 
 ## Completion
 
-Every retained claim has a durable home and provenance, enabled navigation reflects the result, and vault validation passes.
+Every retained claim has exactly one durable identity and provenance; a single-concept request changes exactly one concept page; enabled navigation reflects the result; and vault validation passes.

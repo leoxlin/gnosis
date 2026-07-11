@@ -2,6 +2,7 @@
 type: Concept Type
 title: Gnosis Purpose
 description: The durable statement of why a project or vault exists and where it stops.
+path: gnosis
 ---
 
 # Gnosis Purpose

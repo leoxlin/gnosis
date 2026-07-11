@@ -2,6 +2,7 @@
 type: Concept Type
 title: Gnosis Process
 description: A discoverable, invocable workflow for vault or repository work.
+path: gnosis/processes
 ---
 
 # Gnosis Process

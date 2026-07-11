@@ -2,6 +2,7 @@
 type: Concept Type
 title: Gnosis Decision
 description: A durable, non-obvious choice that constrains future work.
+path: gnosis/decisions
 ---
 
 # Gnosis Decision

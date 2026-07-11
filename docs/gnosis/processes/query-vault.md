@@ -28,13 +28,13 @@ relationships:
 ## Process
 
 1. Resolve the vault and read its configuration and agent rules.
-2. Before opening concept pages, call the gnosis `query_knowledge` MCP tool. When MCP is unavailable, run `gnosis query graph -vault <root> -pretty "<question>"`.
+2. Before opening concept pages, run `gnosis query graph --vault <root> --pretty "<question>"`.
    - If `index_only` is true and a candidate exists, answer from its description and cite its page without opening the body.
    - For a non-empty `path`, use the returned chain and open only the listed `should_read` pages when the link structure alone does not explain the relationship.
-   - For an exact relationship question, use `trace_links` or `find_path`, or their `gnosis graph neighbors` and `gnosis graph path` CLI equivalents, with the returned IDs or URIs.
-   - Otherwise, inspect only the returned `should_read` pages through `read_page` or `gnosis read -id <id>`.
+   - For an exact relationship question, use `gnosis graph neighbors --vault <root> --id '<id-or-URI>' --pretty` or `gnosis graph path --vault <root> --from '<id-or-URI>' --to '<id-or-URI>' --pretty`.
+   - Otherwise, inspect only the returned `should_read` pages with `gnosis read --id '<id-or-URI>'`.
    - If no candidates are returned, report the knowledge gap instead of scanning every page.
-3. If the `gnosis` CLI is unavailable, fall back to the vault index when `vault_index` is enabled, then search titles, descriptions, tags, and filenames before opening pages.
+3. If the `gnosis` command is unavailable, fall back to the vault index when `vault_index` is enabled, then search titles, descriptions, tags, and filenames before opening pages.
 4. Answer from recorded knowledge and cited sources. Label synthesis, conflicts, and missing evidence clearly.
 5. Cite the concept paths that support the answer.
 

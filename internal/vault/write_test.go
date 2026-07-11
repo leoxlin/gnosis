@@ -191,6 +191,86 @@ vault_root = "."
 	}
 }
 
+func TestWriteDocumentUpdatesExistingLocalIdentityAtItsCurrentPath(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, `[vault]
+vault_name = "Local"
+vault_root = "."
+`)
+	write(t, root, "concepts/note.md", `---
+type: Concept Type
+title: Note
+path: notes
+---
+`)
+	write(t, root, "notes/original-name.md", `---
+type: Note
+title: Existing Note
+---
+
+# Before
+`)
+
+	content := []byte(`---
+type: Note
+title: Existing Note
+---
+
+# After
+`)
+	path, err := WriteDocument(root, "Note", "Existing Note", content, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantPath := filepath.Join(root, "notes", "original-name.md")
+	if path != wantPath {
+		t.Fatalf("path = %q, want %q", path, wantPath)
+	}
+	got, err := os.ReadFile(wantPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(content) {
+		t.Fatalf("content = %q, want %q", got, content)
+	}
+	if _, err := os.Stat(filepath.Join(root, "notes", "existing-note.md")); !os.IsNotExist(err) {
+		t.Fatalf("slug path should not exist: %v", err)
+	}
+}
+
+func TestWriteDocumentUsesBundledConceptTypePath(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, `[vault]
+vault_name = "Local"
+vault_root = "."
+`)
+	content := []byte(`---
+type: Gnosis Decision
+title: Keep Commands Canonical
+description: Use the documented command form.
+---
+
+# Decision
+
+Use documented commands.
+
+# Why
+
+One form is easier to maintain.
+`)
+	path, err := WriteDocument(root, "Gnosis Decision", "Keep Commands Canonical", content, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantPath := filepath.Join(root, "gnosis", "decisions", "keep-commands-canonical.md")
+	if path != wantPath {
+		t.Fatalf("path = %q, want %q", path, wantPath)
+	}
+	if _, err := os.Stat(wantPath); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestWriteGeneratedFileSkipsUnchangedContent(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "index.md")
 	if err := os.WriteFile(path, []byte("same"), 0o644); err != nil {

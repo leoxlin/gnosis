@@ -264,9 +264,14 @@ vault_root = "."
 	for _, document := range documents {
 		byID[document.ID] = struct{}{}
 	}
-	for _, id := range []string{"concepts/gnosis-process.md", "concepts/gnosis-decision.md", "concepts/gnosis-directive.md", "concepts/gnosis-purpose.md", "gnosis/processes/query-vault.md", "gnosis/processes/verification-before-completion.md"} {
+	for _, id := range []string{"concepts/gnosis-process.md", "concepts/gnosis-decision.md", "concepts/gnosis-directive.md", "concepts/gnosis-purpose.md", "gnosis/processes/code-review.md", "gnosis/processes/execute-directive.md", "gnosis/processes/query-vault.md", "gnosis/processes/verification-before-completion.md"} {
 		if _, exists := byID[id]; !exists {
 			t.Fatalf("documents missing %s: %+v", id, documents)
+		}
+	}
+	for _, id := range []string{"gnosis/processes/executing-plans.md", "gnosis/processes/ingest-concept.md", "gnosis/processes/receiving-code-review.md", "gnosis/processes/requesting-code-review.md", "gnosis/processes/subagent-driven-development.md", "gnosis/processes/using-gnosis-forge.md"} {
+		if _, exists := byID[id]; exists {
+			t.Fatalf("documents include retired process %s: %+v", id, documents)
 		}
 	}
 	if _, exists := byID["documentation/basic-usage.md"]; exists {

@@ -2,6 +2,7 @@
 type: Concept Type
 title: Gnosis Directive
 description: An explicitly requested durable implementation handoff.
+path: gnosis/directives
 ---
 
 # Gnosis Directive

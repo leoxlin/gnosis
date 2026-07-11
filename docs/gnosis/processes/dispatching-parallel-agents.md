@@ -3,7 +3,7 @@ type: Gnosis Process
 title: dispatching-parallel-agents
 description: Use when two or more problem domains can be investigated or changed without shared state, overlapping files, or sequential dependencies.
 invocation: model
-effects: [workspace-write]
+effects: [vault-write, workspace-write]
 relationships:
   - type: instance_of
     target: ../../concepts/gnosis-process.md
@@ -31,7 +31,7 @@ Keep related failures, exploratory diagnosis, shared-state changes, and sequenti
 ## Process
 
 1. Partition work by causal and ownership boundaries. For each candidate pair, verify that neither needs the other's result and that their edits or resources cannot conflict.
-2. Create one focused, self-contained brief per domain. Include the exact goal, scope, evidence, constraints, relevant knowledge paths, allowed files or resources, required verification, and report contract.
+2. Create one focused, self-contained brief per domain. Include the exact goal, scope, evidence, constraints, relevant knowledge paths, allowed files or resources, required verification, report contract, and every governing process's exact URI for invocation with `gnosis process invoke --id '<process URI>' --pretty`.
 3. Dispatch all independent briefs concurrently. Use separate workspaces for modifying agents; read-only investigations may share a checkout.
 4. Require each agent to report root cause or implementation, files changed, commands and results, unresolved concerns, and the evidence supporting its conclusion.
 5. Review every returned artifact and diff independently. Check for overlap or incompatible assumptions before integrating.
