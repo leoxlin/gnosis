@@ -59,8 +59,8 @@ func TestRunRejectsUnexpectedArguments(t *testing.T) {
 		{"version", "extra"},
 		{"validate", "extra"},
 		{"setup", "extra"},
-		{"query", "one", "two"},
-		{"graph-query", "one", "two"},
+		{"query", "search", "one", "two"},
+		{"query", "graph", "one", "two"},
 	} {
 		t.Run(strings.Join(args, "_"), func(t *testing.T) {
 			var stdout bytes.Buffer
@@ -79,8 +79,8 @@ func TestRunGraphQueryEmitsCompactAndPrettyJSON(t *testing.T) {
 		name string
 		args []string
 	}{
-		{name: "compact", args: []string{"graph-query", "-vault", root, "transformer"}},
-		{name: "pretty", args: []string{"graph-query", "-vault", root, "-pretty", "transformer"}},
+		{name: "compact", args: []string{"query", "graph", "-vault", root, "transformer"}},
+		{name: "pretty", args: []string{"query", "graph", "-vault", root, "-pretty", "transformer"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var stdout bytes.Buffer
@@ -127,7 +127,7 @@ func TestRunQueryUsesCompactTextAndOptionalJSON(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"query", "-vault", root, "transformer"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"query", "search", "-vault", root, "transformer"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(stdout.String(), "answer_type: direct") ||
@@ -140,7 +140,7 @@ func TestRunQueryUsesCompactTextAndOptionalJSON(t *testing.T) {
 	}
 
 	stdout.Reset()
-	if err := run([]string{"query", "-vault", root, "-pretty", "Transformer Architecture"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"query", "search", "-vault", root, "-pretty", "Transformer Architecture"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	var result struct {
@@ -161,10 +161,10 @@ func TestRunQueryValidatesQuestionAndBounds(t *testing.T) {
 		args []string
 		want string
 	}{
-		{args: []string{"query", "-vault", root}, want: "missing question"},
-		{args: []string{"query", "-vault", root, "-top", "0", "query"}, want: "-top"},
-		{args: []string{"query", "-vault", root, "-max-read", "-1", "query"}, want: "-max-read"},
-		{args: []string{"graph-query", "-vault", root, "-depth", "0", "query"}, want: "-depth"},
+		{args: []string{"query", "search", "-vault", root}, want: "missing question"},
+		{args: []string{"query", "search", "-vault", root, "-top", "0", "query"}, want: "-top"},
+		{args: []string{"query", "search", "-vault", root, "-max-read", "-1", "query"}, want: "-max-read"},
+		{args: []string{"query", "graph", "-vault", root, "-depth", "0", "query"}, want: "-depth"},
 	} {
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
@@ -185,7 +185,7 @@ func TestRunQueryIsReadOnly(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"graph-query", "-vault", root, "transformer"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"query", "graph", "-vault", root, "transformer"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	after, err := os.ReadFile(path)

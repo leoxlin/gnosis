@@ -49,7 +49,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	}
 	command.SetOut(stdout)
 	command.SetErr(stderr)
-	command.AddCommand(newSetupCommand(stdout), newIndexCommand(stdout), newValidateCommand(stdout, stderr), newQueryCommand(stdout), newGraphQueryCommand(stdout))
+	command.AddCommand(newSetupCommand(stdout), newIndexCommand(stdout), newValidateCommand(stdout, stderr), newQueryCommand(stdout))
 	command.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "Print the gnosis version",
@@ -62,13 +62,23 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 }
 
 func newQueryCommand(stdout io.Writer) *cobra.Command {
+	command := &cobra.Command{
+		Use:   "query",
+		Short: "Query the vault",
+		Args:  noArgs("query"),
+	}
+	command.AddCommand(newSearchQueryCommand(stdout), newGraphQueryCommand(stdout))
+	return command
+}
+
+func newSearchQueryCommand(stdout io.Writer) *cobra.Command {
 	var vaultPath string
 	var top, maxRead, depth int
 	var jsonOutput, pretty bool
 	command := &cobra.Command{
-		Use:   "query [flags] <question>",
+		Use:   "search [flags] <question>",
 		Short: "Find relevant vault pages for a question",
-		Args:  questionArgs("query"),
+		Args:  questionArgs("query search"),
 		RunE: func(_ *cobra.Command, args []string) error {
 			return runQuery(vaultPath, top, maxRead, depth, jsonOutput, pretty, args[0], stdout)
 		},
@@ -88,9 +98,9 @@ func newGraphQueryCommand(stdout io.Writer) *cobra.Command {
 	var top, maxRead, depth int
 	var pretty bool
 	command := &cobra.Command{
-		Use:   "graph-query [flags] <question>",
+		Use:   "graph [flags] <question>",
 		Short: "Query the vault and emit graph-aware JSON",
-		Args:  questionArgs("graph-query"),
+		Args:  questionArgs("query graph"),
 		RunE: func(_ *cobra.Command, args []string) error {
 			return runGraphQuery(vaultPath, top, maxRead, depth, pretty, args[0], stdout)
 		},
@@ -106,7 +116,7 @@ func newGraphQueryCommand(stdout io.Writer) *cobra.Command {
 
 func runQuery(vaultPath string, top, maxRead, depth int, jsonOutput, pretty bool, question string, stdout io.Writer) error {
 	if err := validateQueryOptions(top, maxRead, depth); err != nil {
-		return fmt.Errorf("query: %w", err)
+		return fmt.Errorf("query search: %w", err)
 	}
 
 	result, err := queryVault(vaultPath, question, search.QueryOptions{
@@ -126,7 +136,7 @@ func runQuery(vaultPath string, top, maxRead, depth int, jsonOutput, pretty bool
 
 func runGraphQuery(vaultPath string, top, maxRead, depth int, pretty bool, question string, stdout io.Writer) error {
 	if err := validateQueryOptions(top, maxRead, depth); err != nil {
-		return fmt.Errorf("graph-query: %w", err)
+		return fmt.Errorf("query graph: %w", err)
 	}
 
 	result, err := queryVault(vaultPath, question, search.QueryOptions{
