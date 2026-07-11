@@ -328,7 +328,7 @@ func TestRunConceptsValidatesArgumentsAndType(t *testing.T) {
 func queryTestVault(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
-	writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_dirs = [\".\"]\n")
+	writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_root = \".\"\n")
 	writeTestFile(t, root, "transformer.md", `---
 type: Concept
 title: Transformer Architecture
@@ -355,7 +355,7 @@ description: Weighted token lookup.
 func TestRunValidateRoutesDiagnostics(t *testing.T) {
 	t.Run("warnings", func(t *testing.T) {
 		root := t.TempDir()
-		writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_dirs = [\".\"]\n")
+		writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_root = \".\"\n")
 		writeTestFile(t, root, "index.md", "# Index\n\n[Log](log.md)\n")
 		writeTestFile(t, root, "log.md", "# Log\n\n## 2026-07-09\n")
 		writeTestFile(t, root, "note.md", "---\ntype: Note\n---\n\n# Note\n")
@@ -375,7 +375,7 @@ func TestRunValidateRoutesDiagnostics(t *testing.T) {
 
 	t.Run("errors", func(t *testing.T) {
 		root := t.TempDir()
-		writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_dirs = [\".\"]\n")
+		writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_root = \".\"\n")
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
 		err := run([]string{"validate", "-vault", root}, &stdout, &stderr)
@@ -445,7 +445,7 @@ func TestRunScaffoldAndIndexHonorDisabledNavigation(t *testing.T) {
 	root := t.TempDir()
 	writeTestFile(t, root, "gnosis.toml", `[vault]
 vault_name = "Test"
-vault_dirs = ["."]
+vault_root = "."
 vault_index = false
 vault_log = false
 `)

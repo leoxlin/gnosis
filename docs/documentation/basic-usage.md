@@ -89,21 +89,20 @@ mise run test    # run all Go tests
 
 Every standalone gnosis vault has a `gnosis.toml`. `gnosis` searches for it from
 the requested path up through its parent directories. A standalone vault declares
-its name and one or more local knowledge directories:
+its name and one local knowledge root:
 
 ```toml
 [vault]
 vault_name = "my-vault"
-vault_dirs = ["docs"]
+vault_root = "docs"
 link_format = "relative"
 link_format_strict = false
 vault_index = true
 vault_log = true
 ```
 
-`link_format` must be `relative` or `absolute`. Vault directories must be
-non-empty, unique relative paths contained by the directory holding
-`gnosis.toml`.
+`link_format` must be `relative` or `absolute`. `vault_root` must be a non-empty
+relative path contained by the directory holding `gnosis.toml`.
 `vault_index` and `vault_log` default to `true`. When disabled, scaffold does not
 create the corresponding files and validation does not require them; `gnosis index` is a successful no-op when `vault_index` is false. Changing
 an option to false does not delete existing files. Unknown settings and unsafe

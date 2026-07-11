@@ -25,10 +25,10 @@ type Config struct {
 }
 
 // VaultConfig holds the local vault settings and its imports. A configuration
-// with no name or directories is an import-only workspace.
+// with no name or root is an import-only workspace.
 type VaultConfig struct {
 	Name             string       `toml:"vault_name"`
-	Dirs             []string     `toml:"vault_dirs"`
+	Root             string       `toml:"vault_root"`
 	Imports          VaultImports `toml:"imports"`
 	LinkFormat       string       `toml:"link_format"`
 	LinkFormatStrict bool         `toml:"link_format_strict"`
@@ -79,10 +79,10 @@ func (c Config) IsStrict() bool     { return c.Vault.LinkFormatStrict }
 func (c Config) IndexEnabled() bool { return c.Vault.VaultIndex }
 func (c Config) LogEnabled() bool   { return c.Vault.VaultLog }
 func (c Config) HasLocalVault() bool {
-	return strings.TrimSpace(c.Vault.Name) != "" || len(c.Vault.Dirs) > 0
+	return strings.TrimSpace(c.Vault.Name) != "" || strings.TrimSpace(c.Vault.Root) != ""
 }
 
-// LoadConfig resolves every local directory that is readable from root.
+// LoadConfig resolves every vault root readable from root.
 func LoadConfig(root string) (Config, []string, error) {
 	resolution, err := ResolveConfig(root)
 	if err != nil {
@@ -92,7 +92,7 @@ func LoadConfig(root string) (Config, []string, error) {
 }
 
 // ResolveConfig finds the nearest gnosis.toml and resolves its local vault
-// directories followed by recursive imports in declared order.
+// root followed by recursive imports in declared order.
 func ResolveConfig(root string) (ConfigResolution, error) {
 	absolute, err := filepath.Abs(root)
 	if err != nil {
@@ -115,7 +115,7 @@ func ResolveConfig(root string) (ConfigResolution, error) {
 		return resolution, err
 	}
 	if len(resolution.Sources) == 0 {
-		return resolution, fmt.Errorf("%s does not define local vault directories or imports", filepath.Join(configRoot, "gnosis.toml"))
+		return resolution, fmt.Errorf("%s does not define a local vault root or imports", filepath.Join(configRoot, "gnosis.toml"))
 	}
 	return resolution, nil
 }
@@ -167,16 +167,16 @@ func resolveVault(root string, resolution *ConfigResolution, seen, stack map[str
 	defer delete(stack, root)
 	seen[root] = struct{}{}
 
-	dirs, err := resolveVaultDirs(config, root)
-	if err != nil {
-		return fmt.Errorf("validate %s: %w", filepath.Join(root, "gnosis.toml"), err)
-	}
-	if root == resolution.Root {
-		resolution.LocalVaultRoots = append(resolution.LocalVaultRoots, dirs...)
-	}
-	for _, dir := range dirs {
-		resolution.VaultRoots = append(resolution.VaultRoots, dir)
-		resolution.Sources = append(resolution.Sources, VaultSource{Path: dir, VaultRoot: root, Config: config})
+	if config.HasLocalVault() {
+		vaultRoot, err := resolveVaultRoot(config, root)
+		if err != nil {
+			return fmt.Errorf("validate %s: %w", filepath.Join(root, "gnosis.toml"), err)
+		}
+		if root == resolution.Root {
+			resolution.LocalVaultRoots = append(resolution.LocalVaultRoots, vaultRoot)
+		}
+		resolution.VaultRoots = append(resolution.VaultRoots, vaultRoot)
+		resolution.Sources = append(resolution.Sources, VaultSource{Path: vaultRoot, VaultRoot: root, Config: config})
 	}
 
 	for i, importRef := range config.Vault.Imports.Vaults {
@@ -193,16 +193,16 @@ func resolveVault(root string, resolution *ConfigResolution, seen, stack map[str
 
 func validateConfig(config Config, root string) error {
 	if !config.HasLocalVault() && len(config.Vault.Imports.Vaults) == 0 {
-		return fmt.Errorf("[vault] must define vault_name and vault_dirs, or vault.imports must list a vault")
+		return fmt.Errorf("[vault] must define vault_name and vault_root, or vault.imports must list a vault")
 	}
 	if config.HasLocalVault() {
 		if strings.TrimSpace(config.Vault.Name) == "" {
 			return fmt.Errorf("vault.vault_name must not be empty")
 		}
-		if len(config.Vault.Dirs) == 0 {
-			return fmt.Errorf("vault.vault_dirs must not be empty")
+		if strings.TrimSpace(config.Vault.Root) == "" {
+			return fmt.Errorf("vault.vault_root must not be empty")
 		}
-		if _, err := resolveVaultDirs(config, root); err != nil {
+		if _, err := resolveVaultRoot(config, root); err != nil {
 			return err
 		}
 		switch config.Vault.LinkFormat {
@@ -219,31 +219,23 @@ func validateConfig(config Config, root string) error {
 	return nil
 }
 
-func resolveVaultDirs(config Config, root string) ([]string, error) {
-	dirs := make([]string, 0, len(config.Vault.Dirs))
-	seen := make(map[string]struct{}, len(config.Vault.Dirs))
-	for i, rel := range config.Vault.Dirs {
-		if strings.TrimSpace(rel) == "" {
-			return nil, fmt.Errorf("vault.vault_dirs[%d] must not be empty", i)
-		}
-		if filepath.IsAbs(rel) {
-			return nil, fmt.Errorf("vault.vault_dirs[%d] must be relative: %q", i, rel)
-		}
-		resolved := filepath.Clean(filepath.Join(root, rel))
-		fromRoot, err := filepath.Rel(root, resolved)
-		if err != nil {
-			return nil, fmt.Errorf("resolve vault.vault_dirs[%d] %q: %w", i, rel, err)
-		}
-		if fromRoot == ".." || strings.HasPrefix(fromRoot, ".."+string(filepath.Separator)) {
-			return nil, fmt.Errorf("vault.vault_dirs[%d] escapes the configuration directory: %q", i, rel)
-		}
-		if _, exists := seen[resolved]; exists {
-			return nil, fmt.Errorf("vault.vault_dirs[%d] duplicates another directory: %q", i, rel)
-		}
-		seen[resolved] = struct{}{}
-		dirs = append(dirs, resolved)
+func resolveVaultRoot(config Config, root string) (string, error) {
+	rel := config.Vault.Root
+	if strings.TrimSpace(rel) == "" {
+		return "", fmt.Errorf("vault.vault_root must not be empty")
 	}
-	return dirs, nil
+	if filepath.IsAbs(rel) {
+		return "", fmt.Errorf("vault.vault_root must be relative: %q", rel)
+	}
+	resolved := filepath.Clean(filepath.Join(root, rel))
+	fromRoot, err := filepath.Rel(root, resolved)
+	if err != nil {
+		return "", fmt.Errorf("resolve vault.vault_root %q: %w", rel, err)
+	}
+	if fromRoot == ".." || strings.HasPrefix(fromRoot, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("vault.vault_root escapes the configuration directory: %q", rel)
+	}
+	return resolved, nil
 }
 
 func resolveImport(root, value string) (string, error) {
@@ -296,7 +288,7 @@ func writeVaultConfig(root, name string, disableIndex, disableLog, force bool) (
 	}
 	contents := fmt.Sprintf(`[vault]
 vault_name = %s
-vault_dirs = ["."]
+vault_root = "."
 link_format = "relative"
 link_format_strict = false
 vault_index = %t

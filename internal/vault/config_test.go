@@ -14,23 +14,21 @@ func TestResolveConfigRequiresGnosisToml(t *testing.T) {
 	}
 }
 
-func TestResolveConfigReadsOrderedLocalDirectories(t *testing.T) {
+func TestResolveConfigReadsLocalRoot(t *testing.T) {
 	root := t.TempDir()
-	for _, dir := range []string{"docs", "notes"} {
-		if err := os.Mkdir(filepath.Join(root, dir), 0o755); err != nil {
-			t.Fatal(err)
-		}
+	if err := os.Mkdir(filepath.Join(root, "docs"), 0o755); err != nil {
+		t.Fatal(err)
 	}
 	writeConfig(t, root, `[vault]
 vault_name = "Local"
-vault_dirs = ["docs", "notes"]
+vault_root = "docs"
 `)
 
 	resolution, err := ResolveConfig(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{filepath.Join(root, "docs"), filepath.Join(root, "notes")}
+	want := []string{filepath.Join(root, "docs")}
 	if strings.Join(resolution.VaultRoots, ",") != strings.Join(want, ",") {
 		t.Fatalf("vault roots = %v, want %v", resolution.VaultRoots, want)
 	}
@@ -47,12 +45,12 @@ func TestResolveConfigRecursivelyImportsVaultsInOrder(t *testing.T) {
 		}
 		writeConfig(t, root, `[vault]
 vault_name = "`+filepath.Base(root)+`"
-vault_dirs = ["."]
+vault_root = "."
 `)
 	}
 	writeConfig(t, first, `[vault]
 vault_name = "first"
-vault_dirs = ["."]
+vault_root = "."
 
 [vault.imports]
 vaults = ["../third"]
@@ -68,6 +66,19 @@ vaults = ["first", "second"]
 	want := []string{first, third, second}
 	if strings.Join(resolution.VaultRoots, ",") != strings.Join(want, ",") {
 		t.Fatalf("vault roots = %v, want %v", resolution.VaultRoots, want)
+	}
+}
+
+func TestResolveConfigRejectsDeprecatedVaultDirs(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, `[vault]
+vault_name = "Local"
+vault_dirs = ["docs"]
+`)
+
+	_, err := ResolveConfig(root)
+	if err == nil {
+		t.Fatalf("error = %v", err)
 	}
 }
 

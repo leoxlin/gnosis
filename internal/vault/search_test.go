@@ -7,11 +7,11 @@ import (
 	"testing"
 )
 
-func TestSearchSourceLoadsConfiguredRootsWithStableIDs(t *testing.T) {
+func TestSearchSourceLoadsConfiguredRootWithStableIDs(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]
 vault_name = "Test"
-vault_dirs = ["docs", "notes"]
+vault_root = "docs"
 vault_index = false
 vault_log = false
 `)
@@ -40,14 +40,6 @@ summary: Summary fallback.
 
 [Concept](/concept.md#details)
 `)
-	write(t, root, "notes/concept.md", `---
-type: Note
-title: Personal Concept
-description: A separate page with the same filename.
----
-
-# Personal Concept
-`)
 	write(t, root, "docs/index.md", "# Index\n")
 	write(t, root, "docs/log.md", "# Log\n")
 	write(t, root, "docs/.obsidian/hidden.md", `---
@@ -73,7 +65,7 @@ type: Hidden
 		}
 	}
 	if len(documents) != 2 {
-		t.Fatalf("documents = %+v, want first vault to override notes/concept.md", documents)
+		t.Fatalf("documents = %+v, want documents from the configured root", documents)
 	}
 	concept := documents[byID["concept.md"]]
 	if concept.Description != "A folded description." {
@@ -97,7 +89,7 @@ type: Hidden
 	}
 }
 
-func TestSearchSourcePrefersLocalDirectoriesOverImportedVaults(t *testing.T) {
+func TestSearchSourcePrefersLocalRootOverImportedVaults(t *testing.T) {
 	workspace := t.TempDir()
 	imported := filepath.Join(workspace, "imported")
 	if err := os.MkdirAll(filepath.Join(workspace, "local"), 0o755); err != nil {
@@ -108,14 +100,14 @@ func TestSearchSourcePrefersLocalDirectoriesOverImportedVaults(t *testing.T) {
 	}
 	writeConfig(t, workspace, `[vault]
 vault_name = "Workspace"
-vault_dirs = ["local"]
+vault_root = "local"
 
 [vault.imports]
 vaults = ["imported"]
 `)
 	writeConfig(t, imported, `[vault]
 vault_name = "Imported"
-vault_dirs = ["."]
+vault_root = "."
 `)
 	write(t, workspace, "local/article.md", "---\ntype: Note\ntitle: Local\n---\n")
 	write(t, imported, "article.md", "---\ntype: Note\ntitle: Imported\n---\n")
