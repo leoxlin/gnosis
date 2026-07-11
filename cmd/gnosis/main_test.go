@@ -249,6 +249,82 @@ title: Transformer Architecture
 	}
 }
 
+func TestRunConceptsPreviewsConceptTypesAndConcepts(t *testing.T) {
+	root := queryTestVault(t)
+	writeTestFile(t, root, "concept-type.md", `---
+type: Concept Type
+title: Concept
+description: A reusable knowledge record.
+---
+
+# Concept
+`)
+	writeTestFile(t, root, "pattern-type.md", `---
+type: Concept Type
+title: Pattern
+---
+
+# Pattern
+`)
+	writeTestFile(t, root, "pattern.md", `---
+type: Pattern
+title: Adapter Pattern
+description: Decouples an interface from its implementation.
+---
+
+# Adapter Pattern
+`)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if err := run([]string{"concepts", "-vault", root}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if stdout.String() != "Type: Concept\nDescription: A reusable knowledge record.\n\nType: Pattern\nDescription: Pattern\n\n" {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+
+	stdout.Reset()
+	if err := run([]string{"concepts", "-vault", root, "-type", "Concept"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), "Title: Attention Mechanism\nDescription: Weighted token lookup.\n") ||
+		!strings.Contains(stdout.String(), "Title: Transformer Architecture\nDescription: Self-attention model.\n") ||
+		strings.Contains(stdout.String(), "Path:") ||
+		strings.Contains(stdout.String(), "Self-attention details live only in the body") {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+}
+
+func TestRunConceptsValidatesArgumentsAndType(t *testing.T) {
+	root := queryTestVault(t)
+	for _, test := range []struct {
+		args []string
+		want string
+	}{
+		{args: []string{"concepts", "extra"}, want: "unexpected argument"},
+		{args: []string{"concepts", "-vault", root, "-type", "Missing"}, want: "no concepts with type"},
+	} {
+		t.Run(strings.Join(test.args, "_"), func(t *testing.T) {
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			err := run(test.args, &stdout, &stderr)
+			if strings.Contains(test.want, "no concepts") {
+				if err != nil || !strings.Contains(stdout.String(), test.want) {
+					t.Fatalf("stdout = %q error = %v", stdout.String(), err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
 func queryTestVault(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()

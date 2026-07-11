@@ -1,6 +1,4 @@
-// Package search provides source-independent document retrieval and graph
-// traversal primitives.
-package search
+package vault
 
 import (
 	"math"
@@ -19,9 +17,9 @@ const (
 	bm25B              = 0.75
 )
 
-// Document is the source-independent unit indexed by a Retriever. ID must be
-// stable and unique within the loaded source set. Links contain other document
-// IDs, not filesystem paths.
+// Document is a vault page indexed for retrieval. ID must be stable and unique
+// within the loaded vault. Links contain other document IDs, not filesystem
+// paths.
 type Document struct {
 	ID          string
 	Title       string
@@ -33,14 +31,7 @@ type Document struct {
 	Links       []string
 }
 
-// Source loads documents for retrieval. Implementations may read vaults,
-// worktrees, or other knowledge stores.
-type Source interface {
-	Documents() ([]Document, error)
-}
-
-// Retriever ranks documents without prescribing how they are stored or
-// indexed.
+// Retriever ranks vault documents.
 type Retriever interface {
 	Search(query string, limit int) []Hit
 }
@@ -78,8 +69,8 @@ type Candidate struct {
 	Score       float64 `json:"score"`
 }
 
-// Result is the stable response shared by query and graph-query.
-type Result struct {
+// QueryResult is the stable response shared by query and graph-query.
+type QueryResult struct {
 	AnswerType AnswerType  `json:"answer_type"`
 	Candidates []Candidate `json:"candidates"`
 	Path       []string    `json:"path"`
@@ -246,10 +237,10 @@ func (e *Engine) Search(query string, limit int) []Hit {
 }
 
 // Query performs retrieval and optional bounded path traversal.
-func (e *Engine) Query(question string, options QueryOptions) Result {
+func (e *Engine) Query(question string, options QueryOptions) QueryResult {
 	options = normalizedOptions(options)
 	answerType, endpoints := classifyQuestion(question)
-	result := Result{
+	result := QueryResult{
 		AnswerType: answerType,
 		Candidates: []Candidate{},
 		Path:       []string{},

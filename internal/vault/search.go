@@ -6,12 +6,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"gnosis/internal/search"
 )
 
-// SearchSource adapts configured gnosis vault roots to source-independent
-// search documents.
+// SearchSource reads configured gnosis vault roots into search documents.
 type SearchSource struct {
 	resolution ConfigResolution
 }
@@ -49,11 +46,11 @@ func NewSearchSource(root string) (*SearchSource, error) {
 type searchPage struct {
 	root     string
 	path     string
-	document search.Document
+	document Document
 }
 
 // Documents reads live concept files from every configured vault root.
-func (s *SearchSource) Documents() ([]search.Document, error) {
+func (s *SearchSource) Documents() ([]Document, error) {
 	pages, err := s.pages()
 	if err != nil {
 		return nil, err
@@ -97,7 +94,7 @@ func (s *SearchSource) Documents() ([]search.Document, error) {
 		sort.Strings(page.document.Links)
 	}
 
-	documents := make([]search.Document, 0, len(pages))
+	documents := make([]Document, 0, len(pages))
 	for _, page := range pages {
 		documents = append(documents, page.document)
 	}
@@ -228,7 +225,7 @@ func (s *SearchSource) readSearchPage(vaultRoot, path string) (*searchPage, erro
 	return &searchPage{
 		root: vaultRoot,
 		path: filepath.Clean(path),
-		document: search.Document{
+		document: Document{
 			ID:          filepath.ToSlash(relative),
 			Title:       strings.TrimSpace(title),
 			Description: strings.TrimSpace(description),

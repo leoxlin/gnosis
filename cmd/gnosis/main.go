@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"gnosis/internal/forge"
-	"gnosis/internal/search"
 	"gnosis/internal/vault"
 )
 
@@ -49,7 +48,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	}
 	command.SetOut(stdout)
 	command.SetErr(stderr)
-	command.AddCommand(newSetupCommand(stdout), newIndexCommand(stdout), newReadCommand(stdout), newValidateCommand(stdout, stderr), newQueryCommand(stdout))
+	command.AddCommand(newSetupCommand(stdout), newIndexCommand(stdout), newReadCommand(stdout), newValidateCommand(stdout, stderr), newQueryCommand(stdout), newConceptsCommand(stdout))
 	command.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "Print the gnosis version",
@@ -58,6 +57,22 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 			fmt.Fprintln(stdout, "gnosis 0.1.0")
 		},
 	})
+	return command
+}
+
+func newConceptsCommand(stdout io.Writer) *cobra.Command {
+	var vaultPath, conceptType string
+	command := &cobra.Command{
+		Use:   "concepts [flags]",
+		Short: "List concept types or concepts of an exact type",
+		Args:  noArgs("concepts"),
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return vault.ListConcepts(vaultPath, conceptType, stdout)
+		},
+	}
+	flags := command.Flags()
+	flags.StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
+	flags.StringVar(&conceptType, "type", "", "exact concept type")
 	return command
 }
 
@@ -154,7 +169,7 @@ func runQuery(vaultPath string, top, maxRead, depth int, jsonOutput, pretty bool
 		return fmt.Errorf("query search: %w", err)
 	}
 
-	result, err := queryVault(vaultPath, question, search.QueryOptions{
+	result, err := queryVault(vaultPath, question, vault.QueryOptions{
 		Top:      top,
 		MaxRead:  maxRead,
 		MaxDepth: depth,
@@ -174,7 +189,7 @@ func runGraphQuery(vaultPath string, top, maxRead, depth int, pretty bool, quest
 		return fmt.Errorf("query graph: %w", err)
 	}
 
-	result, err := queryVault(vaultPath, question, search.QueryOptions{
+	result, err := queryVault(vaultPath, question, vault.QueryOptions{
 		Top:      top,
 		MaxRead:  maxRead,
 		MaxDepth: depth,
@@ -185,17 +200,16 @@ func runGraphQuery(vaultPath string, top, maxRead, depth int, pretty bool, quest
 	return writeQueryJSON(stdout, result, pretty)
 }
 
-func queryVault(root, question string, options search.QueryOptions) (search.Result, error) {
+func queryVault(root, question string, options vault.QueryOptions) (vault.QueryResult, error) {
 	source, err := vault.NewSearchSource(root)
 	if err != nil {
-		return search.Result{}, err
+		return vault.QueryResult{}, err
 	}
-	var documentSource search.Source = source
-	documents, err := documentSource.Documents()
+	documents, err := source.Documents()
 	if err != nil {
-		return search.Result{}, err
+		return vault.QueryResult{}, err
 	}
-	engine := search.New(documents)
+	engine := vault.New(documents)
 	return engine.Query(question, options), nil
 }
 
@@ -212,7 +226,7 @@ func validateQueryOptions(top, maxRead, depth int) error {
 	return nil
 }
 
-func writeQueryJSON(output io.Writer, result search.Result, pretty bool) error {
+func writeQueryJSON(output io.Writer, result vault.QueryResult, pretty bool) error {
 	encoder := json.NewEncoder(output)
 	encoder.SetEscapeHTML(false)
 	if pretty {
@@ -221,7 +235,7 @@ func writeQueryJSON(output io.Writer, result search.Result, pretty bool) error {
 	return encoder.Encode(result)
 }
 
-func writeQueryText(output io.Writer, result search.Result) {
+func writeQueryText(output io.Writer, result vault.QueryResult) {
 	fmt.Fprintf(output, "answer_type: %s\n", result.AnswerType)
 	fmt.Fprintf(output, "index_only: %t\n", result.IndexOnly)
 	if len(result.Candidates) == 0 {
