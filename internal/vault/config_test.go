@@ -77,6 +77,29 @@ link_format_strict = true
 	}
 }
 
+func TestResolveConfigRetainsConfigurationRoot(t *testing.T) {
+	root := t.TempDir()
+	vaultRoot := filepath.Join(root, "docs")
+	child := filepath.Join(vaultRoot, "concepts")
+	if err := os.MkdirAll(child, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeConfig(t, root, `[vault]
+vault_roots = ["docs"]
+`)
+
+	resolution, err := ResolveConfig(child)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolution.Root != root {
+		t.Fatalf("root = %q, want %q", resolution.Root, root)
+	}
+	if len(resolution.VaultRoots) != 1 || resolution.VaultRoots[0] != vaultRoot {
+		t.Fatalf("vault roots = %v, want [%s]", resolution.VaultRoots, vaultRoot)
+	}
+}
+
 func TestLoadConfigWalksUp(t *testing.T) {
 	root := t.TempDir()
 	vault := filepath.Join(root, "docs")

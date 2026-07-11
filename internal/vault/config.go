@@ -25,6 +25,15 @@ type Config struct {
 	Vault VaultConfig `toml:"vault"`
 }
 
+// ConfigResolution records both the configuration directory and the vault
+// roots resolved from it. Root is the requested directory when no gnosis.toml
+// is found.
+type ConfigResolution struct {
+	Config     Config
+	Root       string
+	VaultRoots []string
+}
+
 // VaultConfig holds vault-specific settings.
 type VaultConfig struct {
 	LinkFormat       string   `toml:"link_format"`
@@ -81,6 +90,16 @@ func (c Config) LogEnabled() bool {
 // to the directory containing gnosis.toml. If it is empty or no gnosis.toml is
 // found, the original root argument is returned as the single vault root.
 func LoadConfig(root string) (Config, []string, error) {
+	resolution, err := ResolveConfig(root)
+	if err != nil {
+		return resolution.Config, nil, err
+	}
+	return resolution.Config, resolution.VaultRoots, nil
+}
+
+// ResolveConfig loads gnosis.toml using the same walk-up behavior as
+// LoadConfig while also retaining the directory paths are relative to.
+func ResolveConfig(root string) (ConfigResolution, error) {
 	config := DefaultConfig()
 	root = filepath.Clean(root)
 	start := root
@@ -90,20 +109,24 @@ func LoadConfig(root string) (Config, []string, error) {
 		if info, err := os.Stat(path); err == nil && !info.IsDir() {
 			data, err := os.ReadFile(path)
 			if err != nil {
-				return config, nil, fmt.Errorf("read %s: %w", path, err)
+				return ConfigResolution{Config: config, Root: root}, fmt.Errorf("read %s: %w", path, err)
 			}
 			decoder := toml.NewDecoder(bytes.NewReader(data)).DisallowUnknownFields()
 			if err := decoder.Decode(&config); err != nil {
-				return config, nil, fmt.Errorf("parse %s: %w", path, err)
+				return ConfigResolution{Config: config, Root: root}, fmt.Errorf("parse %s: %w", path, err)
 			}
 			vaultRoots, err := validateConfig(config, root)
 			if err != nil {
-				return config, nil, fmt.Errorf("validate %s: %w", path, err)
+				return ConfigResolution{Config: config, Root: root}, fmt.Errorf("validate %s: %w", path, err)
 			}
 			if len(vaultRoots) == 0 {
 				vaultRoots = []string{root}
 			}
-			return config, vaultRoots, nil
+			return ConfigResolution{
+				Config:     config,
+				Root:       root,
+				VaultRoots: vaultRoots,
+			}, nil
 		}
 
 		parent := filepath.Dir(root)
@@ -113,7 +136,11 @@ func LoadConfig(root string) (Config, []string, error) {
 		root = parent
 	}
 
-	return config, []string{start}, nil
+	return ConfigResolution{
+		Config:     config,
+		Root:       start,
+		VaultRoots: []string{start},
+	}, nil
 }
 
 func validateConfig(config Config, configRoot string) ([]string, error) {

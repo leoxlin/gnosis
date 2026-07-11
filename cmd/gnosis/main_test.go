@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -58,6 +59,8 @@ func TestRunRejectsUnexpectedArguments(t *testing.T) {
 		{"version", "extra"},
 		{"validate", "extra"},
 		{"setup", "extra"},
+		{"query", "one", "two"},
+		{"graph-query", "one", "two"},
 	} {
 		t.Run(strings.Join(args, "_"), func(t *testing.T) {
 			var stdout bytes.Buffer
@@ -68,6 +71,156 @@ func TestRunRejectsUnexpectedArguments(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRunGraphQueryEmitsCompactAndPrettyJSON(t *testing.T) {
+	root := queryTestVault(t)
+	for _, test := range []struct {
+		name string
+		args []string
+	}{
+		{name: "compact", args: []string{"graph-query", "-vault", root, "transformer"}},
+		{name: "pretty", args: []string{"graph-query", "-vault", root, "-pretty", "transformer"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			if err := run(test.args, &stdout, &stderr); err != nil {
+				t.Fatal(err)
+			}
+			if stderr.Len() != 0 {
+				t.Fatalf("stderr = %q", stderr.String())
+			}
+			var result struct {
+				AnswerType string `json:"answer_type"`
+				Candidates []struct {
+					Page        string `json:"page"`
+					Description string `json:"description"`
+				} `json:"candidates"`
+				ShouldRead []string `json:"should_read"`
+				IndexOnly  bool     `json:"index_only"`
+			}
+			if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+				t.Fatalf("invalid JSON %q: %v", stdout.String(), err)
+			}
+			if result.AnswerType != "direct" || len(result.Candidates) == 0 {
+				t.Fatalf("result = %+v", result)
+			}
+			if result.Candidates[0].Page != "transformer.md" {
+				t.Fatalf("top candidate = %+v", result.Candidates[0])
+			}
+			if len(result.ShouldRead) > 3 {
+				t.Fatalf("should_read = %v", result.ShouldRead)
+			}
+			if strings.Contains(stdout.String(), "Self-attention details live only in the body") {
+				t.Fatalf("JSON leaked page body: %q", stdout.String())
+			}
+			if test.name == "pretty" && !strings.Contains(stdout.String(), "\n  \"answer_type\"") {
+				t.Fatalf("stdout is not pretty JSON: %q", stdout.String())
+			}
+		})
+	}
+}
+
+func TestRunQueryUsesCompactTextAndOptionalJSON(t *testing.T) {
+	root := queryTestVault(t)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if err := run([]string{"query", "-vault", root, "transformer"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), "answer_type: direct") ||
+		!strings.Contains(stdout.String(), "Transformer Architecture (transformer.md)") ||
+		strings.Contains(stdout.String(), "Self-attention details live only in the body") {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+
+	stdout.Reset()
+	if err := run([]string{"query", "-vault", root, "-pretty", "Transformer Architecture"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	var result struct {
+		IndexOnly  bool     `json:"index_only"`
+		ShouldRead []string `json:"should_read"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if !result.IndexOnly || len(result.ShouldRead) != 0 {
+		t.Fatalf("result = %+v", result)
+	}
+}
+
+func TestRunQueryValidatesQuestionAndBounds(t *testing.T) {
+	root := queryTestVault(t)
+	for _, test := range []struct {
+		args []string
+		want string
+	}{
+		{args: []string{"query", "-vault", root}, want: "missing question"},
+		{args: []string{"query", "-vault", root, "-top", "0", "query"}, want: "-top"},
+		{args: []string{"query", "-vault", root, "-max-read", "-1", "query"}, want: "-max-read"},
+		{args: []string{"graph-query", "-vault", root, "-depth", "0", "query"}, want: "-depth"},
+	} {
+		var stdout bytes.Buffer
+		var stderr bytes.Buffer
+		err := run(test.args, &stdout, &stderr)
+		if err == nil || !strings.Contains(err.Error(), test.want) {
+			t.Fatalf("args = %v error = %v, want %q", test.args, err, test.want)
+		}
+	}
+}
+
+func TestRunQueryIsReadOnly(t *testing.T) {
+	root := queryTestVault(t)
+	path := filepath.Join(root, "transformer.md")
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if err := run([]string{"graph-query", "-vault", root, "transformer"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Fatal("query changed a vault page")
+	}
+}
+
+func queryTestVault(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	writeTestFile(t, root, "transformer.md", `---
+type: Concept
+title: Transformer Architecture
+description: Self-attention model.
+tags: [deep-learning]
+---
+
+# Transformer Architecture
+
+Self-attention details live only in the body.
+[Attention](attention.md)
+`)
+	writeTestFile(t, root, "attention.md", `---
+type: Concept
+title: Attention Mechanism
+description: Weighted token lookup.
+---
+
+# Attention Mechanism
+`)
+	return root
 }
 
 func TestRunValidateRoutesDiagnostics(t *testing.T) {

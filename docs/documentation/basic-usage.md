@@ -1,7 +1,7 @@
 ---
 type: Documentation
 title: Basic Usage
-description: Install the `gnosis` CLI, configure vault behavior, run core commands, and check repository quality.
+description: Install the `gnosis` CLI, configure vault behavior, query knowledge, run core commands, and check repository quality.
 tags: [documentation, usage, cli, vault]
 timestamp: 2026-07-10T11:28:39Z
 ---
@@ -14,7 +14,7 @@ Authors, maintainers, and agents who need to install the `gnosis` CLI locally an
 
 # Subject
 
-Basic `gnosis` CLI usage for local installation, vault setup, validation, and optional index generation.
+Basic `gnosis` CLI usage for local installation, vault setup, validation, low-context queries, and optional index generation.
 
 # Content
 
@@ -54,6 +54,18 @@ Regenerate directory indexes:
 gnosis index -vault ./my-vault
 ```
 
+Query the live vault with a compact human-readable result:
+
+```bash
+gnosis query -vault ./my-vault "what do I know about rate limiting?"
+```
+
+Get the machine-readable retrieval and graph pre-pass used by agents:
+
+```bash
+gnosis graph-query -vault ./my-vault -pretty "how is rate limiting connected to retries?"
+```
+
 You can also run tasks directly through mise without installing the binary:
 
 ```bash
@@ -82,12 +94,25 @@ create the corresponding files and validation does not require them; `gnosis ind
 an option to false does not delete existing files. Unknown settings and unsafe
 roots are errors.
 
+## Querying
+
+`gnosis query` and `gnosis graph-query` search every configured vault root directly, so results do not depend on `vault_index` and always reflect the current files. Both rank titles, aliases, tags, descriptions, types, paths, and body text while returning only compact metadata by default.
+
+Common options, which must appear before the quoted question, are:
+
+```text
+-top <n>       candidate limit (default 3)
+-max-read <n>  maximum recommended page reads (default 3; zero disables them)
+-depth <n>     maximum link traversal depth (default 3)
+```
+
+`query` prints text unless `-json` or `-pretty` is supplied. `graph-query` always returns JSON; `-pretty` indents it. The JSON object contains `answer_type`, `candidates`, `path`, `should_read`, and `index_only`. Candidate descriptions are bounded and page bodies are never included in command output.
+
+An exact title, alias, or concept-path lookup with a description may return `index_only: true`, meaning an agent can answer without opening the page. Relationship questions return the shortest resolved Markdown-link path within the requested depth. Both commands are read-only and do not update indexes or logs.
+
 ## Output and failures
 
-Changed paths and success summaries are written to standard output. Warnings,
-validation errors, invalid flags, and usage failures are written to standard
-error. Top-level and subcommand help is successful and writes to standard
-output. Commands reject unexpected positional arguments.
+Changed paths, success summaries, and query results are written to standard output. Warnings, validation errors, invalid flags, malformed vault pages, and usage failures are written to standard error. Top-level and subcommand help is successful and writes to standard output. Commands reject unexpected positional arguments; query commands require one non-empty quoted question.
 
 ## Repository checks
 

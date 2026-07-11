@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"strings"
 
 	"gnosis/internal/forge"
+	"gnosis/internal/search"
 	"gnosis/internal/vault"
 )
 
@@ -29,6 +31,10 @@ func run(args []string, stdout, stderr io.Writer) error {
 	}
 
 	switch args[0] {
+	case "query":
+		return runQuery(args[1:], stdout, stderr)
+	case "graph-query":
+		return runGraphQuery(args[1:], stdout, stderr)
 	case "index":
 		return runIndex(args[1:], stdout, stderr)
 	case "validate":
@@ -50,6 +56,126 @@ func run(args []string, stdout, stderr io.Writer) error {
 	default:
 		usage(stderr)
 		return fmt.Errorf("unknown command %q", args[0])
+	}
+}
+
+func runQuery(args []string, stdout, stderr io.Writer) error {
+	fs := newFlagSet("query", "gnosis query [-vault <path>] [-top <n>] [-max-read <n>] [-depth <n>] [-json] [-pretty] <question>", stderr)
+	vaultPath := fs.String("vault", defaultVault, "path to the OKF vault")
+	top := fs.Int("top", 3, "number of candidate pages to return")
+	maxRead := fs.Int("max-read", 3, "maximum number of pages to recommend reading")
+	depth := fs.Int("depth", 3, "maximum graph traversal depth")
+	jsonOutput := fs.Bool("json", false, "emit machine-readable JSON")
+	pretty := fs.Bool("pretty", false, "pretty-print JSON output (implies -json)")
+	question, help, err := parseQuestionFlags(fs, args, stdout)
+	if err != nil || help {
+		return err
+	}
+	if err := validateQueryOptions(*top, *maxRead, *depth); err != nil {
+		return fmt.Errorf("query: %w", err)
+	}
+
+	result, err := queryVault(*vaultPath, question, search.QueryOptions{
+		Top:      *top,
+		MaxRead:  *maxRead,
+		MaxDepth: *depth,
+	})
+	if err != nil {
+		return err
+	}
+	if *jsonOutput || *pretty {
+		return writeQueryJSON(stdout, result, *pretty)
+	}
+	writeQueryText(stdout, result)
+	return nil
+}
+
+func runGraphQuery(args []string, stdout, stderr io.Writer) error {
+	fs := newFlagSet("graph-query", "gnosis graph-query [-vault <path>] [-top <n>] [-max-read <n>] [-depth <n>] [-pretty] <question>", stderr)
+	vaultPath := fs.String("vault", defaultVault, "path to the OKF vault")
+	top := fs.Int("top", 3, "number of candidate pages to return")
+	maxRead := fs.Int("max-read", 3, "maximum number of pages to recommend reading")
+	depth := fs.Int("depth", 3, "maximum graph traversal depth")
+	pretty := fs.Bool("pretty", false, "pretty-print JSON output")
+	question, help, err := parseQuestionFlags(fs, args, stdout)
+	if err != nil || help {
+		return err
+	}
+	if err := validateQueryOptions(*top, *maxRead, *depth); err != nil {
+		return fmt.Errorf("graph-query: %w", err)
+	}
+
+	result, err := queryVault(*vaultPath, question, search.QueryOptions{
+		Top:      *top,
+		MaxRead:  *maxRead,
+		MaxDepth: *depth,
+	})
+	if err != nil {
+		return err
+	}
+	return writeQueryJSON(stdout, result, *pretty)
+}
+
+func queryVault(root, question string, options search.QueryOptions) (search.Result, error) {
+	source, err := vault.NewSearchSource(root)
+	if err != nil {
+		return search.Result{}, err
+	}
+	var documentSource search.Source = source
+	documents, err := documentSource.Documents()
+	if err != nil {
+		return search.Result{}, err
+	}
+	engine := search.New(documents)
+	return engine.Query(question, options), nil
+}
+
+func validateQueryOptions(top, maxRead, depth int) error {
+	if top <= 0 {
+		return errors.New("-top must be greater than zero")
+	}
+	if maxRead < 0 {
+		return errors.New("-max-read must be zero or greater")
+	}
+	if depth <= 0 {
+		return errors.New("-depth must be greater than zero")
+	}
+	return nil
+}
+
+func writeQueryJSON(output io.Writer, result search.Result, pretty bool) error {
+	encoder := json.NewEncoder(output)
+	encoder.SetEscapeHTML(false)
+	if pretty {
+		encoder.SetIndent("", "  ")
+	}
+	return encoder.Encode(result)
+}
+
+func writeQueryText(output io.Writer, result search.Result) {
+	fmt.Fprintf(output, "answer_type: %s\n", result.AnswerType)
+	fmt.Fprintf(output, "index_only: %t\n", result.IndexOnly)
+	if len(result.Candidates) == 0 {
+		fmt.Fprintln(output, "no matches")
+		return
+	}
+	fmt.Fprintln(output, "candidates:")
+	for _, candidate := range result.Candidates {
+		fmt.Fprintf(output, "- %s (%s)", candidate.Title, candidate.Page)
+		if candidate.Description != "" {
+			fmt.Fprintf(output, " - %s", candidate.Description)
+		}
+		fmt.Fprintln(output)
+	}
+	if len(result.Path) > 0 {
+		fmt.Fprintln(output, "path:")
+		fmt.Fprintln(output, strings.Join(result.Path, " -> "))
+	}
+	if len(result.ShouldRead) > 0 {
+		fmt.Fprintln(output, "should_read:")
+		for _, page := range result.ShouldRead {
+			fmt.Fprintf(output, "- %s\n", page)
+		}
 	}
 }
 
@@ -205,6 +331,29 @@ func parseFlags(fs *flag.FlagSet, args []string, helpOutput io.Writer) (bool, er
 	return false, nil
 }
 
+func parseQuestionFlags(fs *flag.FlagSet, args []string, helpOutput io.Writer) (string, bool, error) {
+	if len(args) == 1 && (args[0] == "-h" || args[0] == "--help") {
+		fs.SetOutput(helpOutput)
+	}
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return "", true, nil
+		}
+		return "", false, err
+	}
+	if fs.NArg() == 0 {
+		return "", false, fmt.Errorf("%s: missing question", fs.Name())
+	}
+	if fs.NArg() > 1 {
+		return "", false, unexpectedArguments(fs.Name(), fs.Args()[1:])
+	}
+	question := strings.TrimSpace(fs.Arg(0))
+	if question == "" {
+		return "", false, fmt.Errorf("%s: question must not be empty", fs.Name())
+	}
+	return question, false, nil
+}
+
 func unexpectedArguments(command string, args []string) error {
 	return fmt.Errorf("%s: unexpected argument(s): %s", command, strings.Join(args, " "))
 }
@@ -216,5 +365,7 @@ Usage:
   gnosis setup [-vault <path>] [-force] [-concepts]
   gnosis index [-vault <path>]
   gnosis validate [-vault <path>]
+  gnosis query [-vault <path>] [-top <n>] [-max-read <n>] [-depth <n>] [-json] [-pretty] <question>
+  gnosis graph-query [-vault <path>] [-top <n>] [-max-read <n>] [-depth <n>] [-pretty] <question>
   gnosis version`)
 }
