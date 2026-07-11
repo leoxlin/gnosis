@@ -200,7 +200,11 @@ func ReadPage(root, selector string) (Page, error) {
 	if !ok {
 		return Page{}, fmt.Errorf("no document found with ID or URI %q", selector)
 	}
-	return Page{Document: page.document.Ref(), Markdown: string(page.data)}, nil
+	markdown, err := renderDocumentLinks(page, pages)
+	if err != nil {
+		return Page{}, err
+	}
+	return Page{Document: page.document.Ref(), Markdown: markdown}, nil
 }
 
 // DiscoverProcesses ranks only executable process records for a request.
@@ -561,8 +565,9 @@ func validProcessEffect(value string) bool {
 
 func selectPage(pages []*searchPage, selector string) (*searchPage, bool) {
 	selector = strings.TrimSpace(selector)
+	canonical, hasCanonicalURI := canonicalGnosisURI(selector)
 	for _, page := range pages {
-		if page.document.ID == selector || page.document.URI == selector {
+		if page.document.ID == selector || page.document.URI == selector || (hasCanonicalURI && page.document.URI == canonical) {
 			return page, true
 		}
 	}
@@ -576,10 +581,25 @@ func documentURI(vaultName, id string) string {
 	}
 	u := &url.URL{
 		Scheme: "gnosis",
-		Host:   "vault",
-		Path:   path.Join("/", vaultName, id),
+		Host:   vaultName,
+		Path:   path.Join("/", id),
 	}
 	return u.String()
+}
+
+// canonicalGnosisURI normalizes one authority-based gnosis page URI.
+func canonicalGnosisURI(raw string) (string, bool) {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Scheme != "gnosis" || u.Host == "" {
+		return "", false
+	}
+
+	vaultName := u.Host
+	id := strings.TrimPrefix(u.Path, "/")
+	if strings.TrimSpace(id) == "" {
+		return "", false
+	}
+	return documentURI(vaultName, id), true
 }
 
 func documentRevision(data []byte) string {

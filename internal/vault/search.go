@@ -87,7 +87,7 @@ func Read(root, conceptType, title string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	pages, err := source.pages()
+	pages, err := source.resolvedPages()
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,11 @@ func Read(root, conceptType, title string) ([]byte, error) {
 	case 0:
 		return nil, fmt.Errorf("no document found with type %q and title %q", conceptType, title)
 	case 1:
-		return matches[0].data, nil
+		markdown, err := renderDocumentLinks(matches[0], pages)
+		if err != nil {
+			return nil, err
+		}
+		return []byte(markdown), nil
 	default:
 		paths := make([]string, 0, len(matches))
 		for _, page := range matches {
@@ -192,7 +196,7 @@ func (s *SearchSource) appendBundledPages(pages *[]*searchPage, seenPaths, seenI
 			continue
 		}
 		page, err := readSearchData(bundleRoot, path, document.Data, Origin{
-			Vault:      "gnosis",
+			Vault:      "core",
 			Kind:       OriginBundle,
 			Path:       document.Path,
 			Precedence: len(s.resolution.Sources),
@@ -372,6 +376,11 @@ func resolveDocumentTarget(page *searchPage, raw string, pathIDs map[string]stri
 	raw = strings.TrimSpace(raw)
 	if id, exists := uriIDs[raw]; exists {
 		return id
+	}
+	if canonical, ok := canonicalGnosisURI(raw); ok {
+		if id, exists := uriIDs[canonical]; exists {
+			return id
+		}
 	}
 	link, include, err := parseLinkDestination(raw)
 	if err != nil || !include {

@@ -69,6 +69,23 @@ func TestDiscoverAndInvokeProcessRoundTrip(t *testing.T) {
 	}
 }
 
+func TestReadPageAcceptsOnlyCanonicalGnosisURIs(t *testing.T) {
+	root := agentTestVault(t)
+	canonical := "gnosis://agent-test/processes/query-vault.md"
+
+	page, err := ReadPage(root, canonical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Document.URI != canonical {
+		t.Fatalf("URI = %q, want %q", page.Document.URI, canonical)
+	}
+
+	if _, err := ReadPage(root, "gnosis://vault/agent-test/processes/query-vault.md"); err == nil {
+		t.Fatal("ReadPage accepted the retired vault-path URI")
+	}
+}
+
 func TestProcessDiscoveryFiltersNonProcesses(t *testing.T) {
 	root := agentTestVault(t)
 	write(t, root, "docs/references/noisy.md", `---

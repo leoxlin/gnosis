@@ -176,6 +176,32 @@ title: Local using-gnosis
 	}
 }
 
+func TestSearchSourceNamesBundledDocumentsCore(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, `[vault]
+vault_name = "Workspace"
+vault_root = "."
+`)
+
+	source, err := NewSearchSource(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	documents, err := source.Documents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, document := range documents {
+		if document.ID == "documentation/basic-usage.md" {
+			if document.Origin.Vault != "core" || document.URI != "gnosis://core/documentation/basic-usage.md" {
+				t.Fatalf("bundled document = %+v", document)
+			}
+			return
+		}
+	}
+	t.Fatal("missing bundled documentation")
+}
+
 func TestSearchSourceLetsImportsOverrideBundledDocuments(t *testing.T) {
 	workspace := t.TempDir()
 	imported := filepath.Join(workspace, "imported")

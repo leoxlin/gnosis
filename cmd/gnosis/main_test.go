@@ -70,7 +70,7 @@ func TestRunRejectsUnexpectedArguments(t *testing.T) {
 		{"version", "extra"},
 		{"validate", "extra"},
 		{"setup", "extra"},
-		{"read", "extra"},
+		{"read", "first", "second"},
 		{"query", "search", "one", "two"},
 		{"query", "graph", "one", "two"},
 	} {
@@ -78,7 +78,7 @@ func TestRunRejectsUnexpectedArguments(t *testing.T) {
 			var stdout bytes.Buffer
 			var stderr bytes.Buffer
 			err := run(args, &stdout, &stderr)
-			if err == nil || !strings.Contains(err.Error(), "unexpected argument") {
+			if err == nil || (!strings.Contains(err.Error(), "unexpected argument") && !strings.Contains(err.Error(), "gnosis URI")) {
 				t.Fatalf("error = %v", err)
 			}
 		})
@@ -227,8 +227,9 @@ func TestRunReadPrintsExactDocument(t *testing.T) {
 	if err := run([]string{"read", "-vault", root, "-type", "Concept", "-title", "Transformer Architecture"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
-	if stdout.String() != string(want) {
-		t.Fatalf("stdout = %q, want %q", stdout.String(), want)
+	wantRendered := strings.ReplaceAll(string(want), "[Attention](attention.md)", "[Attention](gnosis://Test/attention.md)")
+	if stdout.String() != wantRendered {
+		t.Fatalf("stdout = %q, want %q", stdout.String(), wantRendered)
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q", stderr.String())
@@ -277,8 +278,9 @@ func TestRunReadByIDAsMarkdownAndJSON(t *testing.T) {
 	if err := run([]string{"read", "--vault", root, "--id", "processes/query-vault.md"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
-	if stdout.String() != string(want) {
-		t.Fatalf("stdout = %q, want %q", stdout.String(), want)
+	wantRendered := strings.ReplaceAll(string(want), "[Provenance](../concepts/provenance.md)", "[Provenance](gnosis://Process%20Test/concepts/provenance.md)")
+	if stdout.String() != wantRendered {
+		t.Fatalf("stdout = %q, want %q", stdout.String(), wantRendered)
 	}
 
 	stdout.Reset()
@@ -295,12 +297,64 @@ func TestRunReadByIDAsMarkdownAndJSON(t *testing.T) {
 	if err := json.Unmarshal(stdout.Bytes(), &page); err != nil {
 		t.Fatal(err)
 	}
-	if page.Document.ID != "processes/query-vault.md" || page.Document.URI == "" || page.Markdown != string(want) {
+	if page.Document.ID != "processes/query-vault.md" || page.Document.URI == "" || page.Markdown != wantRendered {
 		t.Fatalf("page = %+v", page)
 	}
 
 	if err := run([]string{"read", "--vault", root, "--id", "processes/query-vault.md", "--type", "Vault Process", "--title", "query-vault"}, &stdout, &stderr); err == nil || !strings.Contains(err.Error(), "cannot be combined") {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestRunReadAcceptsCanonicalURIAndRendersDocumentLinks(t *testing.T) {
+	root := queryTestVault(t)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if err := run([]string{"read", "-vault", root, "gnosis://Test/transformer.md"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), "[Attention](gnosis://Test/attention.md)") {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestRunReadRendersOnlyResolvedMarkdownDocumentLinks(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_root = \".\"\n")
+	writeTestFile(t, root, "source.md", `---
+type: Concept
+title: Source
+---
+
+[Inline](target.md?view=full#section)
+[Reference][target]
+[External](https://example.com/page)
+[Missing](missing.md)
+`+"`[Code](target.md)`"+`
+
+[target]: target.md
+`)
+	writeTestFile(t, root, "target.md", "---\ntype: Concept\ntitle: Target\n---\n")
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if err := run([]string{"read", "-vault", root, "gnosis://Test/source.md"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	got := stdout.String()
+	for _, want := range []string{
+		"[Inline](gnosis://Test/target.md?view=full#section)",
+		"[target]: gnosis://Test/target.md",
+		"[External](https://example.com/page)",
+		"[Missing](missing.md)",
+		"`[Code](target.md)`",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("stdout missing %q: %q", want, got)
+		}
 	}
 }
 
@@ -493,6 +547,9 @@ description: Decouples an interface from its implementation.
 	if !strings.Contains(stdout.String(), "Type: Concept\nDescription: A reusable knowledge record.\n") || !strings.Contains(stdout.String(), "Type: Pattern\nDescription: Pattern\n") || !strings.Contains(stdout.String(), "Type: Vault Process") || !strings.Contains(stdout.String(), "Type: Repository Process") {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
+	if !strings.Contains(stdout.String(), "Link: gnosis://Test/concept-type.md\n") {
+		t.Fatalf("stdout missing concept-type link = %q", stdout.String())
+	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
@@ -501,7 +558,7 @@ description: Decouples an interface from its implementation.
 	if err := run([]string{"concepts", "-vault", root, "-type", "Concept"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(stdout.String(), "Title: Attention Mechanism\nDescription: Weighted token lookup.\n") ||
+	if !strings.Contains(stdout.String(), "Title: Attention Mechanism\nDescription: Weighted token lookup.\nLink: gnosis://Test/attention.md\n") ||
 		!strings.Contains(stdout.String(), "Title: Transformer Architecture\nDescription: Self-attention model.\n") ||
 		strings.Contains(stdout.String(), "Path:") ||
 		strings.Contains(stdout.String(), "Self-attention details live only in the body") {

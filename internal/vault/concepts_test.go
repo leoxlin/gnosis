@@ -39,7 +39,7 @@ description: Weighted token lookup.
 	if err := ListConcepts(root, " Concept ", &output); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := output.String(), "Title: Attention Mechanism\nDescription: Weighted token lookup.\n\n"; got != want {
+	if got, want := output.String(), "Title: Attention Mechanism\nDescription: Weighted token lookup.\nLink: gnosis://Test/concept.md\n\n"; got != want {
 		t.Fatalf("output = %q, want %q", got, want)
 	}
 }

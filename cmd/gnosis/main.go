@@ -91,10 +91,24 @@ func newReadCommand(stdout io.Writer) *cobra.Command {
 	var vaultPath, conceptType, title, id string
 	var jsonOutput, pretty bool
 	command := &cobra.Command{
-		Use:   "read [flags]",
+		Use:   "read [gnosis-uri] [flags]",
 		Short: "Print one exact vault document",
-		Args:  noArgs("read"),
-		RunE: func(_ *cobra.Command, _ []string) error {
+		Args: func(_ *cobra.Command, args []string) error {
+			if len(args) <= 1 {
+				return nil
+			}
+			return fmt.Errorf("read: unexpected argument(s): %s", strings.Join(args[1:], " "))
+		},
+		RunE: func(_ *cobra.Command, args []string) error {
+			if len(args) == 1 {
+				if strings.TrimSpace(id) != "" {
+					return errors.New("read: positional gnosis URI cannot be combined with --id")
+				}
+				if !strings.HasPrefix(strings.TrimSpace(args[0]), "gnosis://") {
+					return errors.New("read: positional argument must be a gnosis URI")
+				}
+				id = args[0]
+			}
 			return runRead(vaultPath, id, conceptType, title, jsonOutput, pretty, stdout)
 		},
 	}

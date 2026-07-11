@@ -11,6 +11,7 @@ import (
 type ConceptTypeSummary struct {
 	Type        string `json:"type"`
 	Description string `json:"description"`
+	URI         string `json:"uri,omitempty"`
 }
 
 // ConceptCatalog is the machine-readable form of the concepts command.
@@ -67,19 +68,22 @@ func ListConcepts(root, conceptType string, output io.Writer) error {
 	}
 	for _, document := range catalog.Concepts {
 		fmt.Fprintf(output, "Title: %s\n", document.Title)
-		fmt.Fprintf(output, "Description: %s\n\n", document.Description)
+		fmt.Fprintf(output, "Description: %s\n", document.Description)
+		fmt.Fprintf(output, "Link: %s\n\n", document.URI)
 	}
 	return nil
 }
 
 func conceptTypeSummaries(documents []Document) []ConceptTypeSummary {
 	descriptions := make(map[string]string)
+	uris := make(map[string]string)
 	types := make(map[string]struct{})
 	for _, document := range documents {
 		if document.Type == "Concept Type" {
 			types[document.Title] = struct{}{}
 			if _, exists := descriptions[document.Title]; !exists {
 				descriptions[document.Title] = document.Description
+				uris[document.Title] = document.URI
 			}
 			continue
 		}
@@ -95,6 +99,7 @@ func conceptTypeSummaries(documents []Document) []ConceptTypeSummary {
 		previews = append(previews, ConceptTypeSummary{
 			Type:        name,
 			Description: description,
+			URI:         uris[name],
 		})
 	}
 	sort.Slice(previews, func(i, j int) bool {
@@ -109,6 +114,10 @@ func writeConceptTypePreviews(output io.Writer, previews []ConceptTypeSummary) {
 		return
 	}
 	for _, preview := range previews {
-		fmt.Fprintf(output, "Type: %s\nDescription: %s\n\n", preview.Type, preview.Description)
+		fmt.Fprintf(output, "Type: %s\nDescription: %s\n", preview.Type, preview.Description)
+		if preview.URI != "" {
+			fmt.Fprintf(output, "Link: %s\n", preview.URI)
+		}
+		fmt.Fprintln(output)
 	}
 }

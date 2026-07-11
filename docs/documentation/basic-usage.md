@@ -82,7 +82,7 @@ Discover a process for an agent request, then invoke the selected exact revision
 
 ```bash
 gnosis process discover -vault ./my-vault -type 'Vault Process' -pretty "answer from this vault"
-gnosis process invoke -vault ./my-vault -id 'gnosis://vault/my-vault/processes/query-vault.md' -pretty
+gnosis process invoke -vault ./my-vault -id 'gnosis://my-vault/processes/query-vault.md' -pretty
 ```
 
 You can also run tasks directly through mise without installing the binary:
@@ -159,10 +159,10 @@ An exact title, alias, or concept-path lookup with a description may return `ind
 
 ```bash
 gnosis read -vault ./my-vault -id 'processes/query-vault.md'
-gnosis read -vault ./my-vault -id 'gnosis://vault/my-vault/processes/query-vault.md' -pretty
+gnosis read -vault ./my-vault 'gnosis://my-vault/processes/query-vault.md' -pretty
 ```
 
-`-json` or `-pretty` with `-id` returns the page identity, origin, revision, and Markdown. Missing or ambiguous selectors are errors.
+`-json` or `-pretty` with a URI or `-id` returns the page identity, origin, revision, and Markdown. `gnosis read gnosis://<vault-name>/<path>` is the direct form. Missing or ambiguous selectors are errors.
 
 ## Agent integration
 
@@ -170,7 +170,7 @@ gnosis exposes one shared agent contract through the CLI and an MCP server. The 
 
 1. `discover_processes` / `gnosis process discover` ranks only exact `Vault Process` and `Repository Process` records. Results contain the selection conditions, invocation mode, possible effects, origin, revision, and stable URI without the full workflow.
 2. `invoke_process` / `gnosis process invoke` loads the required sections and resolved outbound relationships for one exact URI. Invocation is read-only: the agent executes the returned contract under its existing authority and instructions.
-3. `read_page`, `query_knowledge`, `trace_links`, and `find_path` provide exact reads, bounded retrieval, and deterministic directed graph traversal. Their CLI equivalents are `gnosis read -id`, `gnosis query graph`, `gnosis graph neighbors`, and `gnosis graph path`.
+3. `read_page`, `query_knowledge`, `trace_links`, and `find_path` provide exact reads, bounded retrieval, and deterministic directed graph traversal. Their CLI equivalents are `gnosis read`, `gnosis query graph`, `gnosis graph neighbors`, and `gnosis graph path`.
 
 Run the MCP server over standard input and output from a vault or import workspace:
 

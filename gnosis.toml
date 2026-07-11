@@ -1,5 +1,5 @@
 [vault]
-vault_name = "gnosis"
+vault_name = "core"
 vault_root = "docs"
 link_format = "relative"
 link_format_strict = true
