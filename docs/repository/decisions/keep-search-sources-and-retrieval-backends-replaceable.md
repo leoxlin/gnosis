@@ -29,4 +29,4 @@ Vault queries need a small, dependency-free implementation now, but search is ex
 
 - [`gnosis` purpose](../purpose.md)
 - [Bootstrap `gnosis` knowledge first on OKF](bootstrap-knowledge-first.md)
-- [Keep repository context minimal](keep-repository-context-minimal.md)
+- [Consolidate runtime adapters in the `gnosis` plugin](consolidate-runtime-adapters-in-gnosis-plugin.md)

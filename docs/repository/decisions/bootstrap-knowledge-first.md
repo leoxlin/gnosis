@@ -37,5 +37,4 @@ Trade-offs:
 * [Repository Decision](../../concepts/repository-decision.md)
 * [Repository Directive](../../concepts/repository-directive.md)
 * [Repository Process](../../concepts/repository-process.md)
-* [Make repository processes knowledge](make-repository-processes-knowledge.md)
-* [Keep repository context minimal](keep-repository-context-minimal.md)
+* [Consolidate runtime adapters in the `gnosis` plugin](consolidate-runtime-adapters-in-gnosis-plugin.md)
