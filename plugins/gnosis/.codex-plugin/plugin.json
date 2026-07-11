@@ -1,0 +1,35 @@
+{
+  "name": "gnosis",
+  "version": "0.1.0+codex.20260711162607",
+  "description": "Apply gnosis vault and repository processes.",
+  "author": {
+    "name": "Leo Xuzhang Lin",
+    "url": "https://github.com/leoxlin"
+  },
+  "homepage": "https://github.com/leoxlin/gnosis",
+  "repository": "https://github.com/leoxlin/gnosis",
+  "keywords": [
+    "gnosis",
+    "knowledge",
+    "vault",
+    "repository",
+    "processes"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "gnosis",
+    "shortDescription": "Apply vault and repository knowledge.",
+    "longDescription": "Gateway skills that select canonical Vault Process and Repository Process records through gnosis.",
+    "developerName": "Leo Xuzhang Lin",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/leoxlin/gnosis",
+    "defaultPrompt": [
+      "Use using-gnosis-vault to select the right vault process.",
+      "Use using-gnosis-forge to select the right repository process."
+    ]
+  }
+}

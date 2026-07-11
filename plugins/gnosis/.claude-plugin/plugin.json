@@ -1,0 +1,14 @@
+{
+  "name": "gnosis",
+  "displayName": "gnosis",
+  "version": "0.1.0",
+  "description": "Apply gnosis vault and repository processes.",
+  "author": {
+    "name": "Leo Xuzhang Lin",
+    "url": "https://github.com/leoxlin"
+  },
+  "homepage": "https://github.com/leoxlin/gnosis",
+  "repository": "https://github.com/leoxlin/gnosis",
+  "keywords": ["gnosis", "knowledge", "vault", "repository", "processes"],
+  "skills": "./skills/"
+}

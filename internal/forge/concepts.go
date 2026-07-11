@@ -27,7 +27,7 @@ var conceptTemplatesFS embed.FS
 var conceptTemplates = template.Must(template.ParseFS(conceptTemplatesFS, "templates/*.tmpl"))
 
 // Concepts writes the reusable repository concept definitions (purpose,
-// decision, directive, process) used by the gnosis-forge workflow into root/concepts.
+// decision, directive, process) used by the repository workflow into root/concepts.
 // Existing files are left alone unless opts.Force is set.
 func Concepts(root string, opts ConceptOptions) ([]string, error) {
 	root = filepath.Clean(root)

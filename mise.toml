@@ -55,12 +55,12 @@ run = '''
 
 set -eu
 
-skill_sources="plugins/gnosis-vault/skills plugins/gnosis-forge/skills"
+skill_sources="plugins/gnosis/skills"
 skill_targets=".claude/skills .agents/skills"
 
 for target_dir in $skill_targets; do
   mkdir -p "$target_dir"
-  find "$target_dir" -mindepth 1 -maxdepth 1 -xtype l -exec rm {} +
+  find "$target_dir" -mindepth 1 -maxdepth 1 -type l -exec rm {} +
 
   for source_dir in $skill_sources; do
     if [ ! -d "$source_dir" ]; then

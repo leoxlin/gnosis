@@ -4,17 +4,12 @@
     "name": "Leo Xuzhang Lin",
     "email": "me@leoxlin.com"
   },
-  "description": "gnosis plugins for knowledge management and knowledge-driven software development.",
+  "description": "gnosis plugin for knowledge management and knowledge-driven software development.",
   "plugins": [
     {
-      "name": "gnosis-vault",
-      "source": "./plugins/gnosis-vault",
-      "description": "Manage, ingest, query, and maintain gnosis OKF/LLM knowledge vaults."
-    },
-    {
-      "name": "gnosis-forge",
-      "source": "./plugins/gnosis-forge",
-      "description": "Ground software work in repository knowledge and record what the work produces and teaches."
+      "name": "gnosis",
+      "source": "./plugins/gnosis",
+      "description": "Select and apply canonical vault and repository processes through gnosis."
     }
   ]
 }

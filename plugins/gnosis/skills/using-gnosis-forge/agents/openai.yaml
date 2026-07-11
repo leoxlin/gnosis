@@ -1,0 +1,7 @@
+interface:
+  display_name: "Using gnosis forge"
+  short_description: "Select a canonical repository process"
+  default_prompt: "Use $using-gnosis-forge to select and apply the right repository process."
+
+policy:
+  allow_implicit_invocation: false

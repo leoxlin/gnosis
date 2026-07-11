@@ -1,4 +1,0 @@
-interface:
-  display_name: "Refine Purpose"
-  short_description: "Interrogate and refine repository purpose"
-  default_prompt: "Use $refine-purpose to interrogate me and refine this repository's high-level purpose."

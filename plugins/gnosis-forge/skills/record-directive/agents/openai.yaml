@@ -1,7 +1,0 @@
-interface:
-  display_name: "Record Directive"
-  short_description: "Create an explicit automated-agent handoff"
-  default_prompt: "Use $record-directive to create this automated-agent implementation handoff."
-
-policy:
-  allow_implicit_invocation: false

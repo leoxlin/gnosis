@@ -5,22 +5,10 @@
   },
   "plugins": [
     {
-      "name": "gnosis-vault",
+      "name": "gnosis",
       "source": {
         "source": "local",
-        "path": "./plugins/gnosis-vault"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Productivity"
-    },
-    {
-      "name": "gnosis-forge",
-      "source": {
-        "source": "local",
-        "path": "./plugins/gnosis-forge"
+        "path": "./plugins/gnosis"
       },
       "policy": {
         "installation": "AVAILABLE",

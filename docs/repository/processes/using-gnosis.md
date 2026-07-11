@@ -29,7 +29,7 @@ Do not invoke this process implicitly. A dispatched subagent follows the process
 2. Read repository purpose, then classify the request and retrieve only the active decisions, directives, concepts, and processes that govern it.
 3. Inspect current implementation and tests for behavioral truth. Use scoped history only to close a specific rationale gap.
 4. State the selected process or process chain, then follow it in dependency order. Process instructions govern the method; direct author instructions and repository rules retain precedence.
-5. When a process produces durable knowledge, invoke the appropriate recording skill rather than inventing a record shape.
+5. When a process produces durable knowledge, follow its concept definition and record shape rather than inventing one.
 6. Keep knowledge and implementation aligned and run each selected process's completion gate.
 
 ## Completion

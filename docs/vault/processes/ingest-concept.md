@@ -22,7 +22,7 @@ description: Use when one named knowledge object should become or update one con
 ## Process
 
 1. Resolve the vault and read its configuration, agent rules, relevant Concept Type, and pages that may share the concept's identity. Read the root index only when `vault_index` is enabled.
-2. Select exactly one concept and an existing type. When no type fits, use `create-concept-type` and resume after the category exists.
+2. Select exactly one concept and an existing type. When no type fits, follow the `create-concept-type` Vault Process and resume after the category exists.
 3. Update the identity-matching page or create one concept page. Preserve unknown frontmatter and use the configured link format.
 4. Ground claims in the supplied source, label uncertainty or inference, and link relevant existing pages.
 5. Regenerate indexes when `vault_index` is enabled, append a concise entry when `vault_log` is enabled, and validate the vault.

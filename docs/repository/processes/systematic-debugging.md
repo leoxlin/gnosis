@@ -29,7 +29,7 @@ The hard gate is root-cause evidence before a proposed fix.
 2. **Pattern analysis:** Find a working analogue, read the applicable reference completely, enumerate every difference, and identify the dependencies and assumptions the broken path requires.
 3. **Hypothesis testing:** State one specific causal hypothesis and its evidence. Test it with the smallest possible change and one variable. A failed test produces a new hypothesis, not a stack of speculative fixes.
 4. **Root-cause fix:** Create the smallest failing reproduction and follow [test-driven-development](test-driven-development.md). Implement one change at the source, then verify the reproduction and the relevant suite.
-5. After three failed fix attempts, stop and question the architecture with the author. Use [brainstorming](brainstorming.md) before changing the design and `record-decision` only if a new durable architectural choice is settled.
+5. After three failed fix attempts, stop and question the architecture with the author. Use [brainstorming](brainstorming.md) before changing the design and record a decision only if a new durable architectural choice is settled.
 6. If evidence shows an external or timing-dependent cause, record what was ruled out in the task evidence, add appropriate handling and observability, and verify that behavior.
 
 ## Completion
