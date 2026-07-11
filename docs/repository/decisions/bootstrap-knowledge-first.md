@@ -10,7 +10,7 @@ Bootstrap `gnosis` as a **knowledge-first** project: establish the [Open Knowled
 
 # Why
 
-`gnosis` needs a stable, portable, and agent-readable representation of purpose, concepts, durable decisions, and explicitly requested automation directives before specialized ingest, query, or backend behavior is layered above it.
+`gnosis` needs a stable, portable, and agent-readable representation of purpose, concepts, durable decisions, implementation directives, and repository processes before specialized ingest, query, or backend behavior is layered above it.
 
 Rejected alternatives:
 
@@ -26,7 +26,7 @@ Trade-offs:
 # Constraints
 
 * The `docs/` directory is an OKF v0.1 bundle with frontmatter-typed markdown concepts. Optional indexes and logs are controlled by `gnosis.toml`.
-* The [`gnosis` purpose](../purpose.md) and repository ontology ([Repository Purpose](../../concepts/repository-purpose.md), [Repository Decision](../../concepts/repository-decision.md), [Repository Directive](../../concepts/repository-directive.md)) are defined as OKF concepts.
+* The [`gnosis` purpose](../purpose.md) and repository ontology ([Repository Purpose](../../concepts/repository-purpose.md), [Repository Decision](../../concepts/repository-decision.md), [Repository Directive](../../concepts/repository-directive.md), [Repository Process](../../concepts/repository-process.md)) are defined as OKF concepts.
 * Extraction strategies ([LangExtract](../../references/langextract.md), [OntoGPT/SPIRES](../../references/ontogpt-spires.md)) and LLM-wiki patterns ([Karpathy LLM Wiki](../../references/karpathy-llm-wiki.md)) are documented as references and treated as layers above the OKF foundation.
 * [Obsidian](../../references/obsidian-wiki.md) is adopted as the first wiki backend, but the bundle remains backend-independent.
 
@@ -36,4 +36,6 @@ Trade-offs:
 * [Repository Purpose](../../concepts/repository-purpose.md)
 * [Repository Decision](../../concepts/repository-decision.md)
 * [Repository Directive](../../concepts/repository-directive.md)
+* [Repository Process](../../concepts/repository-process.md)
+* [Make repository processes knowledge](make-repository-processes-knowledge.md)
 * [Keep repository context minimal](keep-repository-context-minimal.md)

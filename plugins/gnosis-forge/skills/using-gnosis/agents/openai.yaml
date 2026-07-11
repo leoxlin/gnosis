@@ -1,0 +1,7 @@
+interface:
+  display_name: "Using gnosis"
+  short_description: "Apply repository knowledge and processes"
+  default_prompt: "Use $using-gnosis to apply this repository's recorded knowledge and processes."
+
+policy:
+  allow_implicit_invocation: false

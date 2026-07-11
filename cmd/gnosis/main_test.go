@@ -292,6 +292,7 @@ func TestRunSetupWithConceptsIndexesThem(t *testing.T) {
 		"concepts/repository-purpose.md",
 		"concepts/repository-decision.md",
 		"concepts/repository-directive.md",
+		"concepts/repository-process.md",
 	} {
 		if _, err := os.Stat(filepath.Join(root, rel)); err != nil {
 			t.Fatalf("expected %s to exist: %v", rel, err)
@@ -302,7 +303,8 @@ func TestRunSetupWithConceptsIndexesThem(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(conceptsIndex), "Repository Purpose") {
+	if !strings.Contains(string(conceptsIndex), "Repository Purpose") ||
+		!strings.Contains(string(conceptsIndex), "Repository Process") {
 		t.Fatalf("concepts index should list the concept definitions:\n%s", conceptsIndex)
 	}
 }

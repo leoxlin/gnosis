@@ -36,7 +36,7 @@ Set up a vault:
 gnosis setup -vault ./my-vault
 ```
 
-Include reusable project concepts for purpose, decisions, and explicit automation directives:
+Include reusable project concepts for purpose, decisions, directives, and repository processes:
 
 ```bash
 gnosis setup -vault ./my-vault -concepts

@@ -1,18 +1,18 @@
 {
   "name": "gnosis-forge",
   "version": "0.1.0",
-  "description": "Ground software work in repository purpose and durable decisions.",
+  "description": "Apply repository knowledge and processes to software work.",
   "author": {
     "name": "Leo Xuzhang Lin",
     "url": "https://github.com/leoxlin"
   },
   "homepage": "https://github.com/leoxlin/gnosis",
-  "keywords": ["gnosis", "knowledge", "software-development", "decisions", "directives"],
+  "keywords": ["gnosis", "knowledge", "software-development", "decisions", "directives", "processes"],
   "skills": "./skills/",
   "interface": {
     "displayName": "gnosis-forge",
-    "shortDescription": "Build software from recorded knowledge.",
-    "longDescription": "Skills for grounding software work in purpose and durable decisions, with explicit directives for automated agents.",
+    "shortDescription": "Build software from repository knowledge.",
+    "longDescription": "Skills for applying repository purpose, decisions, and processes, with durable directives for automated agents.",
     "developerName": "Leo Xuzhang Lin",
     "websiteURL": "https://github.com/leoxlin/gnosis"
   }

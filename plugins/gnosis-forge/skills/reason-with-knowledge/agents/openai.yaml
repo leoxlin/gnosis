@@ -1,4 +1,0 @@
-interface:
-  display_name: "Reason with Knowledge"
-  short_description: "Ground repository work in recorded knowledge"
-  default_prompt: "Use $reason-with-knowledge to reason about this repository change from its recorded knowledge."

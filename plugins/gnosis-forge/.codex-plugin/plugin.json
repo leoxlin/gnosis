@@ -1,7 +1,7 @@
 {
   "name": "gnosis-forge",
-  "version": "0.1.0+codex.20260710134356",
-  "description": "Ground software work in repository purpose and durable decisions.",
+  "version": "0.1.0+codex.20260711130957",
+  "description": "Apply repository knowledge and processes to software work.",
   "author": {
     "name": "Leo Xuzhang Lin",
     "url": "https://github.com/leoxlin"
@@ -13,13 +13,14 @@
     "knowledge",
     "software-development",
     "decisions",
-    "directives"
+    "directives",
+    "processes"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "gnosis-forge",
-    "shortDescription": "Build software from recorded knowledge.",
-    "longDescription": "Skills for grounding software work in purpose and durable decisions, with explicit directives for automated agents.",
+    "shortDescription": "Build software from repository knowledge.",
+    "longDescription": "Skills for applying repository purpose, decisions, and processes, with durable directives for automated agents.",
     "developerName": "Leo Xuzhang Lin",
     "category": "Developer Tools",
     "capabilities": [
@@ -28,7 +29,7 @@
     ],
     "websiteURL": "https://github.com/leoxlin/gnosis",
     "defaultPrompt": [
-      "Reason about this change from the repository's recorded knowledge.",
+      "Use using-gnosis to apply this repository's recorded knowledge and processes.",
       "Record this settled repository decision.",
       "Create an explicit implementation directive for an automated agent."
     ]

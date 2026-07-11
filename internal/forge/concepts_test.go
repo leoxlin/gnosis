@@ -40,9 +40,37 @@ func TestConceptsWritesReusableConcepts(t *testing.T) {
 		"concepts/repository-purpose.md",
 		"concepts/repository-decision.md",
 		"concepts/repository-directive.md",
+		"concepts/repository-process.md",
 	} {
 		if _, err := os.Stat(filepath.Join(root, rel)); err != nil {
 			t.Fatalf("expected %s to exist: %v", rel, err)
+		}
+	}
+
+	processBody, err := os.ReadFile(filepath.Join(root, "concepts", "repository-process.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	processText := string(processBody)
+	for _, want := range []string{
+		"type: Concept Type",
+		"title: Repository Process",
+		"repeatable repository-owned workflow",
+		"## Knowledge inputs",
+		"## Completion",
+	} {
+		if !strings.Contains(processText, want) {
+			t.Fatalf("repository process template missing %q", want)
+		}
+	}
+
+	directiveBody, err := os.ReadFile(filepath.Join(root, "concepts", "repository-directive.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"selects `writing-plans`", "# Implementation plan"} {
+		if !strings.Contains(string(directiveBody), want) {
+			t.Fatalf("repository directive template missing %q", want)
 		}
 	}
 
