@@ -50,6 +50,35 @@ func TestParseFrontmatterSupportsCRLF(t *testing.T) {
 	}
 }
 
+func TestFrontmatterScalarsSupportsScalarAndSequence(t *testing.T) {
+	fields, _, err := parseFrontmatter(`---
+alias: One
+tags: [docs, yaml]
+empty: null
+invalid:
+  nested: value
+---
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	alias, valid := fields.scalars("alias")
+	if !valid || strings.Join(alias, ",") != "One" {
+		t.Fatalf("alias = %v valid = %t", alias, valid)
+	}
+	tags, valid := fields.scalars("tags")
+	if !valid || strings.Join(tags, ",") != "docs,yaml" {
+		t.Fatalf("tags = %v valid = %t", tags, valid)
+	}
+	empty, valid := fields.scalars("empty")
+	if !valid || len(empty) != 0 {
+		t.Fatalf("empty = %v valid = %t", empty, valid)
+	}
+	if _, valid := fields.scalars("invalid"); valid {
+		t.Fatal("mapping should not be a scalar list")
+	}
+}
+
 func TestParseFrontmatterRejectsInvalidDocuments(t *testing.T) {
 	tests := []struct {
 		name     string

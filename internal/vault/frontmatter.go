@@ -83,6 +83,41 @@ func (f Frontmatter) scalar(key string) (string, bool) {
 	return node.Value, true
 }
 
+// scalars returns a frontmatter scalar or sequence of scalars. The boolean is
+// false only when the field exists with an incompatible shape.
+func (f Frontmatter) scalars(key string) ([]string, bool) {
+	node, exists := f[key]
+	if !exists {
+		return nil, true
+	}
+	node = resolveAlias(node)
+	if node == nil {
+		return nil, true
+	}
+	switch node.Kind {
+	case yaml.ScalarNode:
+		if node.Tag == "!!null" || strings.TrimSpace(node.Value) == "" {
+			return nil, true
+		}
+		return []string{strings.TrimSpace(node.Value)}, true
+	case yaml.SequenceNode:
+		values := make([]string, 0, len(node.Content))
+		for _, item := range node.Content {
+			item = resolveAlias(item)
+			if item == nil || item.Kind != yaml.ScalarNode {
+				return nil, false
+			}
+			if item.Tag == "!!null" || strings.TrimSpace(item.Value) == "" {
+				continue
+			}
+			values = append(values, strings.TrimSpace(item.Value))
+		}
+		return values, true
+	default:
+		return nil, false
+	}
+}
+
 func (f Frontmatter) nonEmpty(key string) bool {
 	node, exists := f[key]
 	if !exists {
