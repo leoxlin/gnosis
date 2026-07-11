@@ -10,7 +10,8 @@ import (
 func TestSearchSourceLoadsConfiguredRootsWithStableIDs(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]
-vault_roots = ["docs", "notes"]
+vault_name = "Test"
+vault_dirs = ["docs", "notes"]
 vault_index = false
 vault_log = false
 `)
@@ -62,20 +63,19 @@ type: Hidden
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(documents) != 3 {
-		t.Fatalf("documents = %+v", documents)
-	}
-
 	byID := make(map[string]int)
 	for i, document := range documents {
 		byID[document.ID] = i
 	}
-	for _, id := range []string{"docs/concept.md", "docs/related.md", "notes/concept.md"} {
+	for _, id := range []string{"concept.md", "related.md"} {
 		if _, exists := byID[id]; !exists {
 			t.Fatalf("missing %s in %+v", id, documents)
 		}
 	}
-	concept := documents[byID["docs/concept.md"]]
+	if len(documents) != 2 {
+		t.Fatalf("documents = %+v, want first vault to override notes/concept.md", documents)
+	}
+	concept := documents[byID["concept.md"]]
 	if concept.Description != "A folded description." {
 		t.Fatalf("description = %q", concept.Description)
 	}
@@ -85,15 +85,51 @@ type: Hidden
 	if strings.Join(concept.Aliases, ",") != "Primary Idea" {
 		t.Fatalf("aliases = %v", concept.Aliases)
 	}
-	if strings.Join(concept.Links, ",") != "docs/related.md" {
+	if strings.Join(concept.Links, ",") != "related.md" {
 		t.Fatalf("links = %v", concept.Links)
 	}
-	related := documents[byID["docs/related.md"]]
+	related := documents[byID["related.md"]]
 	if related.Description != "Summary fallback." {
 		t.Fatalf("summary fallback = %q", related.Description)
 	}
-	if strings.Join(related.Links, ",") != "docs/concept.md" {
+	if strings.Join(related.Links, ",") != "concept.md" {
 		t.Fatalf("absolute link = %v", related.Links)
+	}
+}
+
+func TestSearchSourcePrefersLocalDirectoriesOverImportedVaults(t *testing.T) {
+	workspace := t.TempDir()
+	imported := filepath.Join(workspace, "imported")
+	if err := os.MkdirAll(filepath.Join(workspace, "local"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(imported, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeConfig(t, workspace, `[vault]
+vault_name = "Workspace"
+vault_dirs = ["local"]
+
+[vault.imports]
+vaults = ["imported"]
+`)
+	writeConfig(t, imported, `[vault]
+vault_name = "Imported"
+vault_dirs = ["."]
+`)
+	write(t, workspace, "local/article.md", "---\ntype: Note\ntitle: Local\n---\n")
+	write(t, imported, "article.md", "---\ntype: Note\ntitle: Imported\n---\n")
+
+	source, err := NewSearchSource(workspace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	documents, err := source.Documents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(documents) != 1 || documents[0].ID != "article.md" || documents[0].Title != "Local" {
+		t.Fatalf("documents = %+v", documents)
 	}
 }
 

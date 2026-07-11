@@ -31,13 +31,13 @@ func NewSearchSource(root string) (*SearchSource, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, vaultRoot := range resolution.VaultRoots {
-		info, err := os.Stat(vaultRoot)
+	for _, source := range resolution.Sources {
+		info, err := os.Stat(source.Path)
 		if err != nil {
 			return nil, err
 		}
 		if !info.IsDir() {
-			return nil, fmt.Errorf("%s is not a directory", vaultRoot)
+			return nil, fmt.Errorf("%s is not a directory", source.Path)
 		}
 	}
 	return &SearchSource{resolution: resolution}, nil
@@ -139,14 +139,15 @@ func Read(root, conceptType, title string) ([]byte, error) {
 func (s *SearchSource) pages() ([]*searchPage, error) {
 	pages := []*searchPage{}
 	seenPaths := make(map[string]struct{})
+	seenIDs := make(map[string]struct{})
 
-	for _, vaultRoot := range s.resolution.VaultRoots {
-		err := filepath.WalkDir(vaultRoot, func(path string, entry os.DirEntry, walkErr error) error {
+	for _, source := range s.resolution.Sources {
+		err := filepath.WalkDir(source.Path, func(path string, entry os.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
 			}
 			if entry.IsDir() {
-				if path != vaultRoot && ignoredVaultDir(entry.Name()) {
+				if path != source.Path && ignoredVaultDir(entry.Name()) {
 					return filepath.SkipDir
 				}
 				return nil
@@ -159,11 +160,21 @@ func (s *SearchSource) pages() ([]*searchPage, error) {
 				return nil
 			}
 
-			page, err := s.readSearchPage(vaultRoot, path)
+			id, err := filepath.Rel(source.Path, path)
+			if err != nil {
+				return err
+			}
+			id = filepath.ToSlash(id)
+			if _, exists := seenIDs[id]; exists {
+				return nil
+			}
+
+			page, err := s.readSearchPage(source, path)
 			if err != nil {
 				return err
 			}
 			seenPaths[path] = struct{}{}
+			seenIDs[id] = struct{}{}
 			pages = append(pages, page)
 			return nil
 		})
@@ -174,7 +185,7 @@ func (s *SearchSource) pages() ([]*searchPage, error) {
 	return pages, nil
 }
 
-func (s *SearchSource) readSearchPage(vaultRoot, path string) (*searchPage, error) {
+func (s *SearchSource) readSearchPage(source VaultSource, path string) (*searchPage, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -217,13 +228,13 @@ func (s *SearchSource) readSearchPage(vaultRoot, path string) (*searchPage, erro
 	if strings.TrimSpace(title) == "" {
 		title = humanizeName(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)))
 	}
-	relative, err := filepath.Rel(s.resolution.Root, path)
+	relative, err := filepath.Rel(source.Path, path)
 	if err != nil {
 		return nil, err
 	}
 
 	return &searchPage{
-		root: vaultRoot,
+		root: source.Path,
 		path: filepath.Clean(path),
 		document: Document{
 			ID:          filepath.ToSlash(relative),

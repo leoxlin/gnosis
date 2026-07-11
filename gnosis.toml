@@ -1,6 +1,7 @@
 [vault]
+vault_name = "gnosis"
+vault_dirs = ["docs"]
 link_format = "relative"
 link_format_strict = true
-vault_roots = ["docs"]
 vault_index = false
 vault_log = false

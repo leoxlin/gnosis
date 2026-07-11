@@ -12,6 +12,7 @@ import (
 // ScaffoldOptions controls how scaffold writes files.
 type ScaffoldOptions struct {
 	Force        bool
+	Name         string
 	DisableIndex bool
 	DisableLog   bool
 }
@@ -31,12 +32,25 @@ var scaffoldTemplates = template.Must(template.ParseFS(scaffoldTemplatesFS, "tem
 // unless Force is set.
 func Scaffold(root string, options ScaffoldOptions) ([]string, error) {
 	root = filepath.Clean(root)
+	created := []string{}
+	changed, err := writeVaultConfig(root, options.Name, options.DisableIndex, options.DisableLog, options.Force)
+	if err != nil {
+		return created, err
+	}
+	if changed {
+		created = append(created, filepath.Join(root, "gnosis.toml"))
+	}
+	config, err := loadConfig(root)
+	if err != nil {
+		return created, err
+	}
+	options.DisableIndex = !config.IndexEnabled()
+	options.DisableLog = !config.LogEnabled()
 	dirs := []string{
 		"concepts",
 		"references",
 	}
 
-	created := []string{}
 	for _, dir := range dirs {
 		path := filepath.Join(root, dir)
 		if err := os.MkdirAll(path, 0o755); err != nil {

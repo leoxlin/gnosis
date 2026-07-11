@@ -48,7 +48,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	}
 	command.SetOut(stdout)
 	command.SetErr(stderr)
-	command.AddCommand(newSetupCommand(stdout), newIndexCommand(stdout), newReadCommand(stdout), newValidateCommand(stdout, stderr), newQueryCommand(stdout), newConceptsCommand(stdout))
+	command.AddCommand(newScaffoldCommand(stdout), newSetupCommand(stdout), newIndexCommand(stdout), newReadCommand(stdout), newValidateCommand(stdout, stderr), newQueryCommand(stdout), newConceptsCommand(stdout))
 	command.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "Print the gnosis version",
@@ -285,17 +285,17 @@ func runIndex(vaultPath string, stdout io.Writer) error {
 	if !info.IsDir() {
 		return fmt.Errorf("%s is not a directory", root)
 	}
-	config, vaultRoots, err := vault.LoadConfig(root)
+	resolution, err := vault.ResolveConfig(root)
 	if err != nil {
 		return err
 	}
-	if !config.IndexEnabled() {
+	if !resolution.Config.IndexEnabled() {
 		fmt.Fprintf(stdout, "ok: index disabled under %s\n", filepath.Clean(root))
 		return nil
 	}
 
 	var written []string
-	for _, vaultRoot := range vaultRoots {
+	for _, vaultRoot := range resolution.LocalVaultRoots {
 		paths, err := vault.GenerateIndexes(vaultRoot, vault.IndexOptions{Overwrite: true})
 		if err != nil {
 			return err
@@ -341,62 +341,47 @@ func runValidate(vaultPath string, stdout, stderr io.Writer) error {
 	return nil
 }
 
-func newSetupCommand(stdout io.Writer) *cobra.Command {
-	var vaultPath string
+func newScaffoldCommand(stdout io.Writer) *cobra.Command {
+	var vaultPath, vaultName string
 	var force, includeConcepts bool
 	command := &cobra.Command{
-		Use:   "setup [flags]",
-		Short: "Create an OKF-compatible vault",
-		Args:  noArgs("setup"),
+		Use:   "scaffold [flags]",
+		Short: "Create an OKF-compatible gnosis vault",
+		Args:  noArgs("scaffold"),
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return runSetup(vaultPath, force, includeConcepts, stdout)
+			return runScaffold(vaultPath, vaultName, force, includeConcepts, stdout)
 		},
 	}
 	flags := command.Flags()
-	flags.StringVar(&vaultPath, "vault", defaultVault, "path to the new OKF vault")
+	flags.StringVar(&vaultPath, "vault", defaultVault, "path to the new gnosis vault")
+	flags.StringVar(&vaultName, "name", "", "name for the new vault")
 	flags.BoolVar(&force, "force", false, "overwrite existing files")
 	flags.BoolVar(&includeConcepts, "concepts", false, "include reusable project concept definitions")
 	return command
 }
 
-func runSetup(vaultPath string, force, includeConcepts bool, stdout io.Writer) error {
+func runScaffold(vaultPath, vaultName string, force, includeConcepts bool, stdout io.Writer) error {
 	root := vaultPath
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return err
 	}
-
-	config, vaultRoots, err := vault.LoadConfig(root)
+	created, err := vault.Scaffold(root, vault.ScaffoldOptions{Force: force, Name: vaultName})
 	if err != nil {
 		return err
 	}
-
-	var created []string
-	for _, vaultRoot := range vaultRoots {
-		if err := os.MkdirAll(vaultRoot, 0o755); err != nil {
-			return err
-		}
-		paths, err := vault.Scaffold(vaultRoot, vault.ScaffoldOptions{
-			Force:        force,
-			DisableIndex: !config.IndexEnabled(),
-			DisableLog:   !config.LogEnabled(),
-		})
+	if includeConcepts {
+		conceptPaths, err := forge.Concepts(root, forge.ConceptOptions{Force: force})
 		if err != nil {
 			return err
 		}
-		created = append(created, paths...)
-
-		if includeConcepts {
-			conceptPaths, err := forge.Concepts(vaultRoot, forge.ConceptOptions{Force: force})
+		created = append(created, conceptPaths...)
+		if len(conceptPaths) > 0 {
+			resolution, err := vault.ResolveConfig(root)
 			if err != nil {
 				return err
 			}
-			created = append(created, conceptPaths...)
-			if config.IndexEnabled() {
-				// Refresh indexes so newly written concept pages are listed.
-				// The base scaffold generated indexes before the concepts
-				// existed, so overwrite when concepts changed this run.
-				overwrite := force || len(conceptPaths) > 0
-				indexPaths, err := vault.GenerateIndexes(vaultRoot, vault.IndexOptions{Overwrite: overwrite})
+			if resolution.Config.IndexEnabled() {
+				indexPaths, err := vault.GenerateIndexes(root, vault.IndexOptions{Overwrite: true})
 				if err != nil {
 					return err
 				}
@@ -407,7 +392,44 @@ func runSetup(vaultPath string, force, includeConcepts bool, stdout io.Writer) e
 	for _, path := range created {
 		fmt.Fprintln(stdout, path)
 	}
-	fmt.Fprintf(stdout, "ok: vault setup under %s\n", filepath.Clean(root))
+	fmt.Fprintf(stdout, "ok: vault scaffolded under %s\n", filepath.Clean(root))
+	return nil
+}
+
+func newSetupCommand(stdout io.Writer) *cobra.Command {
+	var vaultPath string
+	var imports []string
+	var force bool
+	command := &cobra.Command{
+		Use:   "setup [flags]",
+		Short: "Configure a workspace to import gnosis vaults",
+		Args:  noArgs("setup"),
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return runSetup(vaultPath, imports, force, stdout)
+		},
+	}
+	flags := command.Flags()
+	flags.StringVar(&vaultPath, "vault", defaultVault, "directory for gnosis.toml")
+	flags.StringSliceVar(&imports, "import", nil, "path or URL of a vault to import")
+	flags.BoolVar(&force, "force", false, "overwrite an existing gnosis.toml")
+	return command
+}
+
+func runSetup(vaultPath string, imports []string, force bool, stdout io.Writer) error {
+	if len(imports) == 0 {
+		return errors.New("setup: at least one --import is required")
+	}
+	if err := os.MkdirAll(vaultPath, 0o755); err != nil {
+		return err
+	}
+	changed, err := vault.WriteWorkspaceConfig(vaultPath, imports, force)
+	if err != nil {
+		return err
+	}
+	if changed {
+		fmt.Fprintln(stdout, filepath.Join(vaultPath, "gnosis.toml"))
+	}
+	fmt.Fprintf(stdout, "ok: workspace configured under %s\n", filepath.Clean(vaultPath))
 	return nil
 }
 
@@ -440,7 +462,7 @@ func noArgs(command string) cobra.PositionalArgs {
 func normalizeLegacyLongFlags(args []string) []string {
 	longFlags := map[string]bool{
 		"vault": true, "top": true, "max-read": true, "depth": true,
-		"json": true, "pretty": true, "force": true, "concepts": true,
+		"json": true, "pretty": true, "force": true, "concepts": true, "name": true, "import": true,
 		"type": true, "title": true,
 	}
 	normalized := make([]string, 0, len(args))

@@ -30,16 +30,22 @@ Make sure `~/.local/bin` is on your `PATH`, then run `gnosis --help` to see avai
 
 ## Quick start
 
-Set up a vault:
+Create a standalone OKF vault:
 
 ```bash
-gnosis setup -vault ./my-vault
+gnosis scaffold -vault ./my-vault
 ```
 
 Include reusable project concepts for purpose, decisions, directives, and repository processes:
 
 ```bash
-gnosis setup -vault ./my-vault -concepts
+gnosis scaffold -vault ./my-vault -concepts
+```
+
+Create an import-only workspace that makes existing vaults available from one directory:
+
+```bash
+gnosis setup -vault ./knowledge-workspace -import ./my-vault
 ```
 
 Validate it:
@@ -81,28 +87,48 @@ mise run test    # run all Go tests
 
 ## Configuration
 
-When `gnosis.toml` is present, `gnosis` searches for it from the requested path
-up through its parent directories. Supported vault settings are:
+Every standalone gnosis vault has a `gnosis.toml`. `gnosis` searches for it from
+the requested path up through its parent directories. A standalone vault declares
+its name and one or more local knowledge directories:
 
 ```toml
 [vault]
+vault_name = "my-vault"
+vault_dirs = ["docs"]
 link_format = "relative"
 link_format_strict = false
-vault_roots = ["docs"]
 vault_index = true
 vault_log = true
 ```
 
-`link_format` must be `relative` or `absolute`. Vault roots must be non-empty,
-unique relative paths contained by the directory holding `gnosis.toml`.
-`vault_index` and `vault_log` default to `true`. When disabled, setup does not
+`link_format` must be `relative` or `absolute`. Vault directories must be
+non-empty, unique relative paths contained by the directory holding
+`gnosis.toml`.
+`vault_index` and `vault_log` default to `true`. When disabled, scaffold does not
 create the corresponding files and validation does not require them; `gnosis index` is a successful no-op when `vault_index` is false. Changing
 an option to false does not delete existing files. Unknown settings and unsafe
-roots are errors.
+directories are errors.
+
+An import-only workspace omits the local vault fields and lists vaults under the
+nested import section:
+
+```toml
+[vault.imports]
+vaults = ["../my-vault"]
+```
+
+Each local import must point to a directory with its own `gnosis.toml`. Imports
+resolve recursively: local directories take precedence, followed by imports in
+their declared order and each import's own imports. When pages share the same
+path relative to a `vault_dir`, the first page wins. Remote URLs are part of the
+configuration model but are not resolved yet.
 
 ## Querying
 
-`gnosis query search` and `gnosis query graph` search every configured vault root directly, so results do not depend on `vault_index` and always reflect the current files. Both rank titles, aliases, tags, descriptions, types, paths, and body text while returning only compact metadata by default.
+`gnosis query search` and `gnosis query graph` search every configured local and
+imported vault directory directly, so results do not depend on `vault_index` and
+always reflect the current files. Both rank titles, aliases, tags, descriptions,
+types, paths, and body text while returning only compact metadata by default.
 
 Common options, which must appear before the quoted question, are:
 

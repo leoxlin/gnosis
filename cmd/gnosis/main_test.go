@@ -328,6 +328,7 @@ func TestRunConceptsValidatesArgumentsAndType(t *testing.T) {
 func queryTestVault(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
+	writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_dirs = [\".\"]\n")
 	writeTestFile(t, root, "transformer.md", `---
 type: Concept
 title: Transformer Architecture
@@ -354,6 +355,7 @@ description: Weighted token lookup.
 func TestRunValidateRoutesDiagnostics(t *testing.T) {
 	t.Run("warnings", func(t *testing.T) {
 		root := t.TempDir()
+		writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_dirs = [\".\"]\n")
 		writeTestFile(t, root, "index.md", "# Index\n\n[Log](log.md)\n")
 		writeTestFile(t, root, "log.md", "# Log\n\n## 2026-07-09\n")
 		writeTestFile(t, root, "note.md", "---\ntype: Note\n---\n\n# Note\n")
@@ -372,9 +374,11 @@ func TestRunValidateRoutesDiagnostics(t *testing.T) {
 	})
 
 	t.Run("errors", func(t *testing.T) {
+		root := t.TempDir()
+		writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_dirs = [\".\"]\n")
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
-		err := run([]string{"validate", "-vault", t.TempDir()}, &stdout, &stderr)
+		err := run([]string{"validate", "-vault", root}, &stdout, &stderr)
 		if err == nil || !strings.Contains(err.Error(), "validation failed") {
 			t.Fatalf("error = %v", err)
 		}
@@ -387,14 +391,14 @@ func TestRunValidateRoutesDiagnostics(t *testing.T) {
 	})
 }
 
-func TestRunSetupAndIndex(t *testing.T) {
+func TestRunScaffoldAndIndex(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "vault")
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"setup", "-vault", root}, &stdout, &stderr); err != nil {
+	if err := run([]string{"scaffold", "-vault", root}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(stdout.String(), "ok: vault setup") || stderr.Len() != 0 {
+	if !strings.Contains(stdout.String(), "ok: vault scaffolded") || stderr.Len() != 0 {
 		t.Fatalf("stdout = %q stderr = %q", stdout.String(), stderr.String())
 	}
 
@@ -408,12 +412,12 @@ func TestRunSetupAndIndex(t *testing.T) {
 	}
 }
 
-func TestRunSetupWithConceptsIndexesThem(t *testing.T) {
+func TestRunScaffoldWithConceptsIndexesThem(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "vault")
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
-	if err := run([]string{"setup", "-vault", root, "-concepts"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"scaffold", "-vault", root, "-concepts"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	for _, rel := range []string{
@@ -437,16 +441,18 @@ func TestRunSetupWithConceptsIndexesThem(t *testing.T) {
 	}
 }
 
-func TestRunSetupAndIndexHonorDisabledNavigation(t *testing.T) {
+func TestRunScaffoldAndIndexHonorDisabledNavigation(t *testing.T) {
 	root := t.TempDir()
 	writeTestFile(t, root, "gnosis.toml", `[vault]
+vault_name = "Test"
+vault_dirs = ["."]
 vault_index = false
 vault_log = false
 `)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
-	if err := run([]string{"setup", "-vault", root}, &stdout, &stderr); err != nil {
+	if err := run([]string{"scaffold", "-vault", root}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	for _, rel := range []string{"index.md", "log.md", "concepts/index.md", "references/index.md"} {
@@ -461,6 +467,26 @@ vault_log = false
 	}
 	if !strings.Contains(stdout.String(), "ok: index disabled") {
 		t.Fatalf("stdout = %q", stdout.String())
+	}
+}
+
+func TestRunSetupCreatesImportWorkspace(t *testing.T) {
+	source := filepath.Join(t.TempDir(), "source")
+	workspace := filepath.Join(t.TempDir(), "workspace")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if err := run([]string{"scaffold", "-vault", source}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	stdout.Reset()
+	if err := run([]string{"setup", "-vault", workspace, "-import", source}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), "ok: workspace configured") {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+	if _, err := os.Stat(filepath.Join(workspace, "gnosis.toml")); err != nil {
+		t.Fatal(err)
 	}
 }
 

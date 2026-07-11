@@ -27,34 +27,34 @@ func Validate(root string) (Result, error) {
 		return Result{}, fmt.Errorf("%s is not a directory", root)
 	}
 
-	config, vaultRoots, err := LoadConfig(root)
+	resolution, err := ResolveConfig(root)
 	if err != nil {
 		return Result{}, err
 	}
 
 	result := Result{}
-	for _, vaultRoot := range vaultRoots {
-		vaultInfo, err := os.Stat(vaultRoot)
+	for _, source := range resolution.Sources {
+		vaultInfo, err := os.Stat(source.Path)
 		if err != nil {
 			return result, err
 		}
 		if !vaultInfo.IsDir() {
-			return result, fmt.Errorf("%s is not a directory", vaultRoot)
+			return result, fmt.Errorf("%s is not a directory", source.Path)
 		}
 
-		if config.LogEnabled() {
-			checkRootLog(vaultRoot, &result)
+		if source.Config.LogEnabled() {
+			checkRootLog(source.Path, &result)
 		}
-		err = filepath.WalkDir(vaultRoot, func(path string, entry os.DirEntry, walkErr error) error {
+		err = filepath.WalkDir(source.Path, func(path string, entry os.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				result.Errors = append(result.Errors, walkErr.Error())
 				return nil
 			}
 			if entry.IsDir() {
-				if path != vaultRoot && ignoredVaultDir(entry.Name()) {
+				if path != source.Path && ignoredVaultDir(entry.Name()) {
 					return filepath.SkipDir
 				}
-				if config.IndexEnabled() {
+				if source.Config.IndexEnabled() {
 					checkDirectoryIndex(path, &result)
 				}
 				return nil
@@ -64,7 +64,7 @@ func Validate(root string) (Result, error) {
 			}
 
 			result.FilesChecked++
-			validateFile(vaultRoot, path, config, &result)
+			validateFile(source.Path, path, source.Config, &result)
 			return nil
 		})
 		if err != nil {

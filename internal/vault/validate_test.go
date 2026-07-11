@@ -3,6 +3,7 @@ package vault
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -71,6 +72,7 @@ type: Concept
 
 func TestValidateRequiresRootIndexAndLog(t *testing.T) {
 	root := t.TempDir()
+	writeConfig(t, root, "[vault]\nvault_name = \"Test\"\nvault_dirs = [\".\"]\n")
 
 	result, err := Validate(root)
 	if err != nil {
@@ -323,6 +325,10 @@ type: Concept
 
 func write(t *testing.T, root, rel, content string) {
 	t.Helper()
+	configPath := filepath.Join(root, "gnosis.toml")
+	if _, err := os.Stat(configPath); os.IsNotExist(err) && rel != "gnosis.toml" {
+		writeConfig(t, root, "[vault]\nvault_name = \"Test\"\nvault_dirs = [\".\"]\n")
+	}
 	path := filepath.Join(root, rel)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
@@ -334,6 +340,12 @@ func write(t *testing.T, root, rel, content string) {
 
 func writeConfig(t *testing.T, root, content string) {
 	t.Helper()
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if strings.HasPrefix(content, "[vault]\n") && !strings.Contains(content, "vault_name") {
+		content = strings.Replace(content, "[vault]\n", "[vault]\nvault_name = \"Test\"\nvault_dirs = [\".\"]\n", 1)
+	}
 	if err := os.WriteFile(filepath.Join(root, "gnosis.toml"), []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
