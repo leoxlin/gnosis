@@ -54,6 +54,12 @@ Regenerate directory indexes:
 gnosis index -vault ./my-vault
 ```
 
+Read one complete document by its exact concept type and title:
+
+```bash
+gnosis read -vault ./my-vault -type 'Repository Process' -title 'using-gnosis'
+```
+
 Query the live vault with a compact human-readable result:
 
 ```bash
@@ -109,6 +115,8 @@ Common options, which must appear before the quoted question, are:
 `query search` prints text unless `-json` or `-pretty` is supplied. `query graph` always returns JSON; `-pretty` indents it. The JSON object contains `answer_type`, `candidates`, `path`, `should_read`, and `index_only`. Candidate descriptions are bounded and page bodies are never included in command output.
 
 An exact title, alias, or concept-path lookup with a description may return `index_only: true`, meaning an agent can answer without opening the page. Relationship questions return the shortest resolved Markdown-link path within the requested depth. Both commands are read-only and do not update indexes or logs.
+
+`gnosis read` is also read-only. It requires non-empty `-type` and `-title` flags, matches both values exactly across configured vault roots, and writes the complete matching Markdown file to standard output. Missing and duplicate type-and-title pairs are errors.
 
 ## Output and failures
 

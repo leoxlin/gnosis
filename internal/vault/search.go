@@ -54,39 +54,9 @@ type searchPage struct {
 
 // Documents reads live concept files from every configured vault root.
 func (s *SearchSource) Documents() ([]search.Document, error) {
-	pages := []*searchPage{}
-	seenPaths := make(map[string]struct{})
-
-	for _, vaultRoot := range s.resolution.VaultRoots {
-		err := filepath.WalkDir(vaultRoot, func(path string, entry os.DirEntry, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			if entry.IsDir() {
-				if path != vaultRoot && ignoredVaultDir(entry.Name()) {
-					return filepath.SkipDir
-				}
-				return nil
-			}
-			if filepath.Ext(path) != ".md" || reservedSearchFile(entry.Name()) {
-				return nil
-			}
-			path = filepath.Clean(path)
-			if _, exists := seenPaths[path]; exists {
-				return nil
-			}
-
-			page, err := s.readSearchPage(vaultRoot, path)
-			if err != nil {
-				return err
-			}
-			seenPaths[path] = struct{}{}
-			pages = append(pages, page)
-			return nil
-		})
-		if err != nil {
-			return nil, err
-		}
+	pages, err := s.pages()
+	if err != nil {
+		return nil, err
 	}
 
 	pathIDs := make(map[string]string, len(pages))
@@ -135,6 +105,76 @@ func (s *SearchSource) Documents() ([]search.Document, error) {
 		return documents[i].ID < documents[j].ID
 	})
 	return documents, nil
+}
+
+// Read returns the complete Markdown document with an exact type and title.
+func Read(root, conceptType, title string) ([]byte, error) {
+	source, err := NewSearchSource(root)
+	if err != nil {
+		return nil, err
+	}
+	pages, err := source.pages()
+	if err != nil {
+		return nil, err
+	}
+
+	matches := make([]*searchPage, 0, 1)
+	for _, page := range pages {
+		if page.document.Type == conceptType && page.document.Title == title {
+			matches = append(matches, page)
+		}
+	}
+	switch len(matches) {
+	case 0:
+		return nil, fmt.Errorf("no document found with type %q and title %q", conceptType, title)
+	case 1:
+		return os.ReadFile(matches[0].path)
+	default:
+		paths := make([]string, 0, len(matches))
+		for _, page := range matches {
+			paths = append(paths, page.document.ID)
+		}
+		sort.Strings(paths)
+		return nil, fmt.Errorf("multiple documents found with type %q and title %q: %s", conceptType, title, strings.Join(paths, ", "))
+	}
+}
+
+func (s *SearchSource) pages() ([]*searchPage, error) {
+	pages := []*searchPage{}
+	seenPaths := make(map[string]struct{})
+
+	for _, vaultRoot := range s.resolution.VaultRoots {
+		err := filepath.WalkDir(vaultRoot, func(path string, entry os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if entry.IsDir() {
+				if path != vaultRoot && ignoredVaultDir(entry.Name()) {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if filepath.Ext(path) != ".md" || reservedSearchFile(entry.Name()) {
+				return nil
+			}
+			path = filepath.Clean(path)
+			if _, exists := seenPaths[path]; exists {
+				return nil
+			}
+
+			page, err := s.readSearchPage(vaultRoot, path)
+			if err != nil {
+				return err
+			}
+			seenPaths[path] = struct{}{}
+			pages = append(pages, page)
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pages, nil
 }
 
 func (s *SearchSource) readSearchPage(vaultRoot, path string) (*searchPage, error) {

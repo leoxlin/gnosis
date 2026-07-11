@@ -49,7 +49,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	}
 	command.SetOut(stdout)
 	command.SetErr(stderr)
-	command.AddCommand(newSetupCommand(stdout), newIndexCommand(stdout), newValidateCommand(stdout, stderr), newQueryCommand(stdout))
+	command.AddCommand(newSetupCommand(stdout), newIndexCommand(stdout), newReadCommand(stdout), newValidateCommand(stdout, stderr), newQueryCommand(stdout))
 	command.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "Print the gnosis version",
@@ -59,6 +59,41 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		},
 	})
 	return command
+}
+
+func newReadCommand(stdout io.Writer) *cobra.Command {
+	var vaultPath, conceptType, title string
+	command := &cobra.Command{
+		Use:   "read [flags]",
+		Short: "Print a vault document by type and title",
+		Args:  noArgs("read"),
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return runRead(vaultPath, conceptType, title, stdout)
+		},
+	}
+	flags := command.Flags()
+	flags.StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
+	flags.StringVar(&conceptType, "type", "", "exact document type")
+	flags.StringVar(&title, "title", "", "exact document title")
+	return command
+}
+
+func runRead(vaultPath, conceptType, title string, stdout io.Writer) error {
+	conceptType = strings.TrimSpace(conceptType)
+	if conceptType == "" {
+		return errors.New("read: -type must not be empty")
+	}
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return errors.New("read: -title must not be empty")
+	}
+
+	document, err := vault.Read(vaultPath, conceptType, title)
+	if err != nil {
+		return fmt.Errorf("read: %w", err)
+	}
+	_, err = stdout.Write(document)
+	return err
 }
 
 func newQueryCommand(stdout io.Writer) *cobra.Command {
@@ -392,6 +427,7 @@ func normalizeLegacyLongFlags(args []string) []string {
 	longFlags := map[string]bool{
 		"vault": true, "top": true, "max-read": true, "depth": true,
 		"json": true, "pretty": true, "force": true, "concepts": true,
+		"type": true, "title": true,
 	}
 	normalized := make([]string, 0, len(args))
 	for _, arg := range args {

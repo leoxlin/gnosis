@@ -59,6 +59,7 @@ func TestRunRejectsUnexpectedArguments(t *testing.T) {
 		{"version", "extra"},
 		{"validate", "extra"},
 		{"setup", "extra"},
+		{"read", "extra"},
 		{"query", "search", "one", "two"},
 		{"query", "graph", "one", "two"},
 	} {
@@ -194,6 +195,57 @@ func TestRunQueryIsReadOnly(t *testing.T) {
 	}
 	if string(after) != string(before) {
 		t.Fatal("query changed a vault page")
+	}
+}
+
+func TestRunReadPrintsExactDocument(t *testing.T) {
+	root := queryTestVault(t)
+	path := filepath.Join(root, "transformer.md")
+	want, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if err := run([]string{"read", "-vault", root, "-type", "Concept", "-title", "Transformer Architecture"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if stdout.String() != string(want) {
+		t.Fatalf("stdout = %q, want %q", stdout.String(), want)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestRunReadRequiresUniqueTypeAndTitle(t *testing.T) {
+	root := queryTestVault(t)
+	writeTestFile(t, root, "duplicate.md", `---
+type: Concept
+title: Transformer Architecture
+---
+
+# Duplicate
+`)
+
+	for _, test := range []struct {
+		args []string
+		want string
+	}{
+		{args: []string{"read", "-vault", root, "-title", "Transformer Architecture"}, want: "-type"},
+		{args: []string{"read", "-vault", root, "-type", "Concept"}, want: "-title"},
+		{args: []string{"read", "-vault", root, "-type", "Missing", "-title", "Transformer Architecture"}, want: "no document found"},
+		{args: []string{"read", "-vault", root, "-type", "Concept", "-title", "Transformer Architecture"}, want: "multiple documents found"},
+	} {
+		t.Run(strings.Join(test.args, "_"), func(t *testing.T) {
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			err := run(test.args, &stdout, &stderr)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %v, want %q", err, test.want)
+			}
+		})
 	}
 }
 
