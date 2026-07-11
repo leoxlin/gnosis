@@ -323,12 +323,25 @@ func TestRunProcessDiscoverAndInvoke(t *testing.T) {
 	if err := json.Unmarshal(stdout.Bytes(), &discovery); err != nil {
 		t.Fatal(err)
 	}
-	if len(discovery.Processes) != 1 || discovery.Processes[0].URI == "" || discovery.Processes[0].Invocation != "model" {
+	var selected struct {
+		ID         string   `json:"id"`
+		URI        string   `json:"uri"`
+		UseWhen    []string `json:"use_when"`
+		Invocation string   `json:"invocation"`
+		Effects    []string `json:"effects"`
+	}
+	for _, process := range discovery.Processes {
+		if process.ID == "processes/query-vault.md" {
+			selected = process
+			break
+		}
+	}
+	if selected.URI == "" || selected.Invocation != "model" {
 		t.Fatalf("discovery = %+v", discovery)
 	}
 
 	stdout.Reset()
-	if err := run([]string{"process", "invoke", "--vault", root, "--id", discovery.Processes[0].URI, "--pretty"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"process", "invoke", "--vault", root, "--id", selected.URI, "--pretty"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	var invocation struct {
@@ -477,7 +490,7 @@ description: Decouples an interface from its implementation.
 	if err := run([]string{"concepts", "-vault", root}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
-	if stdout.String() != "Type: Concept\nDescription: A reusable knowledge record.\n\nType: Pattern\nDescription: Pattern\n\n" {
+	if !strings.Contains(stdout.String(), "Type: Concept\nDescription: A reusable knowledge record.\n") || !strings.Contains(stdout.String(), "Type: Pattern\nDescription: Pattern\n") || !strings.Contains(stdout.String(), "Type: Vault Process") || !strings.Contains(stdout.String(), "Type: Repository Process") {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
 	if stderr.Len() != 0 {
@@ -565,7 +578,7 @@ func TestRunConceptsValidatesArgumentsAndType(t *testing.T) {
 func queryTestVault(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
-	writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_root = \".\"\n\n[vaults.gnosis]\ninclude = []\n")
+	writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_root = \".\"")
 	writeTestFile(t, root, "transformer.md", `---
 type: Concept
 title: Transformer Architecture
@@ -597,9 +610,6 @@ vault_name = "Process Test"
 vault_root = "."
 vault_index = false
 vault_log = false
-
-[vaults.gnosis]
-include = []
 `)
 	writeTestFile(t, root, "concepts/provenance.md", `---
 type: Concept
@@ -644,7 +654,7 @@ The answer is grounded.
 func writeCommandTestVault(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
-	writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_root = \".\"\n\n[vaults.gnosis]\ninclude = []\n")
+	writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_root = \".\"")
 	writeTestFile(t, root, "concepts/note.md", "---\ntype: Concept Type\ntitle: Note\npath: notes\n---\n")
 	return root
 }
@@ -836,7 +846,7 @@ func TestRunSetupCreatesImportWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(config), "[vaults.gnosis]\ninclude = [\"forge\"]") {
+	if !strings.Contains(string(config), "[[vaults]]\nvault_name = \"source\"") {
 		t.Fatalf("gnosis.toml = %q", config)
 	}
 }

@@ -12,9 +12,6 @@ func TestWriteDocumentWritesToCurrentLocalVaultUsingConceptTypePath(t *testing.T
 	writeConfig(t, workspace, `[vault]
 vault_name = "Workspace"
 vault_root = "local"
-
-[vaults.gnosis]
-include = []
 `)
 	write(t, workspace, "local/types/note.md", `---
 type: Concept Type
@@ -69,9 +66,6 @@ func TestWriteDocumentRejectsInvalidContentAndConceptTypePath(t *testing.T) {
 	writeConfig(t, workspace, `[vault]
 vault_name = "Workspace"
 vault_root = "."
-
-[vaults.gnosis]
-include = []
 `)
 	write(t, workspace, "types/note.md", `---
 type: Concept Type
@@ -118,18 +112,13 @@ func TestWriteDocumentRequiresOverwriteForImportedOrBuiltInDocuments(t *testing.
 vault_name = "Workspace"
 vault_root = "local"
 
-[vaults]
-include = ["imported"]
-
-[vaults.gnosis]
-include = ["vault"]
+[[vaults]]
+vault_name = "Imported"
+vault_root = "imported"
 `)
 	writeConfig(t, imported, `[vault]
 vault_name = "Imported"
 vault_root = "."
-
-[vaults.gnosis]
-include = []
 `)
 	write(t, workspace, "local/types/note.md", `---
 type: Concept Type
@@ -184,18 +173,13 @@ func TestWriteDocumentRequiresCurrentDirectoryLocalVault(t *testing.T) {
 	if err := os.MkdirAll(imported, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeConfig(t, workspace, `[vaults]
-include = ["imported"]
-
-[vaults.gnosis]
-include = []
+	writeConfig(t, workspace, `[[vaults]]
+vault_name = "Imported"
+vault_root = "imported"
 `)
 	writeConfig(t, imported, `[vault]
 vault_name = "Imported"
 vault_root = "."
-
-[vaults.gnosis]
-include = []
 `)
 	write(t, imported, "types/note.md", "---\ntype: Concept Type\ntitle: Note\npath: notes\n---\n")
 	content := []byte("---\ntype: Note\ntitle: A Note\n---\n")

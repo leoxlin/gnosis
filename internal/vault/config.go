@@ -19,10 +19,10 @@ const (
 	LinkFormatAbsolute LinkFormat = "absolute"
 )
 
-// Config is the gnosis configuration for local vaults, imports, and bundles.
+// Config is the gnosis configuration for local and declared vaults.
 type Config struct {
-	Vault  VaultConfig  `toml:"vault"`
-	Vaults VaultsConfig `toml:"vaults"`
+	Vault  VaultConfig           `toml:"vault"`
+	Vaults []DeclaredVaultConfig `toml:"vaults"`
 }
 
 // VaultConfig holds local vault settings.
@@ -35,15 +35,10 @@ type VaultConfig struct {
 	VaultLog         bool   `toml:"vault_log"`
 }
 
-// VaultsConfig lists local paths or future remote URLs for other vaults.
-type VaultsConfig struct {
-	Include []string     `toml:"include"`
-	Gnosis  GnosisConfig `toml:"gnosis"`
-}
-
-// GnosisConfig controls the built-in gnosis documentation bundles.
-type GnosisConfig struct {
-	Include []string `toml:"include"`
+// DeclaredVaultConfig identifies one additional vault root in a workspace.
+type DeclaredVaultConfig struct {
+	Name string `toml:"vault_name"`
+	Root string `toml:"vault_root"`
 }
 
 // VaultSource is one directory read as part of an ordered composed vault.
@@ -72,11 +67,6 @@ func DefaultConfig() Config {
 			VaultIndex:       true,
 			VaultLog:         true,
 		},
-		Vaults: VaultsConfig{
-			Gnosis: GnosisConfig{
-				Include: []string{"vault"},
-			},
-		},
 	}
 }
 
@@ -90,8 +80,8 @@ func (c Config) LinkFormatValue() LinkFormat {
 func (c Config) IsStrict() bool     { return c.Vault.LinkFormatStrict }
 func (c Config) IndexEnabled() bool { return c.Vault.VaultIndex }
 func (c Config) LogEnabled() bool   { return c.Vault.VaultLog }
-func (c Config) ForgeEnabled() bool { return includes(c.Vaults.Gnosis.Include, "forge") }
-func (c Config) VaultEnabled() bool { return includes(c.Vaults.Gnosis.Include, "vault") }
+func (Config) ForgeEnabled() bool   { return true }
+func (Config) VaultEnabled() bool   { return true }
 func (c Config) HasLocalVault() bool {
 	return strings.TrimSpace(c.Vault.Name) != "" || strings.TrimSpace(c.Vault.Root) != ""
 }
@@ -110,8 +100,8 @@ func LoadConfig(root string) (Config, []string, error) {
 // parent directories. When none of those files exists, it uses the defaults,
 // including the bundled vault documentation.
 //
-// A selected configuration resolves its local vault root followed by recursive
-// imports in declared order.
+// A selected configuration resolves its local vault root followed by declared
+// vault roots in declaration order.
 func ResolveConfig(root string) (ConfigResolution, error) {
 	absolute, err := filepath.Abs(root)
 	if err != nil {
@@ -135,9 +125,7 @@ func ResolveConfig(root string) (ConfigResolution, error) {
 		return ConfigResolution{Root: configRoot}, err
 	}
 	resolution := ConfigResolution{Config: config, Root: configRoot}
-	seen := make(map[string]struct{})
-	stack := make(map[string]struct{})
-	if err := resolveVaultConfig(configRoot, config, &resolution, seen, stack); err != nil {
+	if err := resolveVaultConfig(configRoot, config, &resolution); err != nil {
 		return resolution, err
 	}
 	return resolution, nil
@@ -184,25 +172,8 @@ func loadConfigPath(path string) (Config, error) {
 	return config, nil
 }
 
-func resolveVault(root string, resolution *ConfigResolution, seen, stack map[string]struct{}) error {
-	config, err := loadConfig(root)
-	if err != nil {
-		return err
-	}
-	return resolveVaultConfig(root, config, resolution, seen, stack)
-}
-
-func resolveVaultConfig(root string, config Config, resolution *ConfigResolution, seen, stack map[string]struct{}) error {
+func resolveVaultConfig(root string, config Config, resolution *ConfigResolution) error {
 	root = filepath.Clean(root)
-	if _, exists := stack[root]; exists {
-		return fmt.Errorf("vault import cycle includes %s", root)
-	}
-	if _, exists := seen[root]; exists {
-		return nil
-	}
-	stack[root] = struct{}{}
-	defer delete(stack, root)
-	seen[root] = struct{}{}
 
 	if config.HasLocalVault() {
 		vaultRoot, err := resolveVaultRoot(config, root)
@@ -216,14 +187,17 @@ func resolveVaultConfig(root string, config Config, resolution *ConfigResolution
 		resolution.Sources = append(resolution.Sources, VaultSource{Path: vaultRoot, VaultRoot: root, Config: config})
 	}
 
-	for i, importRef := range config.Vaults.Include {
-		importRoot, err := resolveImport(root, importRef)
+	for i, declared := range config.Vaults {
+		vaultRoot, err := resolveDeclaredVaultRoot(declared, root)
 		if err != nil {
-			return fmt.Errorf("vaults.include[%d]: %w", i, err)
+			return fmt.Errorf("vaults[%d]: %w", i, err)
 		}
-		if err := resolveVault(importRoot, resolution, seen, stack); err != nil {
-			return err
-		}
+		sourceConfig := config
+		sourceConfig.Vault.Name = declared.Name
+		sourceConfig.Vault.Root = declared.Root
+		sourceConfig.Vaults = nil
+		resolution.VaultRoots = append(resolution.VaultRoots, vaultRoot)
+		resolution.Sources = append(resolution.Sources, VaultSource{Path: vaultRoot, VaultRoot: vaultRoot, Config: sourceConfig})
 	}
 	return nil
 }
@@ -245,30 +219,15 @@ func validateConfig(config Config, root string) error {
 			return fmt.Errorf("vault.link_format must be %q or %q, got %q", LinkFormatRelative, LinkFormatAbsolute, config.Vault.LinkFormat)
 		}
 	}
-	for i, value := range config.Vaults.Include {
-		if strings.TrimSpace(value) == "" {
-			return fmt.Errorf("vaults.include[%d] must not be empty", i)
+	for i, declared := range config.Vaults {
+		if strings.TrimSpace(declared.Name) == "" {
+			return fmt.Errorf("vaults[%d].vault_name must not be empty", i)
 		}
-	}
-	for i, value := range config.Vaults.Gnosis.Include {
-		switch value {
-		case "forge", "vault":
-		case "":
-			return fmt.Errorf("vaults.gnosis.include[%d] must not be empty", i)
-		default:
-			return fmt.Errorf("vaults.gnosis.include[%d] must be %q or %q, got %q", i, "forge", "vault", value)
+		if _, err := resolveDeclaredVaultRoot(declared, root); err != nil {
+			return fmt.Errorf("vaults[%d]: %w", i, err)
 		}
 	}
 	return nil
-}
-
-func includes(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
 }
 
 func resolveVaultRoot(config Config, root string) (string, error) {
@@ -290,11 +249,11 @@ func resolveVaultRoot(config Config, root string) (string, error) {
 	return resolved, nil
 }
 
-func resolveImport(root, value string) (string, error) {
-	if strings.Contains(value, "://") {
-		return "", fmt.Errorf("remote vault imports are not supported yet: %q", value)
+func resolveDeclaredVaultRoot(config DeclaredVaultConfig, root string) (string, error) {
+	path := strings.TrimSpace(config.Root)
+	if path == "" {
+		return "", fmt.Errorf("vault_root must not be empty")
 	}
-	path := value
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(root, path)
 	}
@@ -309,26 +268,21 @@ func resolveImport(root, value string) (string, error) {
 	if !info.IsDir() {
 		return "", fmt.Errorf("%s is not a directory", path)
 	}
-	if _, err := os.Stat(filepath.Join(path, "gnosis.toml")); err != nil {
-		return "", fmt.Errorf("%s does not contain gnosis.toml", path)
-	}
 	return filepath.Clean(path), nil
 }
 
-// WriteWorkspaceConfig creates an import-only workspace configuration.
+// WriteWorkspaceConfig creates a workspace configuration with declared vaults.
 func WriteWorkspaceConfig(root string, imports []string, force bool) (bool, error) {
 	var contents strings.Builder
-	contents.WriteString("[vaults]\n")
-	contents.WriteString("include = [")
-	for i, value := range imports {
-		if i > 0 {
-			contents.WriteString(", ")
-		}
+	for _, value := range imports {
+		contents.WriteString("[[vaults]]\n")
+		contents.WriteString("vault_name = ")
+		contents.WriteString(strconv.Quote(filepath.Base(filepath.Clean(value))))
+		contents.WriteString("\n")
+		contents.WriteString("vault_root = ")
 		contents.WriteString(strconv.Quote(value))
+		contents.WriteString("\n\n")
 	}
-	contents.WriteString("]\n")
-	contents.WriteString("\n[vaults.gnosis]\n")
-	contents.WriteString("include = [\"forge\"]\n")
 	return WriteGeneratedFile(filepath.Join(root, "gnosis.toml"), []byte(contents.String()), force)
 }
 

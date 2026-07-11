@@ -6,8 +6,6 @@ link_format_strict = true
 vault_index = false
 vault_log = false
 
-[vaults]
-include = []
-
-[vaults.gnosis]
-include = []
+[[vaults]]
+vault_name = "obsidian"
+vault_root = "/home/llin/Gnosis"

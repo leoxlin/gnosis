@@ -14,9 +14,6 @@ vault_name = "Test"
 vault_root = "docs"
 vault_index = false
 vault_log = false
-
-[vaults.gnosis]
-include = []
 `)
 	write(t, root, "docs/concept.md", `---
 type: Concept
@@ -67,9 +64,6 @@ type: Hidden
 			t.Fatalf("missing %s in %+v", id, documents)
 		}
 	}
-	if len(documents) != 2 {
-		t.Fatalf("documents = %+v, want documents from the configured root", documents)
-	}
 	concept := documents[byID["concept.md"]]
 	if concept.Description != "A folded description." {
 		t.Fatalf("description = %q", concept.Description)
@@ -105,11 +99,9 @@ func TestSearchSourcePrefersLocalRootOverImportedVaults(t *testing.T) {
 vault_name = "Workspace"
 vault_root = "local"
 
-[vaults]
-include = ["imported"]
-
-[vaults.gnosis]
-include = []
+[[vaults]]
+vault_name = "Imported"
+vault_root = "imported"
 `)
 	writeConfig(t, imported, `[vault]
 vault_name = "Imported"
@@ -126,9 +118,12 @@ vault_root = "."
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(documents) != 1 || documents[0].ID != "article.md" || documents[0].Title != "Local" {
-		t.Fatalf("documents = %+v", documents)
+	for _, document := range documents {
+		if document.ID == "article.md" && document.Title == "Local" {
+			return
+		}
 	}
+	t.Fatalf("documents = %+v", documents)
 }
 
 func TestSearchSourceIncludesBundledDocumentsWithVaultPrecedence(t *testing.T) {
@@ -136,9 +131,6 @@ func TestSearchSourceIncludesBundledDocumentsWithVaultPrecedence(t *testing.T) {
 	writeConfig(t, root, `[vault]
 vault_name = "Workspace"
 vault_root = "."
-
-[vaults.gnosis]
-include = ["forge", "vault"]
 `)
 	write(t, root, "concepts/vault-process.md", `---
 type: Concept Type
@@ -190,8 +182,9 @@ func TestSearchSourceLetsImportsOverrideBundledDocuments(t *testing.T) {
 	if err := os.MkdirAll(imported, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeConfig(t, workspace, `[vaults]
-include = ["imported"]
+	writeConfig(t, workspace, `[[vaults]]
+vault_name = "Imported"
+vault_root = "imported"
 `)
 	writeConfig(t, imported, `[vault]
 vault_name = "Imported"
@@ -223,14 +216,11 @@ title: Imported query-vault
 	t.Fatal("missing query-vault document")
 }
 
-func TestSearchSourceCanDisableBundledVaultDocuments(t *testing.T) {
+func TestSearchSourceAlwaysIncludesBundledVaultDocuments(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]
 vault_name = "Workspace"
 vault_root = "."
-
-[vaults.gnosis]
-include = []
 `)
 
 	source, err := NewSearchSource(root)
@@ -241,9 +231,15 @@ include = []
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(documents) != 0 {
-		t.Fatalf("documents = %+v, want no bundled documents", documents)
+	if len(documents) == 0 {
+		t.Fatal("documents = none, want bundled documents")
 	}
+	for _, document := range documents {
+		if document.ID == "documentation/basic-usage.md" {
+			return
+		}
+	}
+	t.Fatalf("documents missing bundled vault documentation: %+v", documents)
 }
 
 func TestSearchSourceResolvesExtensionlessLinksAndIgnoresBrokenLinks(t *testing.T) {
@@ -273,7 +269,11 @@ title: B
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(documents) != 2 || strings.Join(documents[0].Links, ",") != "b.md" {
+	byID := make(map[string]Document, len(documents))
+	for _, document := range documents {
+		byID[document.ID] = document
+	}
+	if strings.Join(byID["a.md"].Links, ",") != "b.md" {
 		t.Fatalf("documents = %+v", documents)
 	}
 }
@@ -297,8 +297,12 @@ description: Before.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if documents[0].Description != "Before." {
-		t.Fatalf("description = %q", documents[0].Description)
+	byID := make(map[string]Document, len(documents))
+	for _, document := range documents {
+		byID[document.ID] = document
+	}
+	if byID["page.md"].Description != "Before." {
+		t.Fatalf("description = %q", byID["page.md"].Description)
 	}
 
 	updated := strings.Replace(string(mustReadFile(t, path)), "Before.", "After.", 1)
@@ -309,8 +313,12 @@ description: Before.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if documents[0].Description != "After." {
-		t.Fatalf("description = %q", documents[0].Description)
+	byID = make(map[string]Document, len(documents))
+	for _, document := range documents {
+		byID[document.ID] = document
+	}
+	if byID["page.md"].Description != "After." {
+		t.Fatalf("description = %q", byID["page.md"].Description)
 	}
 }
 

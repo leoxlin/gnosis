@@ -2,6 +2,7 @@ package vault
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 )
 
@@ -30,8 +31,8 @@ description: Weighted token lookup.
 	if err := ListConcepts(root, "", &output); err != nil {
 		t.Fatal(err)
 	}
-	if got, want := output.String(), "Type: Concept\nDescription: A reusable knowledge record.\n\nType: Pattern\nDescription: Pattern\n\n"; got != want {
-		t.Fatalf("output = %q, want %q", got, want)
+	if got := output.String(); !strings.Contains(got, "Type: Concept\nDescription: A reusable knowledge record.\n") || !strings.Contains(got, "Type: Pattern\nDescription: Pattern\n") || !strings.Contains(got, "Type: Vault Process") || !strings.Contains(got, "Type: Repository Process") {
+		t.Fatalf("output = %q", got)
 	}
 
 	output.Reset()

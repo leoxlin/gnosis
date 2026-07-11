@@ -13,10 +13,16 @@ func TestDiscoverAndInvokeProcessRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(discovery.Processes) != 1 {
+	var process ProcessSummary
+	for _, candidate := range discovery.Processes {
+		if candidate.ID == "processes/query-vault.md" {
+			process = candidate
+			break
+		}
+	}
+	if process.ID == "" {
 		t.Fatalf("processes = %+v", discovery.Processes)
 	}
-	process := discovery.Processes[0]
 	if process.ID != "processes/query-vault.md" || process.URI == "" || process.Type != "Vault Process" {
 		t.Fatalf("process = %+v", process)
 	}
@@ -78,8 +84,13 @@ description: Answer a question from recorded vault knowledge.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(discovery.Processes) != 1 || discovery.Processes[0].Type != "Vault Process" {
+	if len(discovery.Processes) == 0 {
 		t.Fatalf("processes = %+v", discovery.Processes)
+	}
+	for _, process := range discovery.Processes {
+		if process.Type != "Vault Process" {
+			t.Fatalf("processes = %+v", discovery.Processes)
+		}
 	}
 }
 
@@ -132,20 +143,15 @@ vault_root = "docs"
 vault_index = false
 vault_log = false
 
-[vaults]
-include = ["imported"]
-
-[vaults.gnosis]
-include = []
+[[vaults]]
+vault_name = "shared"
+vault_root = "imported/docs"
 `)
 	writeConfig(t, imported, `[vault]
 vault_name = "shared"
 vault_root = "docs"
 vault_index = false
 vault_log = false
-
-[vaults.gnosis]
-include = []
 `)
 	write(t, workspace, "docs/processes/start.md", `---
 type: Vault Process
@@ -275,9 +281,6 @@ vault_name = "invalid-process"
 vault_root = "."
 vault_index = false
 vault_log = false
-
-[vaults.gnosis]
-include = []
 `)
 	write(t, root, "process.md", `---
 type: Vault Process
@@ -322,9 +325,6 @@ vault_name = "missing-selection-metadata"
 vault_root = "."
 vault_index = false
 vault_log = false
-
-[vaults.gnosis]
-include = []
 `)
 	write(t, root, "process.md", `---
 type: Vault Process
@@ -372,9 +372,6 @@ vault_name = "broken-relationship"
 vault_root = "."
 vault_index = false
 vault_log = false
-
-[vaults.gnosis]
-include = []
 `)
 	write(t, root, "source.md", `---
 type: Note
@@ -405,9 +402,6 @@ vault_name = "agent-test"
 vault_root = "docs"
 vault_index = false
 vault_log = false
-
-[vaults.gnosis]
-include = []
 `)
 	write(t, root, "docs/concepts/provenance.md", `---
 type: Concept

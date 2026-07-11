@@ -27,20 +27,40 @@ func TestResolveConfigUsesDefaultsWithoutConfiguration(t *testing.T) {
 	}
 }
 
-func TestResolveConfigAllowsOnlyBundledDocumentation(t *testing.T) {
+func TestResolveConfigAlwaysIncludesBundledDocumentation(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	root := t.TempDir()
-	writeConfig(t, root, "[vaults.gnosis]\ninclude = [\"vault\"]\n")
+	writeConfig(t, root, "")
 
 	resolution, err := ResolveConfig(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !resolution.Config.VaultEnabled() || resolution.Config.ForgeEnabled() {
-		t.Fatalf("forge = %t vault = %t, want vault only", resolution.Config.ForgeEnabled(), resolution.Config.VaultEnabled())
+	if !resolution.Config.VaultEnabled() || !resolution.Config.ForgeEnabled() {
+		t.Fatalf("forge = %t vault = %t, want both bundles", resolution.Config.ForgeEnabled(), resolution.Config.VaultEnabled())
 	}
 	if len(resolution.Sources) != 0 {
 		t.Fatalf("sources = %v, want none", resolution.Sources)
+	}
+}
+
+func TestResolveConfigLoadsMultipleDeclaredVaultsInOrder(t *testing.T) {
+	root := t.TempDir()
+	obsidian := filepath.Join(root, "obsidian")
+	if err := os.Mkdir(obsidian, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeConfig(t, root, `[[vaults]]
+vault_name = "obsidian"
+vault_root = "obsidian"
+`)
+
+	resolution, err := ResolveConfig(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := resolution.VaultRoots, []string{obsidian}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("vault roots = %v, want %v", got, want)
 	}
 }
 
@@ -141,44 +161,19 @@ vault_root = "docs"
 	}
 }
 
-func TestDefaultBundledVaultDocumentationCanBeDisabled(t *testing.T) {
+func TestConfigAlwaysIncludesAllBundledDocumentation(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]
 vault_name = "Local"
 vault_root = "."
-
-[vaults.gnosis]
-include = []
 `)
 
 	resolution, err := ResolveConfig(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resolution.Config.VaultEnabled() {
-		t.Fatal("vault documentation is enabled, want disabled")
-	}
-	if resolution.Config.ForgeEnabled() {
-		t.Fatal("forge documentation is enabled by default")
-	}
-}
-
-func TestGnosisBundleIncludesSelectBundlesExplicitly(t *testing.T) {
-	root := t.TempDir()
-	writeConfig(t, root, `[vault]
-vault_name = "Local"
-vault_root = "."
-
-[vaults.gnosis]
-include = ["forge"]
-`)
-
-	resolution, err := ResolveConfig(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !resolution.Config.ForgeEnabled() || resolution.Config.VaultEnabled() {
-		t.Fatalf("forge = %t vault = %t, want forge only", resolution.Config.ForgeEnabled(), resolution.Config.VaultEnabled())
+	if !resolution.Config.VaultEnabled() || !resolution.Config.ForgeEnabled() {
+		t.Fatalf("forge = %t vault = %t, want both bundles", resolution.Config.ForgeEnabled(), resolution.Config.VaultEnabled())
 	}
 }
 
@@ -192,7 +187,7 @@ func TestResolveConfigRejectsNestedVaultImports(t *testing.T) {
 	}
 }
 
-func TestResolveConfigRecursivelyImportsVaultsInOrder(t *testing.T) {
+func TestResolveConfigLoadsDeclaredVaultsInOrder(t *testing.T) {
 	workspace := t.TempDir()
 	first := filepath.Join(workspace, "first")
 	second := filepath.Join(workspace, "second")
@@ -206,15 +201,17 @@ vault_name = "`+filepath.Base(root)+`"
 vault_root = "."
 `)
 	}
-	writeConfig(t, first, `[vault]
+	writeConfig(t, workspace, `[[vaults]]
 vault_name = "first"
-vault_root = "."
+vault_root = "first"
 
-[vaults]
-include = ["../third"]
-`)
-	writeConfig(t, workspace, `[vaults]
-include = ["first", "second"]
+[[vaults]]
+vault_name = "third"
+vault_root = "third"
+
+[[vaults]]
+vault_name = "second"
+vault_root = "second"
 `)
 
 	resolution, err := ResolveConfig(workspace)
@@ -240,26 +237,21 @@ vault_dirs = ["docs"]
 	}
 }
 
-func TestResolveConfigRejectsRemoteImportsAndCycles(t *testing.T) {
+func TestResolveConfigRejectsInvalidDeclaredVaults(t *testing.T) {
 	root := t.TempDir()
-	writeConfig(t, root, `[vaults]
-include = ["https://github.com/leoxlin/gnosis.git"]
+	writeConfig(t, root, `[[vaults]]
+vault_name = "missing"
+vault_root = "missing"
 `)
-	if _, err := ResolveConfig(root); err == nil || !strings.Contains(err.Error(), "remote vault imports") {
-		t.Fatalf("remote error = %v", err)
+	if _, err := ResolveConfig(root); err == nil || !strings.Contains(err.Error(), "missing") {
+		t.Fatalf("missing vault error = %v", err)
 	}
 
-	other := filepath.Join(root, "other")
-	if err := os.Mkdir(other, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeConfig(t, root, `[vaults]
-include = ["other"]
+	writeConfig(t, root, `[[vaults]]
+vault_name = ""
+vault_root = "."
 `)
-	writeConfig(t, other, `[vaults]
-include = [".."]
-`)
-	if _, err := ResolveConfig(root); err == nil || !strings.Contains(err.Error(), "cycle") {
-		t.Fatalf("cycle error = %v", err)
+	if _, err := ResolveConfig(root); err == nil || !strings.Contains(err.Error(), "vault_name") {
+		t.Fatalf("empty name error = %v", err)
 	}
 }

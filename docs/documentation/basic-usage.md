@@ -119,29 +119,22 @@ create the corresponding files and validation does not require them; `gnosis ind
 an option to false does not delete existing files. Unknown settings and unsafe
 directories are errors.
 
-An import-only workspace omits the local vault fields and lists vaults in the
-top-level `vaults` section:
+An import-only workspace omits the local vault fields and declares each vault
+in the top-level `vaults` array:
 
 ```toml
-[vaults]
-include = ["../my-vault"]
-
-[vaults.gnosis]
-include = ["forge", "vault"]
+[[vaults]]
+vault_name = "my-vault"
+vault_root = "../my-vault"
 ```
 
-Both `[vault]` and `[vaults]` are optional. The default behavior is equivalent
-to `[vaults.gnosis]` with `include = ["vault"]`. Use an empty list to exclude
-bundled documentation. `gnosis setup` enables the optional forge documentation
-with `include = ["forge"]`.
-Local vault pages and pages from declared imports take precedence over bundled
-pages with the same vault-relative path.
+Both `[vault]` and `[[vaults]]` are optional. gnosis always includes its bundled
+forge and vault documentation. Local vault pages and pages from declared vaults
+take precedence over bundled pages with the same vault-relative path.
 
-Each local import must point to a directory with its own `gnosis.toml`. Imports
-resolve recursively: local directories take precedence, followed by imports in
-their declared order and each import's own imports. When pages share the same
-path relative to a `vault_dir`, the first page wins. Remote URLs are part of the
-configuration model but are not resolved yet.
+Each declared vault root must point to a local directory. Local vault pages take
+precedence, followed by declared vaults in their configured order. When pages
+share the same path relative to a `vault_root`, the first page wins.
 
 ## Querying
 

@@ -67,21 +67,28 @@ func TestServerExposesAgentToolsResourcesAndPrompts(t *testing.T) {
 		t.Fatal(err)
 	}
 	discovery := decodeToolResult[vault.ProcessDiscovery](t, call)
-	if len(discovery.Processes) != 1 || discovery.Processes[0].URI == "" {
+	var process vault.ProcessSummary
+	for _, candidate := range discovery.Processes {
+		if candidate.ID == "processes/query-vault.md" {
+			process = candidate
+			break
+		}
+	}
+	if process.URI == "" {
 		t.Fatalf("discovery = %+v", discovery)
 	}
 
 	invoked, err := clientSession.CallTool(ctx, &mcp.CallToolParams{
 		Name: "invoke_process",
 		Arguments: map[string]any{
-			"id": discovery.Processes[0].URI,
+			"id": process.URI,
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	invocation := decodeToolResult[vault.ProcessInvocation](t, invoked)
-	if invocation.Process.URI != discovery.Processes[0].URI || invocation.Sections.Completion == "" || len(invocation.Relationships) != 1 {
+	if invocation.Process.URI != process.URI || invocation.Sections.Completion == "" || len(invocation.Relationships) != 1 {
 		t.Fatalf("invocation = %+v", invocation)
 	}
 
@@ -174,7 +181,15 @@ func TestServerExposesAgentToolsResourcesAndPrompts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(prompts.Prompts) != 1 || prompts.Prompts[0].Title != "query-vault" {
+	promptName := processPromptName(process)
+	foundPrompt := false
+	for _, candidate := range prompts.Prompts {
+		if candidate.Name == promptName {
+			foundPrompt = true
+			break
+		}
+	}
+	if !foundPrompt {
 		t.Fatalf("prompts = %+v", prompts.Prompts)
 	}
 	processPath := filepath.Join(root, "processes", "query-vault.md")
@@ -185,7 +200,7 @@ func TestServerExposesAgentToolsResourcesAndPrompts(t *testing.T) {
 	if err := os.WriteFile(processPath, append(processMarkdown, []byte("\nLive prompt revision.\n")...), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	prompt, err := clientSession.GetPrompt(ctx, &mcp.GetPromptParams{Name: prompts.Prompts[0].Name})
+	prompt, err := clientSession.GetPrompt(ctx, &mcp.GetPromptParams{Name: promptName})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,9 +237,6 @@ vault_name = "mcp-test"
 vault_root = "."
 vault_index = false
 vault_log = false
-
-[vaults.gnosis]
-include = []
 `)
 	writeMCPTestFile(t, root, "concepts/provenance.md", `---
 type: Concept
