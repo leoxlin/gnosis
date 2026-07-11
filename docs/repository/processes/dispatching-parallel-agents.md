@@ -1,12 +1,12 @@
 ---
-type: Repository Process
+type: Gnosis Process
 title: dispatching-parallel-agents
 description: Use when two or more problem domains can be investigated or changed without shared state, overlapping files, or sequential dependencies.
 invocation: model
 effects: [workspace-write]
 relationships:
   - type: instance_of
-    target: ../../concepts/repository-process.md
+    target: ../../concepts/gnosis-process.md
 ---
 
 # dispatching-parallel-agents
@@ -24,7 +24,7 @@ Keep related failures, exploratory diagnosis, shared-state changes, and sequenti
 ## Knowledge inputs
 
 - The governing directive or bounded problem statement.
-- Relevant active decisions and Repository Process pages for each domain.
+- Relevant active decisions and Gnosis Process pages for each domain.
 - Current failures, implementation boundaries, ownership of files and workspaces, and integration tests.
 - Dependencies between domains, including any shared mutable resource.
 

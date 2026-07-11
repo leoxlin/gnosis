@@ -1,5 +1,5 @@
 ---
-type: Repository Decision
+type: Gnosis Decision
 title: Resolve imported vaults by local order
 description: Compose local vault directories and recursive imports in declared order, with earlier vault-relative pages taking precedence.
 ---

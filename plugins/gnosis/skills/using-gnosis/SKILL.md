@@ -1,6 +1,6 @@
 ---
 name: using-gnosis
-description: Select and apply canonical Vault Process and Repository Process records for work in a gnosis vault or repository.
+description: Select and apply canonical Gnosis Process records for work in a gnosis vault or repository.
 ---
 
 # Using gnosis
@@ -9,7 +9,7 @@ Use this skill as the process gateway. Process records are the source of workflo
 
 1. Resolve the current vault and repository, then read their agent instructions.
 2. For every task, dispatch a fresh read-only selector sub-agent with the author's exact request, the resolved vault, and the applicable agent instructions. Require the selector to:
-   - Discover only exact `Vault Process` and `Repository Process` records. Prefer the gnosis MCP `discover_processes` tool; if unavailable, use `gnosis process discover --type '<type>' --pretty '<request>'` once for each applicable type.
+   - Discover only exact `Gnosis Process` records. Prefer the gnosis MCP `discover_processes` tool; if unavailable, run `gnosis process discover --type 'Gnosis Process' --pretty '<request>'` once.
    - Select the smallest applicable process or dependency-ordered chain from `description` and `use_when`. Treat no other concept type as executable.
    - Reject an `explicit` process unless the author invoked or requested it.
    - Return each selected process's exact URI, revision, origin, effects, and selection rationale, or report that no process applies.

@@ -113,7 +113,7 @@ Superpowers is a useful complement and comparison point for [`gnosis`](../reposi
 - Its separation of canonical skills, tool maps, and bootstrap adapters is a concrete portability pattern for multi-harness skill bundles.
 - Its progress ledger solves recovery for active task orchestration, while `gnosis` keeps that ledger as transient execution scratch and leaves routine delivery history to git and CI.
 
-`gnosis` adapts the fourteen analyzed workflows into thirteen [Repository Process](../concepts/repository-process.md) records. The engineering gates remain recognizable, while purpose grounds design, `writing-directives-and-decisions` records durable decisions and creates Repository Directives, execution maintains directive status, and the `using-gnosis` gateway delegates selection of relevant process pages to a fresh read-only subagent. The durable boundary is recorded in [Consolidate runtime adapters in the `gnosis` plugin](../repository/decisions/consolidate-runtime-adapters-in-gnosis-plugin.md).
+`gnosis` adapts the fourteen analyzed workflows into thirteen [Gnosis Process](../concepts/gnosis-process.md) records. The engineering gates remain recognizable, while purpose grounds design, `writing-directives-and-decisions` records durable decisions and creates Gnosis Directives, execution maintains directive status, and the `using-gnosis` gateway delegates selection of relevant process pages to a fresh read-only subagent. The durable boundary is recorded in [Consolidate runtime adapters in the `gnosis` plugin](../repository/decisions/consolidate-runtime-adapters-in-gnosis-plugin.md).
 
 ## Trade-offs and cautions
 

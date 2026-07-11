@@ -12,9 +12,7 @@ target="internal/bundle/content"
 rm -rf "$target"
 
 for source in \
-  docs/concepts/repository-*.md \
-  docs/concepts/vault-*.md \
-  docs/documentation/*.md \
+  docs/concepts/*.md \
   docs/repository/processes/*.md \
   docs/vault/processes/*.md
 do

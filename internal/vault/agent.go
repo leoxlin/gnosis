@@ -9,10 +9,7 @@ import (
 	"strings"
 )
 
-const (
-	VaultProcessType      = "Vault Process"
-	RepositoryProcessType = "Repository Process"
-)
+const GnosisProcessType = "Gnosis Process"
 
 // OriginKind identifies where an effective document came from.
 type OriginKind string
@@ -377,7 +374,7 @@ func TracePath(root, fromSelector, toSelector string, direction Direction, relat
 
 func normalizeProcessTypes(values []string) ([]string, map[string]struct{}, error) {
 	if len(values) == 0 {
-		values = []string{VaultProcessType, RepositoryProcessType}
+		values = []string{GnosisProcessType}
 	}
 	result := make([]string, 0, len(values))
 	allowed := make(map[string]struct{}, len(values))
@@ -397,7 +394,7 @@ func normalizeProcessTypes(values []string) ([]string, map[string]struct{}, erro
 }
 
 func isProcessType(value string) bool {
-	return value == VaultProcessType || value == RepositoryProcessType
+	return value == GnosisProcessType
 }
 
 func processSummary(page *searchPage, score float64) (ProcessSummary, error) {

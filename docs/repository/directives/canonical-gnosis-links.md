@@ -1,5 +1,5 @@
 ---
-type: Repository Directive
+type: Gnosis Directive
 title: Canonical `gnosis` links
 description: Read and render canonical vault-qualified gnosis links, with `core` as the bundled vault.
 status: done

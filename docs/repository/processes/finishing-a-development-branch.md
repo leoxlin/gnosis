@@ -1,12 +1,12 @@
 ---
-type: Repository Process
+type: Gnosis Process
 title: finishing-a-development-branch
 description: Use after implementation and review are complete to verify delivery readiness and let the author choose integration or cleanup.
 invocation: model
 effects: [workspace-write, external]
 relationships:
   - type: instance_of
-    target: ../../concepts/repository-process.md
+    target: ../../concepts/gnosis-process.md
 ---
 
 # finishing-a-development-branch

@@ -17,7 +17,7 @@ const serverVersion = "0.1.0"
 
 type discoverProcessesInput struct {
 	Request string   `json:"request" jsonschema:"the agent request that needs a process"`
-	Types   []string `json:"types,omitempty" jsonschema:"optional exact process types: Vault Process or Repository Process"`
+	Types   []string `json:"types,omitempty" jsonschema:"optional exact process type: Gnosis Process"`
 	Limit   *int     `json:"limit,omitempty" jsonschema:"maximum process candidates to return"`
 }
 
@@ -87,7 +87,7 @@ func registerTools(server *mcp.Server, root string) {
 	mcp.AddTool(server, readOnlyTool(
 		"discover_processes",
 		"Discover processes",
-		"Rank only executable Vault Process and Repository Process records for an agent request.",
+		"Rank executable Gnosis Process records for an agent request.",
 	), func(_ context.Context, _ *mcp.CallToolRequest, input discoverProcessesInput) (*mcp.CallToolResult, *vault.ProcessDiscovery, error) {
 		limit := intValue(input.Limit, 5)
 		if limit <= 0 {

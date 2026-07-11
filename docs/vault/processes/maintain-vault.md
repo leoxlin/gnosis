@@ -1,12 +1,12 @@
 ---
-type: Vault Process
+type: Gnosis Process
 title: maintain-vault
 description: Use when auditing or repairing the integrity of a vault.
 invocation: model
 effects: [vault-write]
 relationships:
   - type: instance_of
-    target: ../../concepts/vault-process.md
+    target: ../../concepts/gnosis-process.md
 ---
 
 # maintain-vault

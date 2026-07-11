@@ -1,12 +1,12 @@
 ---
-type: Repository Process
+type: Gnosis Process
 title: test-driven-development
 description: Use when implementing a feature, bug fix, refactor, or behavior change before changing production code.
 invocation: model
 effects: [workspace-write]
 relationships:
   - type: instance_of
-    target: ../../concepts/repository-process.md
+    target: ../../concepts/gnosis-process.md
 ---
 
 # test-driven-development

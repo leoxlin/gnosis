@@ -59,7 +59,7 @@ func TestServerExposesAgentToolsResourcesAndPrompts(t *testing.T) {
 		Name: "discover_processes",
 		Arguments: map[string]any{
 			"request": "answer from recorded knowledge",
-			"types":   []string{"Vault Process"},
+			"types":   []string{"Gnosis Process"},
 			"limit":   3,
 		},
 	})
@@ -247,7 +247,7 @@ description: Source identity and history.
 # Provenance
 `)
 	writeMCPTestFile(t, root, "processes/query-vault.md", `---
-type: Vault Process
+type: Gnosis Process
 title: query-vault
 description: Answer from recorded vault knowledge.
 invocation: model

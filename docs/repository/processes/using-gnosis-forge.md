@@ -1,17 +1,17 @@
 ---
-type: Repository Process
+type: Gnosis Process
 title: using-gnosis-forge
 description: Use when an author explicitly asks gnosis to apply repository knowledge and processes to repository work.
 invocation: explicit
 effects: [read, workspace-write, external]
 relationships:
   - type: instance_of
-    target: ../../concepts/repository-process.md
+    target: ../../concepts/gnosis-process.md
 ---
 
 # using-gnosis-forge
 
-`using-gnosis-forge` is the explicit entry point for knowledge-driven repository work. It selects relevant Repository Process records, grounds them in durable repository knowledge, and then checks their instructions against implementation truth.
+`using-gnosis-forge` is the explicit entry point for knowledge-driven repository work. It selects relevant Gnosis Process records, grounds them in durable repository knowledge, and then checks their instructions against implementation truth.
 
 ## Use when
 
@@ -24,7 +24,7 @@ Do not invoke this process implicitly. A dispatched subagent follows the process
 
 - `gnosis.toml` and repository agent instructions.
 - The [repository purpose](../purpose.md).
-- Active decisions, open directives, concepts, and Repository Process pages relevant to the request.
+- Active decisions, open directives, concepts, and Gnosis Process pages relevant to the request.
 - Current implementation, tests, and verification output.
 - Path-scoped git history only when the preceding sources do not explain a choice.
 

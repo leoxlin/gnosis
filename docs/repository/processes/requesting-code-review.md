@@ -1,12 +1,12 @@
 ---
-type: Repository Process
+type: Gnosis Process
 title: requesting-code-review
 description: Use after an implementation task or major feature and before integration to verify requirements and code quality independently.
 invocation: model
 effects: [read]
 relationships:
   - type: instance_of
-    target: ../../concepts/repository-process.md
+    target: ../../concepts/gnosis-process.md
 ---
 
 # requesting-code-review

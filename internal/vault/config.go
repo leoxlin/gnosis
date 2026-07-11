@@ -80,8 +80,6 @@ func (c Config) LinkFormatValue() LinkFormat {
 func (c Config) IsStrict() bool     { return c.Vault.LinkFormatStrict }
 func (c Config) IndexEnabled() bool { return c.Vault.VaultIndex }
 func (c Config) LogEnabled() bool   { return c.Vault.VaultLog }
-func (Config) ForgeEnabled() bool   { return true }
-func (Config) VaultEnabled() bool   { return true }
 func (c Config) HasLocalVault() bool {
 	return strings.TrimSpace(c.Vault.Name) != "" || strings.TrimSpace(c.Vault.Root) != ""
 }

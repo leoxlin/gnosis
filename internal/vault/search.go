@@ -180,7 +180,7 @@ func (s *SearchSource) pages() ([]*searchPage, error) {
 }
 
 func (s *SearchSource) appendBundledPages(pages *[]*searchPage, seenPaths, seenIDs map[string]struct{}) error {
-	documents, err := bundle.Documents(s.resolution.Config.ForgeEnabled(), s.resolution.Config.VaultEnabled())
+	documents, err := bundle.Documents()
 	if err != nil {
 		return err
 	}

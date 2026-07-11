@@ -241,7 +241,7 @@ func newProcessDiscoverCommand(stdout io.Writer) *cobra.Command {
 	}
 	flags := command.Flags()
 	flags.StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
-	flags.StringSliceVar(&processTypes, "type", nil, "executable process type (Vault Process or Repository Process)")
+	flags.StringSliceVar(&processTypes, "type", nil, "executable process type (Gnosis Process)")
 	flags.IntVar(&top, "top", 5, "number of process candidates to return")
 	flags.BoolVar(&pretty, "pretty", false, "pretty-print JSON output")
 	return command
@@ -622,7 +622,7 @@ func runScaffold(vaultPath, vaultName string, force, includeConcepts bool, stdou
 		return err
 	}
 	if includeConcepts {
-		conceptPaths, err := writeRepositoryConcepts(root, force)
+		conceptPaths, err := writeConcepts(root, force)
 		if err != nil {
 			return err
 		}
@@ -648,8 +648,8 @@ func runScaffold(vaultPath, vaultName string, force, includeConcepts bool, stdou
 	return nil
 }
 
-func writeRepositoryConcepts(root string, force bool) ([]string, error) {
-	documents, err := bundle.RepositoryConcepts()
+func writeConcepts(root string, force bool) ([]string, error) {
+	documents, err := bundle.Concepts()
 	if err != nil {
 		return nil, err
 	}

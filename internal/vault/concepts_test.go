@@ -31,8 +31,11 @@ description: Weighted token lookup.
 	if err := ListConcepts(root, "", &output); err != nil {
 		t.Fatal(err)
 	}
-	if got := output.String(); !strings.Contains(got, "Type: Concept\nDescription: A reusable knowledge record.\n") || !strings.Contains(got, "Type: Pattern\nDescription: Pattern\n") || !strings.Contains(got, "Type: Vault Process") || !strings.Contains(got, "Type: Repository Process") {
+	if got := output.String(); !strings.Contains(got, "Type: Concept\nDescription: A reusable knowledge record.\n") || !strings.Contains(got, "Type: Pattern\nDescription: Pattern\n") || !strings.Contains(got, "Type: Gnosis Process") {
 		t.Fatalf("output = %q", got)
+	}
+	if got := output.String(); strings.Contains(got, "Type: Vault Process") || strings.Contains(got, "Type: Repository Process") {
+		t.Fatalf("output contains legacy process types = %q", got)
 	}
 
 	output.Reset()

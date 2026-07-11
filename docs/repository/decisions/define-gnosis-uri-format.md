@@ -1,5 +1,5 @@
 ---
-type: Repository Decision
+type: Gnosis Decision
 title: Define `gnosis` URI format
 description: Establish one stable document-link grammar for gnosis pages.
 ---

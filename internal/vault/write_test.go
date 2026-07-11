@@ -145,20 +145,20 @@ path: notes
 		t.Fatalf("resolved imported document = %q, want %q", resolvedImported, importedContent)
 	}
 
-	write(t, workspace, "local/concepts/vault-process.md", `---
+	write(t, workspace, "local/concepts/gnosis-process.md", `---
 type: Concept Type
-title: Vault Process
+title: Gnosis Process
 path: vault/processes
 ---
 `)
-	builtInContent := []byte("---\ntype: Vault Process\ntitle: query-vault\n---\n\n# Local query vault\n")
-	if _, err := WriteDocument(workspace, "Vault Process", "query-vault", builtInContent, false); err == nil || !strings.Contains(err.Error(), "-overwrite") {
+	builtInContent := []byte("---\ntype: Gnosis Process\ntitle: query-vault\n---\n\n# Local query vault\n")
+	if _, err := WriteDocument(workspace, "Gnosis Process", "query-vault", builtInContent, false); err == nil || !strings.Contains(err.Error(), "-overwrite") {
 		t.Fatalf("built-in collision error = %v", err)
 	}
-	if _, err := WriteDocument(workspace, "Vault Process", "query-vault", builtInContent, true); err != nil {
+	if _, err := WriteDocument(workspace, "Gnosis Process", "query-vault", builtInContent, true); err != nil {
 		t.Fatal(err)
 	}
-	resolvedBuiltIn, err := Read(workspace, "Vault Process", "query-vault")
+	resolvedBuiltIn, err := Read(workspace, "Gnosis Process", "query-vault")
 	if err != nil {
 		t.Fatal(err)
 	}

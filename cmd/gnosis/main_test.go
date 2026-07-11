@@ -301,7 +301,7 @@ func TestRunReadByIDAsMarkdownAndJSON(t *testing.T) {
 		t.Fatalf("page = %+v", page)
 	}
 
-	if err := run([]string{"read", "--vault", root, "--id", "processes/query-vault.md", "--type", "Vault Process", "--title", "query-vault"}, &stdout, &stderr); err == nil || !strings.Contains(err.Error(), "cannot be combined") {
+	if err := run([]string{"read", "--vault", root, "--id", "processes/query-vault.md", "--type", "Gnosis Process", "--title", "query-vault"}, &stdout, &stderr); err == nil || !strings.Contains(err.Error(), "cannot be combined") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -362,7 +362,7 @@ func TestRunProcessDiscoverAndInvoke(t *testing.T) {
 	root := processCommandTestVault(t)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"process", "discover", "--vault", root, "--type", "Vault Process", "--pretty", "answer from recorded knowledge"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"process", "discover", "--vault", root, "--type", "Gnosis Process", "--pretty", "answer from recorded knowledge"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	var discovery struct {
@@ -544,8 +544,11 @@ description: Decouples an interface from its implementation.
 	if err := run([]string{"concepts", "-vault", root}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(stdout.String(), "Type: Concept\nDescription: A reusable knowledge record.\n") || !strings.Contains(stdout.String(), "Type: Pattern\nDescription: Pattern\n") || !strings.Contains(stdout.String(), "Type: Vault Process") || !strings.Contains(stdout.String(), "Type: Repository Process") {
+	if !strings.Contains(stdout.String(), "Type: Concept\nDescription: A reusable knowledge record.\n") || !strings.Contains(stdout.String(), "Type: Pattern\nDescription: Pattern\n") || !strings.Contains(stdout.String(), "Type: Gnosis Process") {
 		t.Fatalf("stdout = %q", stdout.String())
+	}
+	if strings.Contains(stdout.String(), "Type: Vault Process") || strings.Contains(stdout.String(), "Type: Repository Process") {
+		t.Fatalf("stdout contains legacy process types = %q", stdout.String())
 	}
 	if !strings.Contains(stdout.String(), "Link: gnosis://Test/concept-type.md\n") {
 		t.Fatalf("stdout missing concept-type link = %q", stdout.String())
@@ -677,7 +680,7 @@ description: Source identity and history.
 # Provenance
 `)
 	writeTestFile(t, root, "processes/query-vault.md", `---
-type: Vault Process
+type: Gnosis Process
 title: query-vault
 description: Use when answering a question from recorded vault knowledge.
 invocation: model
@@ -801,10 +804,10 @@ func TestRunScaffoldWithConceptsIndexesThem(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, rel := range []string{
-		"concepts/repository-purpose.md",
-		"concepts/repository-decision.md",
-		"concepts/repository-directive.md",
-		"concepts/repository-process.md",
+		"concepts/gnosis-purpose.md",
+		"concepts/gnosis-decision.md",
+		"concepts/gnosis-directive.md",
+		"concepts/gnosis-process.md",
 	} {
 		if _, err := os.Stat(filepath.Join(root, rel)); err != nil {
 			t.Fatalf("expected %s to exist: %v", rel, err)
@@ -815,8 +818,8 @@ func TestRunScaffoldWithConceptsIndexesThem(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(conceptsIndex), "Repository Purpose") ||
-		!strings.Contains(string(conceptsIndex), "Repository Process") {
+	if !strings.Contains(string(conceptsIndex), "Gnosis Purpose") ||
+		!strings.Contains(string(conceptsIndex), "Gnosis Process") {
 		t.Fatalf("concepts index should list the concept definitions:\n%s", conceptsIndex)
 	}
 }
@@ -824,14 +827,14 @@ func TestRunScaffoldWithConceptsIndexesThem(t *testing.T) {
 func TestRunScaffoldWithConceptsPreservesExistingFilesUnlessForced(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "vault")
 	custom := "---\ntype: Concept Type\ntitle: Custom Purpose\ndescription: Local custom concept.\n---\n\n# Custom Purpose\n"
-	writeTestFile(t, root, "concepts/repository-purpose.md", custom)
+	writeTestFile(t, root, "concepts/gnosis-purpose.md", custom)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
 	if err := run([]string{"scaffold", "-vault", root, "-concepts"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
-	purposePath := filepath.Join(root, "concepts", "repository-purpose.md")
+	purposePath := filepath.Join(root, "concepts", "gnosis-purpose.md")
 	preserved, err := os.ReadFile(purposePath)
 	if err != nil {
 		t.Fatal(err)

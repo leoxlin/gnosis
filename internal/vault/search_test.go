@@ -132,13 +132,13 @@ func TestSearchSourceIncludesBundledDocumentsWithVaultPrecedence(t *testing.T) {
 vault_name = "Workspace"
 vault_root = "."
 `)
-	write(t, root, "concepts/vault-process.md", `---
+	write(t, root, "concepts/gnosis-process.md", `---
 type: Concept Type
-title: Local Vault Process
+title: Local Gnosis Process
 ---
 `)
 	write(t, root, "repository/processes/using-gnosis.md", `---
-type: Repository Process
+type: Gnosis Process
 title: Local using-gnosis
 ---
 `)
@@ -155,19 +155,19 @@ title: Local using-gnosis
 	for _, document := range documents {
 		byID[document.ID] = document
 	}
-	if got := byID["concepts/vault-process.md"].Title; got != "Local Vault Process" {
+	if got := byID["concepts/gnosis-process.md"].Title; got != "Local Gnosis Process" {
 		t.Fatalf("vault-process title = %q", got)
 	}
 	if got := byID["repository/processes/using-gnosis.md"].Title; got != "Local using-gnosis" {
 		t.Fatalf("using-gnosis title = %q", got)
 	}
-	if _, exists := byID["documentation/basic-usage.md"]; !exists {
-		t.Fatalf("documents missing bundled vault documentation: %+v", documents)
+	if _, exists := byID["documentation/basic-usage.md"]; exists {
+		t.Fatalf("documents include removed bundled documentation: %+v", documents)
 	}
-	if _, exists := byID["concepts/repository-purpose.md"]; !exists {
-		t.Fatalf("documents missing bundled forge documentation: %+v", documents)
+	if _, exists := byID["concepts/gnosis-purpose.md"]; !exists {
+		t.Fatalf("documents missing bundled gnosis concepts: %+v", documents)
 	}
-	data, err := Read(root, "Vault Process", "query-vault")
+	data, err := Read(root, "Gnosis Process", "query-vault")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,14 +192,14 @@ vault_root = "."
 		t.Fatal(err)
 	}
 	for _, document := range documents {
-		if document.ID == "documentation/basic-usage.md" {
-			if document.Origin.Vault != "core" || document.URI != "gnosis://core/documentation/basic-usage.md" {
+		if document.ID == "concepts/gnosis-process.md" {
+			if document.Origin.Vault != "core" || document.URI != "gnosis://core/concepts/gnosis-process.md" {
 				t.Fatalf("bundled document = %+v", document)
 			}
 			return
 		}
 	}
-	t.Fatal("missing bundled documentation")
+	t.Fatal("missing bundled gnosis process concept")
 }
 
 func TestSearchSourceLetsImportsOverrideBundledDocuments(t *testing.T) {
@@ -217,7 +217,7 @@ vault_name = "Imported"
 vault_root = "."
 `)
 	write(t, imported, "vault/processes/query-vault.md", `---
-type: Vault Process
+type: Gnosis Process
 title: Imported query-vault
 ---
 `)
@@ -242,7 +242,7 @@ title: Imported query-vault
 	t.Fatal("missing query-vault document")
 }
 
-func TestSearchSourceAlwaysIncludesBundledVaultDocuments(t *testing.T) {
+func TestSearchSourceAlwaysIncludesConciseBundledDocuments(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]
 vault_name = "Workspace"
@@ -260,12 +260,18 @@ vault_root = "."
 	if len(documents) == 0 {
 		t.Fatal("documents = none, want bundled documents")
 	}
+	byID := make(map[string]struct{}, len(documents))
 	for _, document := range documents {
-		if document.ID == "documentation/basic-usage.md" {
-			return
+		byID[document.ID] = struct{}{}
+	}
+	for _, id := range []string{"concepts/gnosis-process.md", "concepts/gnosis-decision.md", "concepts/gnosis-directive.md", "concepts/gnosis-purpose.md", "vault/processes/query-vault.md", "repository/processes/verification-before-completion.md"} {
+		if _, exists := byID[id]; !exists {
+			t.Fatalf("documents missing %s: %+v", id, documents)
 		}
 	}
-	t.Fatalf("documents missing bundled vault documentation: %+v", documents)
+	if _, exists := byID["documentation/basic-usage.md"]; exists {
+		t.Fatalf("documents include removed basic usage page: %+v", documents)
+	}
 }
 
 func TestSearchSourceResolvesExtensionlessLinksAndIgnoresBrokenLinks(t *testing.T) {

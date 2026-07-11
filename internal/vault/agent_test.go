@@ -9,7 +9,7 @@ import (
 func TestDiscoverAndInvokeProcessRoundTrip(t *testing.T) {
 	root := agentTestVault(t)
 
-	discovery, err := DiscoverProcesses(root, "answer a question from recorded vault knowledge", []string{"Vault Process"}, 3)
+	discovery, err := DiscoverProcesses(root, "answer a question from recorded vault knowledge", []string{"Gnosis Process"}, 3)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,7 +23,7 @@ func TestDiscoverAndInvokeProcessRoundTrip(t *testing.T) {
 	if process.ID == "" {
 		t.Fatalf("processes = %+v", discovery.Processes)
 	}
-	if process.ID != "processes/query-vault.md" || process.URI == "" || process.Type != "Vault Process" {
+	if process.ID != "processes/query-vault.md" || process.URI == "" || process.Type != "Gnosis Process" {
 		t.Fatalf("process = %+v", process)
 	}
 	if process.Origin.Kind != OriginLocal || process.Origin.Vault != "agent-test" {
@@ -104,9 +104,17 @@ description: Answer a question from recorded vault knowledge.
 	if len(discovery.Processes) == 0 {
 		t.Fatalf("processes = %+v", discovery.Processes)
 	}
+	if len(discovery.Types) != 1 || discovery.Types[0] != GnosisProcessType {
+		t.Fatalf("types = %v, want only %q", discovery.Types, GnosisProcessType)
+	}
 	for _, process := range discovery.Processes {
-		if process.Type != "Vault Process" {
+		if process.Type != GnosisProcessType {
 			t.Fatalf("processes = %+v", discovery.Processes)
+		}
+	}
+	for _, legacy := range []string{"Vault Process", "Repository Process"} {
+		if _, err := DiscoverProcesses(root, "recorded vault knowledge", []string{legacy}, 5); err == nil {
+			t.Fatalf("legacy process type %q is still executable", legacy)
 		}
 	}
 }
@@ -171,7 +179,7 @@ vault_index = false
 vault_log = false
 `)
 	write(t, workspace, "docs/processes/start.md", `---
-type: Vault Process
+type: Gnosis Process
 title: start
 description: Start with shared knowledge.
 relationships:
@@ -300,7 +308,7 @@ vault_index = false
 vault_log = false
 `)
 	write(t, root, "process.md", `---
-type: Vault Process
+type: Gnosis Process
 title: invalid
 description: Invalid process.
 invocation: surprise
@@ -344,7 +352,7 @@ vault_index = false
 vault_log = false
 `)
 	write(t, root, "process.md", `---
-type: Vault Process
+type: Gnosis Process
 title: vague-process
 ---
 
@@ -429,7 +437,7 @@ description: Source identity and history.
 # Provenance
 `)
 	write(t, root, "docs/processes/query-vault.md", `---
-type: Vault Process
+type: Gnosis Process
 title: query-vault
 description: Use when answering a question from recorded vault knowledge.
 invocation: model

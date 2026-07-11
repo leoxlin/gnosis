@@ -27,7 +27,7 @@ func TestResolveConfigUsesDefaultsWithoutConfiguration(t *testing.T) {
 	}
 }
 
-func TestResolveConfigAlwaysIncludesBundledDocumentation(t *testing.T) {
+func TestResolveConfigWithEmptyFileHasNoSources(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	root := t.TempDir()
 	writeConfig(t, root, "")
@@ -35,9 +35,6 @@ func TestResolveConfigAlwaysIncludesBundledDocumentation(t *testing.T) {
 	resolution, err := ResolveConfig(root)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if !resolution.Config.VaultEnabled() || !resolution.Config.ForgeEnabled() {
-		t.Fatalf("forge = %t vault = %t, want both bundles", resolution.Config.ForgeEnabled(), resolution.Config.VaultEnabled())
 	}
 	if len(resolution.Sources) != 0 {
 		t.Fatalf("sources = %v, want none", resolution.Sources)
@@ -158,22 +155,6 @@ vault_root = "docs"
 	want := []string{filepath.Join(root, "docs")}
 	if strings.Join(resolution.VaultRoots, ",") != strings.Join(want, ",") {
 		t.Fatalf("vault roots = %v, want %v", resolution.VaultRoots, want)
-	}
-}
-
-func TestConfigAlwaysIncludesAllBundledDocumentation(t *testing.T) {
-	root := t.TempDir()
-	writeConfig(t, root, `[vault]
-vault_name = "Local"
-vault_root = "."
-`)
-
-	resolution, err := ResolveConfig(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !resolution.Config.VaultEnabled() || !resolution.Config.ForgeEnabled() {
-		t.Fatalf("forge = %t vault = %t, want both bundles", resolution.Config.ForgeEnabled(), resolution.Config.VaultEnabled())
 	}
 }
 

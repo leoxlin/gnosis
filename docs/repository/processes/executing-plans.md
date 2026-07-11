@@ -1,12 +1,12 @@
 ---
-type: Repository Process
+type: Gnosis Process
 title: executing-plans
 description: Use when an open directive with an implementation plan must be executed directly or in a separate session.
 invocation: model
 effects: [workspace-write]
 relationships:
   - type: instance_of
-    target: ../../concepts/repository-process.md
+    target: ../../concepts/gnosis-process.md
 ---
 
 # executing-plans
@@ -21,8 +21,8 @@ relationships:
 
 ## Knowledge inputs
 
-- The open Repository Directive, including its implementation plan and acceptance criteria.
-- Active decisions and Repository Process pages linked by or relevant to that directive.
+- The open Gnosis Directive, including its implementation plan and acceptance criteria.
+- Active decisions and Gnosis Process pages linked by or relevant to that directive.
 - Current implementation, tests, repository instructions, and workspace state.
 
 ## Process

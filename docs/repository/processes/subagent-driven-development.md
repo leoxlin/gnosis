@@ -1,12 +1,12 @@
 ---
-type: Repository Process
+type: Gnosis Process
 title: subagent-driven-development
 description: Use when an open directive has independently reviewable implementation tasks that should execute in the current session with isolated agent context.
 invocation: model
 effects: [workspace-write]
 relationships:
   - type: instance_of
-    target: ../../concepts/repository-process.md
+    target: ../../concepts/gnosis-process.md
 ---
 
 # subagent-driven-development
@@ -24,14 +24,14 @@ Use [executing-plans](executing-plans.md) when subagents are unavailable. Use [d
 ## Knowledge inputs
 
 - The complete directive, its acceptance criteria, and its linked decisions.
-- The Repository Process pages governing each task, especially testing and verification.
+- The Gnosis Process pages governing each task, especially testing and verification.
 - Current repository instructions, implementation, tests, workspace state, and merge base.
 - Per-task briefs, reports, diff packages, and transient progress state.
 
 ## Process
 
 1. Establish an isolated workspace through [using-git-worktrees](using-git-worktrees.md), read the directive once, and preflight its tasks for contradictions with global constraints or one another. Resolve blocking plan defects with the author before dispatch.
-2. Use a repository-ignored scratch directory for task briefs, reports, diff packages, and a progress ledger. These files support execution recovery; they are not Repository Process, Decision, or Directive records and are not committed.
+2. Use a repository-ignored scratch directory for task briefs, reports, diff packages, and a progress ledger. These files support execution recovery; they are not Gnosis Process, Gnosis Decision, or Gnosis Directive records and are not committed.
 3. For each incomplete task, create a brief containing that task's exact directive text, its place in the design, interfaces inherited from prior tasks, and only the relevant decisions and processes. Do not pass accumulated conversation history.
 4. Dispatch one fresh implementer at a time in the reviewed workspace. Choose an explicitly adequate model when the harness supports model selection. Require clarification before guesses, red-green-refactor evidence, focused and full verification, a commit, self-review, and a file-based report with status `DONE`, `DONE_WITH_CONCERNS`, `NEEDS_CONTEXT`, or `BLOCKED`.
 5. Respond to status precisely: supply missing context, increase reasoning capacity, split an oversized task, or return a flawed directive to the author. If execution cannot proceed, set the directive to `blocked` with the concrete blocker.

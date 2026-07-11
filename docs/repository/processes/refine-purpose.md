@@ -1,12 +1,12 @@
 ---
-type: Repository Process
+type: Gnosis Process
 title: refine-purpose
 description: Use when the repository purpose must be created or changed through author-confirmed understanding.
 invocation: model
 effects: [workspace-write]
 relationships:
   - type: instance_of
-    target: ../../concepts/repository-process.md
+    target: ../../concepts/gnosis-process.md
 ---
 
 # refine-purpose
@@ -23,7 +23,7 @@ relationships:
 
 - The current [repository purpose](../purpose.md), when it exists.
 - Relevant active decisions, concepts, implementation facts, and repository instructions.
-- The Repository Purpose concept definition.
+- The Gnosis Purpose concept definition.
 
 ## Process
 
@@ -31,10 +31,10 @@ relationships:
 2. Ask exactly one author-owned question at a time. Recommend an answer with rationale, then wait for the response before asking a dependent question.
 3. Explore every material branch of the intended outcome, beneficiaries, sub-purposes, and boundaries until no unresolved author-owned choice remains.
 4. Summarize the proposed purpose and obtain explicit confirmation that the author and agent share the same understanding.
-5. Only after confirmation, update the single Repository Purpose record using its concept definition.
+5. Only after confirmation, update the single Gnosis Purpose record using its concept definition.
 
 ## Completion
 
-The author has explicitly confirmed a precise shared understanding, and the validated Repository Purpose record reflects it.
+The author has explicitly confirmed a precise shared understanding, and the validated Gnosis Purpose record reflects it.
 
 Adapted from Matt Pocock's [grilling skill](https://github.com/mattpocock/skills/blob/main/skills/productivity/grilling/SKILL.md).

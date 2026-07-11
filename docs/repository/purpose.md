@@ -1,5 +1,5 @@
 ---
-type: Repository Purpose
+type: Gnosis Purpose
 title: "`gnosis`"
 description: "`gnosis` makes human and agent knowledge durable, portable, and progressively useful."
 ---

@@ -14,25 +14,22 @@ type Document struct {
 	Data []byte
 }
 
-//go:embed content/concepts/repository-*.md content/concepts/vault-*.md content/documentation/*.md content/repository/processes/*.md content/vault/processes/*.md
+//go:embed content/concepts/*.md content/repository/processes/*.md content/vault/processes/*.md
 var stagedFS embed.FS
 
-// Documents returns the enabled built-in documentation. Paths are relative to
-// a vault root, so local vault pages with the same path take precedence.
-func Documents(includeForge, includeVault bool) ([]Document, error) {
-	patterns := []string{}
-	if includeForge {
-		patterns = append(patterns, "content/concepts/repository-*.md", "content/repository/processes/*.md")
-	}
-	if includeVault {
-		patterns = append(patterns, "content/concepts/vault-*.md", "content/documentation/*.md", "content/vault/processes/*.md")
-	}
-	return documents(patterns)
+// Documents returns the built-in documentation. Paths are relative to a vault
+// root, so local vault pages with the same path take precedence.
+func Documents() ([]Document, error) {
+	return documents([]string{
+		"content/concepts/*.md",
+		"content/repository/processes/*.md",
+		"content/vault/processes/*.md",
+	})
 }
 
-// RepositoryConcepts returns the built-in repository concept definitions.
-func RepositoryConcepts() ([]Document, error) {
-	return documents([]string{"content/concepts/repository-*.md"})
+// Concepts returns the built-in gnosis concept definitions.
+func Concepts() ([]Document, error) {
+	return documents([]string{"content/concepts/*.md"})
 }
 
 func documents(patterns []string) ([]Document, error) {

@@ -1,12 +1,12 @@
 ---
-type: Vault Process
+type: Gnosis Process
 title: query-vault
 description: Use when answering a question from recorded vault knowledge.
 invocation: model
 effects: [read]
 relationships:
   - type: instance_of
-    target: ../../concepts/vault-process.md
+    target: ../../concepts/gnosis-process.md
 ---
 
 # query-vault
