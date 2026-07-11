@@ -85,6 +85,8 @@ mise run build   # build to ./dist/gnosis
 mise run test    # run all Go tests
 ```
 
+These mise tasks stage the bundled documentation before compiling gnosis.
+
 ## Configuration
 
 Every standalone gnosis vault has a `gnosis.toml`. `gnosis` searches for it from
@@ -115,6 +117,12 @@ nested import section:
 [vault.imports]
 vaults = ["../my-vault"]
 ```
+
+`gnosis` also includes its vault documentation by default. Set
+`gnosis_vault = false` to exclude it. `gnosis setup` enables the optional forge
+documentation with `gnosis_forge = true`; set that value to false to exclude it.
+Local vault pages and pages from declared imports take precedence over bundled
+pages with the same vault-relative path.
 
 Each local import must point to a directory with its own `gnosis.toml`. Imports
 resolve recursively: local directories take precedence, followed by imports in

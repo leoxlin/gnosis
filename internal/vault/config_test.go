@@ -34,6 +34,28 @@ vault_root = "docs"
 	}
 }
 
+func TestDefaultBundledVaultDocumentationCanBeDisabled(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, `[vault]
+vault_name = "Local"
+vault_root = "."
+
+[vault.imports]
+gnosis_vault = false
+`)
+
+	resolution, err := ResolveConfig(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolution.Config.VaultEnabled() {
+		t.Fatal("vault documentation is enabled, want disabled")
+	}
+	if resolution.Config.ForgeEnabled() {
+		t.Fatal("forge documentation is enabled by default")
+	}
+}
+
 func TestResolveConfigRecursivelyImportsVaultsInOrder(t *testing.T) {
 	workspace := t.TempDir()
 	first := filepath.Join(workspace, "first")

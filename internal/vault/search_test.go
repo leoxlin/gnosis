@@ -14,6 +14,9 @@ vault_name = "Test"
 vault_root = "docs"
 vault_index = false
 vault_log = false
+
+[vault.imports]
+gnosis_vault = false
 `)
 	write(t, root, "docs/concept.md", `---
 type: Concept
@@ -104,6 +107,7 @@ vault_root = "local"
 
 [vault.imports]
 vaults = ["imported"]
+gnosis_vault = false
 `)
 	writeConfig(t, imported, `[vault]
 vault_name = "Imported"
@@ -122,6 +126,121 @@ vault_root = "."
 	}
 	if len(documents) != 1 || documents[0].ID != "article.md" || documents[0].Title != "Local" {
 		t.Fatalf("documents = %+v", documents)
+	}
+}
+
+func TestSearchSourceIncludesBundledDocumentsWithVaultPrecedence(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, `[vault]
+vault_name = "Workspace"
+vault_root = "."
+
+[vault.imports]
+gnosis_forge = true
+`)
+	write(t, root, "concepts/vault-process.md", `---
+type: Concept Type
+title: Local Vault Process
+---
+`)
+	write(t, root, "repository/processes/using-gnosis.md", `---
+type: Repository Process
+title: Local using-gnosis
+---
+`)
+
+	source, err := NewSearchSource(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	documents, err := source.Documents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := make(map[string]Document, len(documents))
+	for _, document := range documents {
+		byID[document.ID] = document
+	}
+	if got := byID["concepts/vault-process.md"].Title; got != "Local Vault Process" {
+		t.Fatalf("vault-process title = %q", got)
+	}
+	if got := byID["repository/processes/using-gnosis.md"].Title; got != "Local using-gnosis" {
+		t.Fatalf("using-gnosis title = %q", got)
+	}
+	if _, exists := byID["documentation/basic-usage.md"]; !exists {
+		t.Fatalf("documents missing bundled vault documentation: %+v", documents)
+	}
+	if _, exists := byID["concepts/repository-purpose.md"]; !exists {
+		t.Fatalf("documents missing bundled forge documentation: %+v", documents)
+	}
+	data, err := Read(root, "Vault Process", "query-vault")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "`query-vault` answers") {
+		t.Fatalf("read = %q", data)
+	}
+}
+
+func TestSearchSourceLetsImportsOverrideBundledDocuments(t *testing.T) {
+	workspace := t.TempDir()
+	imported := filepath.Join(workspace, "imported")
+	if err := os.MkdirAll(imported, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeConfig(t, workspace, `[vault.imports]
+vaults = ["imported"]
+`)
+	writeConfig(t, imported, `[vault]
+vault_name = "Imported"
+vault_root = "."
+`)
+	write(t, imported, "vault/processes/query-vault.md", `---
+type: Vault Process
+title: Imported query-vault
+---
+`)
+
+	source, err := NewSearchSource(workspace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	documents, err := source.Documents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, document := range documents {
+		if document.ID != "vault/processes/query-vault.md" {
+			continue
+		}
+		if document.Title != "Imported query-vault" {
+			t.Fatalf("query-vault = %+v", document)
+		}
+		return
+	}
+	t.Fatal("missing query-vault document")
+}
+
+func TestSearchSourceCanDisableBundledVaultDocuments(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, `[vault]
+vault_name = "Workspace"
+vault_root = "."
+
+[vault.imports]
+gnosis_vault = false
+`)
+
+	source, err := NewSearchSource(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	documents, err := source.Documents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(documents) != 0 {
+		t.Fatalf("documents = %+v, want no bundled documents", documents)
 	}
 }
 

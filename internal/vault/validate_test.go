@@ -327,7 +327,7 @@ func write(t *testing.T, root, rel, content string) {
 	t.Helper()
 	configPath := filepath.Join(root, "gnosis.toml")
 	if _, err := os.Stat(configPath); os.IsNotExist(err) && rel != "gnosis.toml" {
-		writeConfig(t, root, "[vault]\nvault_name = \"Test\"\nvault_root = \".\"\n")
+		writeConfig(t, root, "[vault]\nvault_name = \"Test\"\nvault_root = \".\"\n\n[vault.imports]\ngnosis_vault = false\n")
 	}
 	path := filepath.Join(root, rel)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

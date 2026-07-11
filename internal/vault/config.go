@@ -36,9 +36,12 @@ type VaultConfig struct {
 	VaultLog         bool         `toml:"vault_log"`
 }
 
-// VaultImports lists local paths or future remote URLs for other vaults.
+// VaultImports lists local paths or future remote URLs for other vaults and
+// controls the built-in knowledge bundles.
 type VaultImports struct {
-	Vaults []string `toml:"vaults"`
+	Vaults      []string `toml:"vaults"`
+	GnosisForge bool     `toml:"gnosis_forge"`
+	GnosisVault bool     `toml:"gnosis_vault"`
 }
 
 // VaultSource is one directory read as part of an ordered composed vault.
@@ -65,6 +68,9 @@ func DefaultConfig() Config {
 		LinkFormatStrict: false,
 		VaultIndex:       true,
 		VaultLog:         true,
+		Imports: VaultImports{
+			GnosisVault: true,
+		},
 	}}
 }
 
@@ -78,6 +84,8 @@ func (c Config) LinkFormatValue() LinkFormat {
 func (c Config) IsStrict() bool     { return c.Vault.LinkFormatStrict }
 func (c Config) IndexEnabled() bool { return c.Vault.VaultIndex }
 func (c Config) LogEnabled() bool   { return c.Vault.VaultLog }
+func (c Config) ForgeEnabled() bool { return c.Vault.Imports.GnosisForge }
+func (c Config) VaultEnabled() bool { return c.Vault.Imports.GnosisVault }
 func (c Config) HasLocalVault() bool {
 	return strings.TrimSpace(c.Vault.Name) != "" || strings.TrimSpace(c.Vault.Root) != ""
 }
@@ -267,6 +275,7 @@ func resolveImport(root, value string) (string, error) {
 func WriteWorkspaceConfig(root string, imports []string, force bool) (bool, error) {
 	var contents strings.Builder
 	contents.WriteString("[vault.imports]\n")
+	contents.WriteString("gnosis_forge = true\n")
 	contents.WriteString("vaults = [")
 	for i, value := range imports {
 		if i > 0 {

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"gnosis/internal/bundle"
 )
 
 // SearchSource reads configured gnosis vault roots into search documents.
@@ -47,6 +49,7 @@ type searchPage struct {
 	root     string
 	path     string
 	document Document
+	data     []byte
 }
 
 // Documents reads live concept files from every configured vault root.
@@ -125,7 +128,7 @@ func Read(root, conceptType, title string) ([]byte, error) {
 	case 0:
 		return nil, fmt.Errorf("no document found with type %q and title %q", conceptType, title)
 	case 1:
-		return os.ReadFile(matches[0].path)
+		return matches[0].data, nil
 	default:
 		paths := make([]string, 0, len(matches))
 		for _, page := range matches {
@@ -182,7 +185,37 @@ func (s *SearchSource) pages() ([]*searchPage, error) {
 			return nil, err
 		}
 	}
+	if err := s.appendBundledPages(&pages, seenPaths, seenIDs); err != nil {
+		return nil, err
+	}
 	return pages, nil
+}
+
+func (s *SearchSource) appendBundledPages(pages *[]*searchPage, seenPaths, seenIDs map[string]struct{}) error {
+	documents, err := bundle.Documents(s.resolution.Config.ForgeEnabled(), s.resolution.Config.VaultEnabled())
+	if err != nil {
+		return err
+	}
+
+	const bundleRoot = ".gnosis-bundle"
+	for _, document := range documents {
+		id := filepath.ToSlash(filepath.Clean(document.Path))
+		if _, exists := seenIDs[id]; exists {
+			continue
+		}
+		path := filepath.Join(bundleRoot, filepath.FromSlash(document.Path))
+		if _, exists := seenPaths[path]; exists {
+			continue
+		}
+		page, err := readSearchData(bundleRoot, path, document.Data)
+		if err != nil {
+			return err
+		}
+		seenPaths[path] = struct{}{}
+		seenIDs[id] = struct{}{}
+		*pages = append(*pages, page)
+	}
+	return nil
 }
 
 func (s *SearchSource) readSearchPage(source VaultSource, path string) (*searchPage, error) {
@@ -190,6 +223,10 @@ func (s *SearchSource) readSearchPage(source VaultSource, path string) (*searchP
 	if err != nil {
 		return nil, err
 	}
+	return readSearchData(source.Path, path, data)
+}
+
+func readSearchData(root, path string, data []byte) (*searchPage, error) {
 	fields, body, err := parseFrontmatter(string(data))
 	if err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
@@ -228,14 +265,15 @@ func (s *SearchSource) readSearchPage(source VaultSource, path string) (*searchP
 	if strings.TrimSpace(title) == "" {
 		title = humanizeName(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)))
 	}
-	relative, err := filepath.Rel(source.Path, path)
+	relative, err := filepath.Rel(root, path)
 	if err != nil {
 		return nil, err
 	}
 
 	return &searchPage{
-		root: source.Path,
+		root: root,
 		path: filepath.Clean(path),
+		data: data,
 		document: Document{
 			ID:          filepath.ToSlash(relative),
 			Title:       strings.TrimSpace(title),
