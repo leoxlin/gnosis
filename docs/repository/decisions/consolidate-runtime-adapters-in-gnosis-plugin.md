@@ -1,23 +1,22 @@
 ---
 type: Repository Decision
 title: Consolidate runtime adapters in the `gnosis` plugin
-description: Keep workflows as canonical vault knowledge and expose them through two thin `gnosis` gateways.
+description: Keep workflows as canonical vault knowledge and expose them through one thin `gnosis` gateway.
 ---
 
 # Decision
 
-Keep repeatable vault and repository workflows as canonical process records in the configured vault. Publish one `gnosis` plugin with exactly two runtime gateways:
+Keep repeatable vault and repository workflows as canonical process records in the configured vault. Publish one `gnosis` plugin with one runtime gateway:
 
-- `using-gnosis-vault` selects and follows [Vault Process](../../concepts/vault-process.md) records.
-- `using-gnosis-forge` selects and follows [Repository Process](../../concepts/repository-process.md) records.
+- `using-gnosis` delegates selection of [Vault Process](../../concepts/vault-process.md) and [Repository Process](../../concepts/repository-process.md) records to a fresh read-only subagent, then follows the selected records in the controlling agent.
 
-Each gateway prefers the gnosis MCP contract to discover and invoke processes, with `gnosis process discover` and `gnosis process invoke` as equivalent CLI fallbacks. Discovery exposes compact selection metadata; invocation loads one exact process revision. A process record, rather than plugin packaging or a copied prompt, is the source of truth for its selection conditions, knowledge inputs, ordered work, and completion gate.
+The gateway prefers the gnosis MCP contract to discover and invoke processes, with `gnosis process discover` and `gnosis process invoke` as equivalent CLI fallbacks. Discovery exposes compact selection metadata; invocation loads one exact process revision. A process record, rather than plugin packaging or a copied prompt, is the source of truth for its selection conditions, knowledge inputs, ordered work, and completion gate.
 
 # Why
 
 Separate vault and repository plugins, along with task-specific runtime adapters, exposed packaging structure instead of the knowledge model that governs the work. They also made the installed skill surface grow with every process despite process records already providing complete workflows.
 
-Two gateways keep runtime discovery portable while making the type boundary explicit: vault work selects Vault Processes and repository work selects Repository Processes.
+One gateway keeps runtime discovery portable while exact-type discovery preserves the boundary between Vault Processes and Repository Processes. Delegating selection gives every task a fresh, read-only process choice without transferring execution authority or context to the selector.
 
 Rejected alternatives:
 
@@ -27,7 +26,8 @@ Rejected alternatives:
 
 # Constraints
 
-- Marketplaces and local skill links expose only the `gnosis` plugin and its two gateway skills.
-- Gateway skills retrieve process records through the MCP or CLI agent contract; they do not copy process instructions.
+- Marketplaces and local skill links expose only the `gnosis` plugin and its `using-gnosis` gateway skill.
+- The gateway retrieves process records through the MCP or CLI agent contract; it does not copy process instructions.
+- A fresh read-only subagent selects the smallest applicable process chain for every task. The controlling agent invokes and executes the selected exact revisions.
 - Process records retain their identities, invocation modes, possible effects, selection conditions, and completion gates. Runtime gateways respect effective-page precedence across the configured vault and expose every selected record's origin and revision.
 - Only exact `Vault Process` and `Repository Process` records are invocable. Other knowledge remains readable and queryable but cannot become executable merely through wording or tags.

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Using gnosis"
+  short_description: "Select canonical gnosis processes"
+  default_prompt: "Use $using-gnosis to select and apply the right canonical processes."

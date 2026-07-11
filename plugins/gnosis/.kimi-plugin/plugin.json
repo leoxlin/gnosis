@@ -13,7 +13,7 @@
   "interface": {
     "displayName": "gnosis",
     "shortDescription": "Apply vault and repository knowledge.",
-    "longDescription": "Gateway skills and MCP tools that discover, invoke, read, and trace canonical gnosis process records.",
+    "longDescription": "A gateway skill and MCP tools that discover, invoke, read, and trace canonical gnosis process records.",
     "developerName": "Leo Xuzhang Lin",
     "websiteURL": "https://github.com/leoxlin/gnosis"
   }

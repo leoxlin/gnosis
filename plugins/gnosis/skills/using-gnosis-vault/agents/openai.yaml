@@ -1,4 +1,0 @@
-interface:
-  display_name: "Using gnosis vault"
-  short_description: "Select a canonical vault process"
-  default_prompt: "Use $using-gnosis-vault to select and apply the right vault process."

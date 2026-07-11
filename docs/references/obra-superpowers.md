@@ -113,11 +113,11 @@ Superpowers is a useful complement and comparison point for [`gnosis`](../reposi
 - Its separation of canonical skills, tool maps, and bootstrap adapters is a concrete portability pattern for multi-harness skill bundles.
 - Its progress ledger solves recovery for active task orchestration, while `gnosis` keeps that ledger as transient execution scratch and leaves routine delivery history to git and CI.
 
-`gnosis` adapts the fourteen analyzed workflows into thirteen [Repository Process](../concepts/repository-process.md) records. The engineering gates remain recognizable, while purpose grounds design, `writing-directives-and-decisions` records durable decisions and creates Repository Directives, execution maintains directive status, and the manually invoked `using-gnosis-forge` gateway selects the relevant process pages. The durable boundary is recorded in [Consolidate runtime adapters in the `gnosis` plugin](../repository/decisions/consolidate-runtime-adapters-in-gnosis-plugin.md).
+`gnosis` adapts the fourteen analyzed workflows into thirteen [Repository Process](../concepts/repository-process.md) records. The engineering gates remain recognizable, while purpose grounds design, `writing-directives-and-decisions` records durable decisions and creates Repository Directives, execution maintains directive status, and the `using-gnosis` gateway delegates selection of relevant process pages to a fresh read-only subagent. The durable boundary is recorded in [Consolidate runtime adapters in the `gnosis` plugin](../repository/decisions/consolidate-runtime-adapters-in-gnosis-plugin.md).
 
 ## Trade-offs and cautions
 
-- **Strong processes create overhead.** Brainstorming, worktrees, TDD, and repeated reviews improve discipline but can be disproportionate for small or non-code changes; `using-gnosis-forge` is therefore manually invoked.
+- **Strong processes create overhead.** Brainstorming, worktrees, TDD, and repeated reviews improve discipline but can be disproportionate for small or non-code changes; process invocation modes and smallest-chain selection keep that overhead bounded.
 - **Prompt enforcement is not hard enforcement.** The bootstrap and emphatic language make compliance more likely, but the model can still misunderstand, skip, or conflict with instructions.
 - **Portability requires adapters.** Canonical skills are shared, but every harness still needs packaging, tool translation, bootstrap delivery, and integration testing.
 - **The full workflow assumes rich agent capabilities.** Subagent-driven development works best with multi-agent support; fallbacks are necessarily less isolated and less independently reviewed.
