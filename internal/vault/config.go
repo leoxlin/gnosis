@@ -61,7 +61,7 @@ type ConfigResolution struct {
 	Sources         []VaultSource
 }
 
-// DefaultConfig returns the defaults applied to a local vault configuration.
+// DefaultConfig returns the default gnosis configuration.
 func DefaultConfig() Config {
 	return Config{Vault: VaultConfig{
 		LinkFormat:       string(LinkFormatRelative),
@@ -99,52 +99,74 @@ func LoadConfig(root string) (Config, []string, error) {
 	return resolution.Config, resolution.VaultRoots, nil
 }
 
-// ResolveConfig finds the nearest gnosis.toml and resolves its local vault
-// root followed by recursive imports in declared order.
+// ResolveConfig reads configuration from root in this order:
+// gnosis.local.toml, gnosis.toml, then ~/.config/gnosis.toml. It never walks
+// parent directories. When none of those files exists, it uses the defaults
+// with an empty [vault] section, so only default imports are available.
+//
+// A selected configuration resolves its local vault root followed by recursive
+// imports in declared order.
 func ResolveConfig(root string) (ConfigResolution, error) {
 	absolute, err := filepath.Abs(root)
 	if err != nil {
 		return ConfigResolution{}, err
 	}
 	start := filepath.Clean(absolute)
-	configRoot, err := findConfigRoot(start)
+	configPath, err := findConfigPath(start)
 	if err != nil {
 		return ConfigResolution{Root: start}, err
 	}
+	if configPath == "" {
+		return ConfigResolution{
+			Config: DefaultConfig(),
+			Root:   start,
+		}, nil
+	}
 
-	config, err := loadConfig(configRoot)
+	configRoot := filepath.Dir(configPath)
+	config, err := loadConfigPath(configPath)
 	if err != nil {
 		return ConfigResolution{Root: configRoot}, err
 	}
 	resolution := ConfigResolution{Config: config, Root: configRoot}
 	seen := make(map[string]struct{})
 	stack := make(map[string]struct{})
-	if err := resolveVault(configRoot, &resolution, seen, stack); err != nil {
+	if err := resolveVaultConfig(configRoot, config, &resolution, seen, stack); err != nil {
 		return resolution, err
 	}
 	if len(resolution.Sources) == 0 {
-		return resolution, fmt.Errorf("%s does not define a local vault root or imports", filepath.Join(configRoot, "gnosis.toml"))
+		return resolution, fmt.Errorf("%s does not define a local vault root or imports", configPath)
 	}
 	return resolution, nil
 }
 
-func findConfigRoot(root string) (string, error) {
-	for {
-		path := filepath.Join(root, "gnosis.toml")
-		if info, err := os.Stat(path); err == nil && !info.IsDir() {
-			return root, nil
-		}
-		parent := filepath.Dir(root)
-		if parent == root {
-			return "", fmt.Errorf("no gnosis.toml found from %s", root)
-		}
-		root = parent
+func findConfigPath(root string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("find home directory: %w", err)
 	}
+	for _, path := range []string{
+		filepath.Join(root, "gnosis.local.toml"),
+		filepath.Join(root, "gnosis.toml"),
+		filepath.Join(home, ".config", "gnosis.toml"),
+	} {
+		info, err := os.Stat(path)
+		if err == nil && !info.IsDir() {
+			return path, nil
+		}
+		if err != nil && !os.IsNotExist(err) {
+			return "", fmt.Errorf("stat %s: %w", path, err)
+		}
+	}
+	return "", nil
 }
 
 func loadConfig(root string) (Config, error) {
+	return loadConfigPath(filepath.Join(root, "gnosis.toml"))
+}
+
+func loadConfigPath(path string) (Config, error) {
 	config := DefaultConfig()
-	path := filepath.Join(root, "gnosis.toml")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return config, fmt.Errorf("read %s: %w", path, err)
@@ -153,23 +175,27 @@ func loadConfig(root string) (Config, error) {
 	if err := decoder.Decode(&config); err != nil {
 		return config, fmt.Errorf("parse %s: %w", path, err)
 	}
-	if err := validateConfig(config, root); err != nil {
+	if err := validateConfig(config, filepath.Dir(path)); err != nil {
 		return config, fmt.Errorf("validate %s: %w", path, err)
 	}
 	return config, nil
 }
 
 func resolveVault(root string, resolution *ConfigResolution, seen, stack map[string]struct{}) error {
+	config, err := loadConfig(root)
+	if err != nil {
+		return err
+	}
+	return resolveVaultConfig(root, config, resolution, seen, stack)
+}
+
+func resolveVaultConfig(root string, config Config, resolution *ConfigResolution, seen, stack map[string]struct{}) error {
 	root = filepath.Clean(root)
 	if _, exists := stack[root]; exists {
 		return fmt.Errorf("vault import cycle includes %s", root)
 	}
 	if _, exists := seen[root]; exists {
 		return nil
-	}
-	config, err := loadConfig(root)
-	if err != nil {
-		return err
 	}
 	stack[root] = struct{}{}
 	defer delete(stack, root)

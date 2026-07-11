@@ -89,9 +89,11 @@ These mise tasks stage the bundled documentation before compiling gnosis.
 
 ## Configuration
 
-Every standalone gnosis vault has a `gnosis.toml`. `gnosis` searches for it from
-the requested path up through its parent directories. A standalone vault declares
-its name and one local knowledge root:
+`gnosis` checks configuration in this order, without searching parent directories:
+`./gnosis.local.toml`, `./gnosis.toml`, then `~/.config/gnosis.toml`. The first
+file found is used. If none exists, gnosis uses its defaults with an empty
+`[vault]` section, so only its default imports are available. A standalone
+vault configuration declares its name and one local knowledge root:
 
 ```toml
 [vault]

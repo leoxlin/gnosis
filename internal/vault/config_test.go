@@ -3,14 +3,104 @@ package vault
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
 
-func TestResolveConfigRequiresGnosisToml(t *testing.T) {
-	_, err := ResolveConfig(t.TempDir())
-	if err == nil || !strings.Contains(err.Error(), "no gnosis.toml") {
-		t.Fatalf("error = %v", err)
+func TestResolveConfigUsesDefaultsWithoutConfiguration(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	root := t.TempDir()
+
+	resolution, err := ResolveConfig(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(resolution.Config, DefaultConfig()) {
+		t.Fatalf("config = %#v, want defaults %#v", resolution.Config, DefaultConfig())
+	}
+	if got, want := resolution.VaultRoots, []string(nil); !reflect.DeepEqual(got, want) {
+		t.Fatalf("vault roots = %v, want %v", got, want)
+	}
+	if got, want := resolution.Sources, []VaultSource(nil); !reflect.DeepEqual(got, want) {
+		t.Fatalf("sources = %v, want none", got)
+	}
+}
+
+func TestResolveConfigPrefersLocalConfiguration(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	configDir := filepath.Join(home, ".config")
+	if err := os.Mkdir(configDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	writeConfig(t, root, `[vault]
+vault_name = "Project"
+vault_root = "."
+`)
+	if err := os.WriteFile(filepath.Join(root, "gnosis.local.toml"), []byte(`[vault]
+vault_name = "Local"
+vault_root = "."
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writeConfig(t, configDir, `[vault]
+vault_name = "Global"
+vault_root = "."
+`)
+
+	resolution, err := ResolveConfig(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := resolution.Config.Vault.Name, "Local"; got != want {
+		t.Fatalf("vault name = %q, want %q", got, want)
+	}
+	if got, want := resolution.Sources[0].Config.Vault.Name, "Local"; got != want {
+		t.Fatalf("source vault name = %q, want %q", got, want)
+	}
+}
+
+func TestResolveConfigDoesNotReadParentConfiguration(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	parent := t.TempDir()
+	writeConfig(t, parent, `[vault]
+vault_name = "Parent"
+vault_root = "."
+`)
+	root := filepath.Join(parent, "child")
+	if err := os.Mkdir(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	resolution, err := ResolveConfig(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(resolution.Config, DefaultConfig()) {
+		t.Fatalf("config = %#v, want defaults %#v", resolution.Config, DefaultConfig())
+	}
+}
+
+func TestResolveConfigUsesGlobalConfiguration(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	configDir := filepath.Join(home, ".config")
+	if err := os.Mkdir(configDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeConfig(t, configDir, `[vault]
+vault_name = "Global"
+vault_root = "."
+`)
+
+	resolution, err := ResolveConfig(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := resolution.Config.Vault.Name, "Global"; got != want {
+		t.Fatalf("vault name = %q, want %q", got, want)
 	}
 }
 
