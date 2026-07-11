@@ -249,6 +249,62 @@ title: Transformer Architecture
 	}
 }
 
+func TestWriteCommandReadsStandardInput(t *testing.T) {
+	root := writeCommandTestVault(t)
+	changeWorkingDirectory(t, root)
+	content := `---
+type: Note
+title: Standard Input
+---
+
+# Standard Input
+`
+	var stdout bytes.Buffer
+	command := newWriteCommand(strings.NewReader(content), &stdout)
+	command.SetArgs([]string{"--type", "Note", "--title", "Standard Input"})
+	if err := command.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, "notes", "standard-input.md")
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != content {
+		t.Fatalf("content = %q, want %q", got, content)
+	}
+	if stdout.String() != path+"\n" {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+}
+
+func TestRunWriteReadsOptionalFilename(t *testing.T) {
+	root := writeCommandTestVault(t)
+	changeWorkingDirectory(t, root)
+	content := `---
+type: Note
+title: File Input
+---
+
+# File Input
+`
+	inputPath := filepath.Join(root, "input.md")
+	if err := os.WriteFile(inputPath, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if err := run([]string{"write", "-type", "Note", "-title", "File Input", "input.md"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "notes", "file-input.md")); err != nil {
+		t.Fatal(err)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
 func TestRunConceptsPreviewsConceptTypesAndConcepts(t *testing.T) {
 	root := queryTestVault(t)
 	writeTestFile(t, root, "concept-type.md", `---
@@ -350,6 +406,30 @@ description: Weighted token lookup.
 # Attention Mechanism
 `)
 	return root
+}
+
+func writeCommandTestVault(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_root = \".\"\n\n[vaults.gnosis]\ninclude = []\n")
+	writeTestFile(t, root, "concepts/note.md", "---\ntype: Concept Type\ntitle: Note\npath: notes\n---\n")
+	return root
+}
+
+func changeWorkingDirectory(t *testing.T, path string) {
+	t.Helper()
+	previous, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(path); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(previous); err != nil {
+			t.Errorf("restore working directory: %v", err)
+		}
+	})
 }
 
 func TestRunValidateRoutesDiagnostics(t *testing.T) {

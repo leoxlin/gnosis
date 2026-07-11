@@ -48,7 +48,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	}
 	command.SetOut(stdout)
 	command.SetErr(stderr)
-	command.AddCommand(newScaffoldCommand(stdout), newSetupCommand(stdout), newIndexCommand(stdout), newReadCommand(stdout), newValidateCommand(stdout, stderr), newQueryCommand(stdout), newConceptsCommand(stdout))
+	command.AddCommand(newScaffoldCommand(stdout), newSetupCommand(stdout), newIndexCommand(stdout), newReadCommand(stdout), newWriteCommand(os.Stdin, stdout), newValidateCommand(stdout, stderr), newQueryCommand(stdout), newConceptsCommand(stdout))
 	command.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "Print the gnosis version",
@@ -109,6 +109,47 @@ func runRead(vaultPath, conceptType, title string, stdout io.Writer) error {
 	}
 	_, err = stdout.Write(document)
 	return err
+}
+
+func newWriteCommand(input io.Reader, stdout io.Writer) *cobra.Command {
+	var conceptType, title string
+	var overwrite bool
+	command := &cobra.Command{
+		Use:   "write [filename]",
+		Short: "Write a typed Markdown document into the current vault",
+		Args: func(_ *cobra.Command, args []string) error {
+			if len(args) <= 1 {
+				return nil
+			}
+			return fmt.Errorf("write: unexpected argument(s): %s", strings.Join(args[1:], " "))
+		},
+		RunE: func(_ *cobra.Command, args []string) error {
+			var content []byte
+			var err error
+			if len(args) == 1 {
+				content, err = os.ReadFile(args[0])
+				if err != nil {
+					return fmt.Errorf("write: read %s: %w", args[0], err)
+				}
+			} else {
+				content, err = io.ReadAll(input)
+				if err != nil {
+					return fmt.Errorf("write: read standard input: %w", err)
+				}
+			}
+			path, err := vault.WriteDocument(defaultVault, conceptType, title, content, overwrite)
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintln(stdout, path)
+			return err
+		},
+	}
+	flags := command.Flags()
+	flags.StringVar(&conceptType, "type", "", "exact concept type")
+	flags.StringVar(&title, "title", "", "exact document title")
+	flags.BoolVar(&overwrite, "overwrite", false, "allow overriding imported or built-in documents")
+	return command
 }
 
 func newQueryCommand(stdout io.Writer) *cobra.Command {
@@ -483,7 +524,7 @@ func normalizeLegacyLongFlags(args []string) []string {
 	longFlags := map[string]bool{
 		"vault": true, "top": true, "max-read": true, "depth": true,
 		"json": true, "pretty": true, "force": true, "concepts": true, "name": true, "import": true,
-		"type": true, "title": true,
+		"type": true, "title": true, "overwrite": true,
 	}
 	normalized := make([]string, 0, len(args))
 	for _, arg := range args {
