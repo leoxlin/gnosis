@@ -6,7 +6,7 @@ invocation: model
 effects: [read]
 relationships:
   - type: instance_of
-    target: ../../concepts/gnosis-process.md
+    target: ../../../concepts/gnosis-process.md
 ---
 
 # query-vault

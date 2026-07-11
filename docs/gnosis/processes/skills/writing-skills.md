@@ -6,7 +6,7 @@ invocation: model
 effects: [vault-write, workspace-write]
 relationships:
   - type: instance_of
-    target: ../../concepts/gnosis-process.md
+    target: ../../../concepts/gnosis-process.md
 ---
 
 # writing-skills
@@ -22,8 +22,8 @@ Writing skills applies red-green-refactor to agent behavior. Gnosis Process page
 
 ## Knowledge inputs
 
-- The [repository purpose](../purpose.md) and active decisions about knowledge and plugin boundaries.
-- The [Gnosis Process](../../concepts/gnosis-process.md) definition and any existing process with the same identity.
+- The [repository purpose](../../purpose.md) and active decisions about knowledge and plugin boundaries.
+- The [Gnosis Process](../../../concepts/gnosis-process.md) definition and any existing process with the same identity.
 - Current skill-system metadata rules, runtime packaging, validation tools, and agent instructions.
 - Concrete failure scenarios, baseline outputs, and prior evaluation evidence.
 
@@ -45,4 +45,4 @@ Writing skills applies red-green-refactor to agent behavior. Gnosis Process page
 
 The repository process and runtime adapter have non-overlapping responsibilities, the behavior change has red-and-green evaluation evidence, every packaged artifact validates, and the repository's full checks pass.
 
-Adapted from `writing-skills`, analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).
+Adapted from `writing-skills`, analyzed in [Superpowers (obra)](../../../references/obra-superpowers.md).

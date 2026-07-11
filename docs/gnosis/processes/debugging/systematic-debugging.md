@@ -6,7 +6,7 @@ invocation: model
 effects: [vault-write, workspace-write]
 relationships:
   - type: instance_of
-    target: ../../concepts/gnosis-process.md
+    target: ../../../concepts/gnosis-process.md
 ---
 
 # systematic-debugging
@@ -33,12 +33,12 @@ The hard gate is root-cause evidence before a proposed fix.
 1. **Root cause investigation:** Read errors and stack traces completely, reproduce consistently, inspect recent relevant changes, and trace bad data or state backward to its origin. At multi-component boundaries, gather evidence for inputs, outputs, configuration, and state before localizing the failure.
 2. **Pattern analysis:** Find a working analogue, read the applicable reference completely, enumerate every difference, and identify the dependencies and assumptions the broken path requires.
 3. **Hypothesis testing:** State one specific causal hypothesis and its evidence. Test it with the smallest possible change and one variable. A failed test produces a new hypothesis, not a stack of speculative fixes.
-4. **Root-cause fix:** Create the smallest failing reproduction and invoke `gnosis process invoke --id 'gnosis://core/gnosis/processes/test-driven-development.md' --pretty`. Implement one change at the source, then verify the reproduction and the relevant suite.
-5. After three failed fix attempts, stop and question the architecture with the author. Invoke `gnosis process invoke --id 'gnosis://core/gnosis/processes/writing-directives-and-decisions.md' --pretty` before changing the design.
+4. **Root-cause fix:** Create the smallest failing reproduction and invoke `gnosis process invoke --id 'gnosis://core/gnosis/processes/execution/test-driven-development.md' --pretty`. Implement one change at the source, then verify the reproduction and the relevant suite.
+5. After three failed fix attempts, stop and question the architecture with the author. Invoke `gnosis process invoke --id 'gnosis://core/gnosis/processes/planning/writing-directives-and-decisions.md' --pretty` before changing the design.
 6. If evidence shows an external or timing-dependent cause, record what was ruled out in the task evidence, add appropriate handling and observability, and verify that behavior.
 
 ## Completion
 
 Evidence identifies the root cause or establishes a bounded external cause, a regression test demonstrated the failure before the fix, the minimal correction passes focused and relevant regression checks, and any governing directive reflects the actual state.
 
-Adapted from `systematic-debugging`, analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).
+Adapted from `systematic-debugging`, analyzed in [Superpowers (obra)](../../../references/obra-superpowers.md).

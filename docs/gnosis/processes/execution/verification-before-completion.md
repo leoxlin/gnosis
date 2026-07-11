@@ -6,7 +6,7 @@ invocation: model
 effects: [read]
 relationships:
   - type: instance_of
-    target: ../../concepts/gnosis-process.md
+    target: ../../../concepts/gnosis-process.md
 ---
 
 # verification-before-completion
@@ -42,4 +42,4 @@ For a regression test, demonstrate red on the broken behavior and green on the c
 
 Every stated success and satisfied acceptance criterion is backed by fresh, complete evidence from the current state, with failures and uncertainty reported explicitly.
 
-Adapted from `verification-before-completion`, analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).
+Adapted from `verification-before-completion`, analyzed in [Superpowers (obra)](../../../references/obra-superpowers.md).

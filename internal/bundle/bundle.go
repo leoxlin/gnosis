@@ -14,7 +14,7 @@ type Document struct {
 	Data []byte
 }
 
-//go:embed content/concepts/*.md content/gnosis/processes/*.md
+//go:embed content/concepts/*.md content/gnosis/processes/*/*.md
 var stagedFS embed.FS
 
 // Documents returns the built-in documentation. Paths are relative to a vault
@@ -22,7 +22,7 @@ var stagedFS embed.FS
 func Documents() ([]Document, error) {
 	return documents([]string{
 		"content/concepts/*.md",
-		"content/gnosis/processes/*.md",
+		"content/gnosis/processes/*/*.md",
 	})
 }
 

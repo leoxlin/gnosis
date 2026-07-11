@@ -82,6 +82,12 @@ func WriteDocument(root, conceptType, title string, content []byte, overwrite bo
 	if err != nil {
 		return "", err
 	}
+	if destination == "" && overwrite {
+		destination, err = externalIdentityDestination(pages, localRoot, directory, conceptType, title)
+		if err != nil {
+			return "", err
+		}
+	}
 	if destination == "" {
 		filename := slugify(title)
 		if filename == "" {
@@ -98,13 +104,36 @@ func WriteDocument(root, conceptType, title string, content []byte, overwrite bo
 	if !overwrite && hasExternalCollision(pages, localRoot, destinationID, conceptType, title) {
 		return "", fmt.Errorf("write: document already exists outside the current vault; rerun with -overwrite")
 	}
-	if err := os.MkdirAll(destinationDirectory, 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
 		return "", err
 	}
 	if err := atomicWriteFile(destination, content, 0o644); err != nil {
 		return "", err
 	}
 	return destination, nil
+}
+
+func externalIdentityDestination(pages []*searchPage, localRoot, directory, conceptType, title string) (string, error) {
+	matches := make([]string, 0, 1)
+	for _, page := range pages {
+		if page.root == localRoot || page.document.Type != conceptType || page.document.Title != title {
+			continue
+		}
+		relative, err := filepath.Rel(filepath.Clean(directory), filepath.FromSlash(page.document.ID))
+		if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+			continue
+		}
+		matches = append(matches, filepath.Join(localRoot, filepath.FromSlash(page.document.ID)))
+	}
+	switch len(matches) {
+	case 0:
+		return "", nil
+	case 1:
+		return matches[0], nil
+	default:
+		sort.Strings(matches)
+		return "", fmt.Errorf("write: multiple external documents found with type %q and title %q: %s", conceptType, title, strings.Join(matches, ", "))
+	}
 }
 
 func localIdentityDestination(pages []*searchPage, localRoot, directory, conceptType, title string) (string, error) {

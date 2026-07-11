@@ -158,6 +158,9 @@ path: gnosis/processes
 	if _, err := WriteDocument(workspace, "Gnosis Process", "query-vault", builtInContent, true); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := os.Stat(filepath.Join(workspace, "local", "gnosis", "processes", "vault", "query-vault.md")); err != nil {
+		t.Fatalf("local grouped override = %v", err)
+	}
 	resolvedBuiltIn, err := Read(workspace, "Gnosis Process", "query-vault")
 	if err != nil {
 		t.Fatal(err)

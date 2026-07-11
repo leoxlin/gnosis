@@ -6,7 +6,7 @@ invocation: model
 effects: [workspace-write]
 relationships:
   - type: instance_of
-    target: ../../concepts/gnosis-process.md
+    target: ../../../concepts/gnosis-process.md
 ---
 
 # test-driven-development
@@ -42,4 +42,4 @@ A production change written for the task before its failing test is reverted and
 
 Every changed behavior has a test that was observed failing for the expected reason before implementation, minimal code made it pass, refactoring preserved green, edge and error cases required by the directive are covered, and the relevant suite has clean output.
 
-Adapted from `test-driven-development`, analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).
+Adapted from `test-driven-development`, analyzed in [Superpowers (obra)](../../../references/obra-superpowers.md).

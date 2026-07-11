@@ -6,7 +6,7 @@ invocation: model
 effects: [vault-write]
 relationships:
   - type: instance_of
-    target: ../../concepts/gnosis-process.md
+    target: ../../../concepts/gnosis-process.md
 ---
 
 # refine-purpose
@@ -21,7 +21,7 @@ relationships:
 
 ## Knowledge inputs
 
-- The current [repository purpose](../purpose.md), when it exists.
+- The current [repository purpose](../../purpose.md), when it exists.
 - Relevant active decisions, concepts, implementation facts, and repository instructions.
 - The exact `Gnosis Purpose` Concept Type definition.
 

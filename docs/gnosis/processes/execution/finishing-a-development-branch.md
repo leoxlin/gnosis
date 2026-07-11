@@ -6,7 +6,7 @@ invocation: model
 effects: [vault-write, workspace-write, external]
 relationships:
   - type: instance_of
-    target: ../../concepts/gnosis-process.md
+    target: ../../../concepts/gnosis-process.md
 ---
 
 # finishing-a-development-branch
@@ -28,7 +28,7 @@ Finishing a branch verifies the completed work, detects who owns the workspace, 
 
 ## Process
 
-1. Invoke `gnosis process invoke --id 'gnosis://core/gnosis/processes/verification-before-completion.md' --pretty` across the full suite, build, documentation checks, and every directive acceptance criterion. Stop on failure.
+1. Invoke `gnosis process invoke --id 'gnosis://core/gnosis/processes/execution/verification-before-completion.md' --pretty` across the full suite, build, documentation checks, and every directive acceptance criterion. Stop on failure.
 2. Detect normal checkout, named-branch worktree, or detached harness-managed workspace. Determine the likely base branch and ask when it is ambiguous.
 3. For a named branch, present four concise choices: merge locally, push and create a pull request, keep the branch, or discard. For detached HEAD, omit local merge and offer push as a new branch, keep, or discard.
 4. Execute only the selected choice:
@@ -43,4 +43,4 @@ Finishing a branch verifies the completed work, detects who owns the workspace, 
 
 The author-selected integration state exists, verification covers that state, cleanup respected workspace ownership, and the directive status accurately represents the preserved result.
 
-Adapted from `finishing-a-development-branch`, analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).
+Adapted from `finishing-a-development-branch`, analyzed in [Superpowers (obra)](../../../references/obra-superpowers.md).
