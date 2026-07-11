@@ -37,4 +37,4 @@ Code review is an independent gate between implementation and acceptance. The re
 
 An independent reviewer has judged both requirement compliance and code quality for the exact range, every blocking finding has been resolved and re-reviewed, and the resulting verdict is supported by file-level evidence.
 
-Adapted from [`requesting-code-review`](https://github.com/obra/Superpowers/blob/d884ae04edebef577e82ff7c4e143debd0bbec99/skills/requesting-code-review/SKILL.md), analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).
+Adapted from `requesting-code-review`, analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).

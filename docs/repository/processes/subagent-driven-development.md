@@ -40,4 +40,4 @@ Use [executing-plans](executing-plans.md) when subagents are unavailable. Use [d
 
 Every directive task has an implementation report, clean task-level compliance and quality verdicts, and a recorded commit range; the whole branch has independent review and fresh verification; and the directive accurately reads `blocked` or `done`.
 
-Adapted from [`subagent-driven-development`](https://github.com/obra/Superpowers/blob/d884ae04edebef577e82ff7c4e143debd0bbec99/skills/subagent-driven-development/SKILL.md), analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).
+Adapted from `subagent-driven-development`, analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).

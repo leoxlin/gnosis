@@ -36,4 +36,4 @@ The hard gate is root-cause evidence before a proposed fix.
 
 Evidence identifies the root cause or establishes a bounded external cause, a regression test demonstrated the failure before the fix, the minimal correction passes focused and relevant regression checks, and any governing directive reflects the actual state.
 
-Adapted from [`systematic-debugging`](https://github.com/obra/Superpowers/blob/d884ae04edebef577e82ff7c4e143debd0bbec99/skills/systematic-debugging/SKILL.md), analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).
+Adapted from `systematic-debugging`, analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).

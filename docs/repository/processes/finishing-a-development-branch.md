@@ -38,4 +38,4 @@ Finishing a branch verifies the completed work, detects who owns the workspace, 
 
 The author-selected integration state exists, verification covers that state, cleanup respected workspace ownership, and the directive status accurately represents the preserved result.
 
-Adapted from [`finishing-a-development-branch`](https://github.com/obra/Superpowers/blob/d884ae04edebef577e82ff7c4e143debd0bbec99/skills/finishing-a-development-branch/SKILL.md), analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).
+Adapted from `finishing-a-development-branch`, analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).

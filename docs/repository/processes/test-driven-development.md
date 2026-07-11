@@ -37,4 +37,4 @@ A production change written for the task before its failing test is reverted and
 
 Every changed behavior has a test that was observed failing for the expected reason before implementation, minimal code made it pass, refactoring preserved green, edge and error cases required by the directive are covered, and the relevant suite has clean output.
 
-Adapted from [`test-driven-development`](https://github.com/obra/Superpowers/blob/d884ae04edebef577e82ff7c4e143debd0bbec99/skills/test-driven-development/SKILL.md), analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).
+Adapted from `test-driven-development`, analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).

@@ -40,4 +40,4 @@ Writing skills applies red-green-refactor to agent behavior. Repository Process 
 
 The repository process and runtime adapter have non-overlapping responsibilities, the behavior change has red-and-green evaluation evidence, every packaged artifact validates, and the repository's full checks pass.
 
-Adapted from [`writing-skills`](https://github.com/obra/Superpowers/blob/d884ae04edebef577e82ff7c4e143debd0bbec99/skills/writing-skills/SKILL.md), analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).
+Adapted from `writing-skills`, analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).

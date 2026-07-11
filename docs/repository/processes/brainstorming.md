@@ -38,4 +38,4 @@ Scale the conversation to the decision, but do not skip it because the change ap
 
 The author has approved a coherent design, every qualifying durable decision has been recorded, and `writing-plans` has begun translating the design into a directive. No implementation has started.
 
-Adapted from [`brainstorming`](https://github.com/obra/Superpowers/blob/d884ae04edebef577e82ff7c4e143debd0bbec99/skills/brainstorming/SKILL.md), analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).
+Adapted from `brainstorming`, analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).

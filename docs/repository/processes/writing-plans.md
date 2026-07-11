@@ -37,4 +37,4 @@ Selecting this process is an explicit request to create a Repository Directive.
 
 Each independently deliverable design has one validated open directive with a complete executable task sequence and acceptance criteria, and the author has an explicit execution choice.
 
-Adapted from [`writing-plans`](https://github.com/obra/Superpowers/blob/d884ae04edebef577e82ff7c4e143debd0bbec99/skills/writing-plans/SKILL.md), analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).
+Adapted from `writing-plans`, analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).

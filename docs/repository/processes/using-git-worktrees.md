@@ -37,4 +37,4 @@ If sandbox restrictions block worktree creation, report the constraint and use t
 
 The agent is in an author-approved workspace with known ownership and branch state, project setup has completed, and fresh baseline verification is either clean or explicitly accepted as pre-existing.
 
-Adapted from [`using-git-worktrees`](https://github.com/obra/Superpowers/blob/d884ae04edebef577e82ff7c4e143debd0bbec99/skills/using-git-worktrees/SKILL.md), analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).
+Adapted from `using-git-worktrees`, analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).

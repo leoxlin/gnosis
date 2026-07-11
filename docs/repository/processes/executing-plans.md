@@ -34,4 +34,4 @@ description: Use when an open directive with an implementation plan must be exec
 
 The directive is either `blocked` with an actionable reason or `done` with fresh verification evidence and preserved work. No task or completion claim rests on an unchecked plan assertion.
 
-Adapted from [`executing-plans`](https://github.com/obra/Superpowers/blob/d884ae04edebef577e82ff7c4e143debd0bbec99/skills/executing-plans/SKILL.md), analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).
+Adapted from `executing-plans`, analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).

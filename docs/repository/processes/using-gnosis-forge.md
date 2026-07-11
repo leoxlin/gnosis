@@ -36,4 +36,4 @@ Do not invoke this process implicitly. A dispatched subagent follows the process
 
 The selected process chain has reached its observable terminal state, every required durable record is valid, and no completion claim exceeds fresh evidence.
 
-Adapted from [`using-superpowers`](https://github.com/obra/Superpowers/blob/d884ae04edebef577e82ff7c4e143debd0bbec99/skills/using-superpowers/SKILL.md), analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).
+Adapted from `using-superpowers`, analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).

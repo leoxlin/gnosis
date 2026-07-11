@@ -36,4 +36,4 @@ Keep related failures, exploratory diagnosis, shared-state changes, and sequenti
 
 Every domain has an evidence-backed result, concurrent work has no unresolved overlap, and fresh combined verification confirms the integrated state. The controller, not an individual parallel agent, updates the governing directive.
 
-Adapted from [`dispatching-parallel-agents`](https://github.com/obra/Superpowers/blob/d884ae04edebef577e82ff7c4e143debd0bbec99/skills/dispatching-parallel-agents/SKILL.md), analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).
+Adapted from `dispatching-parallel-agents`, analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).

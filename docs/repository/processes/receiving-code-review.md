@@ -35,4 +35,4 @@ Review feedback is technical evidence to evaluate, not an instruction to accept 
 
 Every feedback item is clarified, verified against repository knowledge and implementation truth, then either implemented with evidence, rejected with technical grounds, or escalated to the author for a durable choice.
 
-Adapted from [`receiving-code-review`](https://github.com/obra/Superpowers/blob/d884ae04edebef577e82ff7c4e143debd0bbec99/skills/receiving-code-review/SKILL.md), analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).
+Adapted from `receiving-code-review`, analyzed in [Superpowers (obra)](../../references/obra-superpowers.md).
