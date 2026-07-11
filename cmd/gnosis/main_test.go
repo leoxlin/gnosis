@@ -40,17 +40,28 @@ func TestRunHelpUsesStandardOutput(t *testing.T) {
 }
 
 func TestRunSubcommandHelpIsSuccessful(t *testing.T) {
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-
-	if err := run([]string{"validate", "--help"}, &stdout, &stderr); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(stdout.String(), "Usage:") || !strings.Contains(stdout.String(), "gnosis validate") {
-		t.Fatalf("stdout = %q", stdout.String())
-	}
-	if stderr.Len() != 0 {
-		t.Fatalf("stderr = %q", stderr.String())
+	for _, test := range []struct {
+		args  []string
+		usage string
+	}{
+		{args: []string{"validate", "--help"}, usage: "gnosis validate"},
+		{args: []string{"process", "discover", "--help"}, usage: "gnosis process discover"},
+		{args: []string{"graph", "path", "--help"}, usage: "gnosis graph path"},
+		{args: []string{"mcp", "serve", "--help"}, usage: "gnosis mcp serve"},
+	} {
+		t.Run(strings.Join(test.args[:len(test.args)-1], "_"), func(t *testing.T) {
+			var stdout bytes.Buffer
+			var stderr bytes.Buffer
+			if err := run(test.args, &stdout, &stderr); err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(stdout.String(), "Usage:") || !strings.Contains(stdout.String(), test.usage) {
+				t.Fatalf("stdout = %q", stdout.String())
+			}
+			if stderr.Len() != 0 {
+				t.Fatalf("stderr = %q", stderr.String())
+			}
+		})
 	}
 }
 
@@ -96,6 +107,8 @@ func TestRunGraphQueryEmitsCompactAndPrettyJSON(t *testing.T) {
 				AnswerType string `json:"answer_type"`
 				Candidates []struct {
 					Page        string `json:"page"`
+					URI         string `json:"uri"`
+					Type        string `json:"type"`
 					Description string `json:"description"`
 				} `json:"candidates"`
 				ShouldRead []string `json:"should_read"`
@@ -109,6 +122,9 @@ func TestRunGraphQueryEmitsCompactAndPrettyJSON(t *testing.T) {
 			}
 			if result.Candidates[0].Page != "transformer.md" {
 				t.Fatalf("top candidate = %+v", result.Candidates[0])
+			}
+			if result.Candidates[0].URI == "" || result.Candidates[0].Type != "Concept" {
+				t.Fatalf("candidate identity = %+v", result.Candidates[0])
 			}
 			if len(result.ShouldRead) > 3 {
 				t.Fatalf("should_read = %v", result.ShouldRead)
@@ -249,6 +265,131 @@ title: Transformer Architecture
 	}
 }
 
+func TestRunReadByIDAsMarkdownAndJSON(t *testing.T) {
+	root := processCommandTestVault(t)
+	want, err := os.ReadFile(filepath.Join(root, "processes", "query-vault.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if err := run([]string{"read", "--vault", root, "--id", "processes/query-vault.md"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if stdout.String() != string(want) {
+		t.Fatalf("stdout = %q, want %q", stdout.String(), want)
+	}
+
+	stdout.Reset()
+	if err := run([]string{"read", "--vault", root, "--id", "processes/query-vault.md", "--pretty"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	var page struct {
+		Document struct {
+			ID  string `json:"id"`
+			URI string `json:"uri"`
+		} `json:"document"`
+		Markdown string `json:"markdown"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &page); err != nil {
+		t.Fatal(err)
+	}
+	if page.Document.ID != "processes/query-vault.md" || page.Document.URI == "" || page.Markdown != string(want) {
+		t.Fatalf("page = %+v", page)
+	}
+
+	if err := run([]string{"read", "--vault", root, "--id", "processes/query-vault.md", "--type", "Vault Process", "--title", "query-vault"}, &stdout, &stderr); err == nil || !strings.Contains(err.Error(), "cannot be combined") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestRunProcessDiscoverAndInvoke(t *testing.T) {
+	root := processCommandTestVault(t)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if err := run([]string{"process", "discover", "--vault", root, "--type", "Vault Process", "--pretty", "answer from recorded knowledge"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	var discovery struct {
+		Processes []struct {
+			ID         string   `json:"id"`
+			URI        string   `json:"uri"`
+			UseWhen    []string `json:"use_when"`
+			Invocation string   `json:"invocation"`
+			Effects    []string `json:"effects"`
+		} `json:"processes"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &discovery); err != nil {
+		t.Fatal(err)
+	}
+	if len(discovery.Processes) != 1 || discovery.Processes[0].URI == "" || discovery.Processes[0].Invocation != "model" {
+		t.Fatalf("discovery = %+v", discovery)
+	}
+
+	stdout.Reset()
+	if err := run([]string{"process", "invoke", "--vault", root, "--id", discovery.Processes[0].URI, "--pretty"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	var invocation struct {
+		Process struct {
+			ID string `json:"id"`
+		} `json:"process"`
+		Sections struct {
+			Completion string `json:"completion"`
+		} `json:"sections"`
+		Relationships []struct {
+			Relation string `json:"relation"`
+		} `json:"relationships"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &invocation); err != nil {
+		t.Fatal(err)
+	}
+	if invocation.Process.ID != "processes/query-vault.md" || invocation.Sections.Completion == "" || len(invocation.Relationships) != 1 {
+		t.Fatalf("invocation = %+v", invocation)
+	}
+}
+
+func TestRunGraphNeighborsAndPath(t *testing.T) {
+	root := processCommandTestVault(t)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if err := run([]string{"graph", "neighbors", "--vault", root, "--id", "processes/query-vault.md", "--direction", "out", "--relation", "uses", "--pretty"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	var neighbors struct {
+		Edges []struct {
+			Relation string `json:"relation"`
+			To       struct {
+				ID string `json:"id"`
+			} `json:"to"`
+		} `json:"edges"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &neighbors); err != nil {
+		t.Fatal(err)
+	}
+	if len(neighbors.Edges) != 1 || neighbors.Edges[0].Relation != "uses" || neighbors.Edges[0].To.ID != "concepts/provenance.md" {
+		t.Fatalf("neighbors = %+v", neighbors)
+	}
+
+	stdout.Reset()
+	if err := run([]string{"graph", "path", "--vault", root, "--from", "processes/query-vault.md", "--to", "concepts/provenance.md", "--direction", "out", "--depth", "2", "--pretty"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	var path struct {
+		Status string `json:"status"`
+		Nodes  []struct {
+			ID string `json:"id"`
+		} `json:"nodes"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &path); err != nil {
+		t.Fatal(err)
+	}
+	if path.Status != "found" || len(path.Nodes) != 2 {
+		t.Fatalf("path = %+v", path)
+	}
+}
+
 func TestWriteCommandReadsStandardInput(t *testing.T) {
 	root := writeCommandTestVault(t)
 	changeWorkingDirectory(t, root)
@@ -355,6 +496,46 @@ description: Decouples an interface from its implementation.
 	}
 }
 
+func TestRunConceptsEmitsMachineReadableCatalog(t *testing.T) {
+	root := queryTestVault(t)
+	writeTestFile(t, root, "concept-type.md", `---
+type: Concept Type
+title: Concept
+description: A reusable knowledge record.
+---
+
+# Concept
+`)
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if err := run([]string{"concepts", "--vault", root, "--type", "Concept", "--pretty"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	var catalog struct {
+		Type     string `json:"type"`
+		Concepts []struct {
+			ID       string `json:"id"`
+			URI      string `json:"uri"`
+			Revision string `json:"revision"`
+		} `json:"concepts"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &catalog); err != nil {
+		t.Fatalf("invalid JSON %q: %v", stdout.String(), err)
+	}
+	if catalog.Type != "Concept" || len(catalog.Concepts) != 2 {
+		t.Fatalf("catalog = %+v", catalog)
+	}
+	for _, concept := range catalog.Concepts {
+		if concept.ID == "" || concept.URI == "" || concept.Revision == "" {
+			t.Fatalf("concept identity = %+v", concept)
+		}
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
 func TestRunConceptsValidatesArgumentsAndType(t *testing.T) {
 	root := queryTestVault(t)
 	for _, test := range []struct {
@@ -404,6 +585,58 @@ description: Weighted token lookup.
 ---
 
 # Attention Mechanism
+`)
+	return root
+}
+
+func processCommandTestVault(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	writeTestFile(t, root, "gnosis.toml", `[vault]
+vault_name = "Process Test"
+vault_root = "."
+vault_index = false
+vault_log = false
+
+[vaults.gnosis]
+include = []
+`)
+	writeTestFile(t, root, "concepts/provenance.md", `---
+type: Concept
+title: Provenance
+description: Source identity and history.
+---
+
+# Provenance
+`)
+	writeTestFile(t, root, "processes/query-vault.md", `---
+type: Vault Process
+title: query-vault
+description: Use when answering a question from recorded vault knowledge.
+invocation: model
+effects: [read]
+relationships:
+  - type: uses
+    target: ../concepts/provenance.md
+---
+
+# query-vault
+
+## Use when
+
+- Answering a question from a vault.
+
+## Knowledge inputs
+
+- [Provenance](../concepts/provenance.md)
+
+## Process
+
+1. Read selected pages.
+
+## Completion
+
+The answer is grounded.
 `)
 	return root
 }

@@ -2,6 +2,11 @@
 type: Vault Process
 title: ingest-knowledge
 description: Use when a source may update several related concept pages.
+invocation: model
+effects: [vault-write]
+relationships:
+  - type: instance_of
+    target: ../../concepts/vault-process.md
 ---
 
 # ingest-knowledge

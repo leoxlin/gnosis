@@ -2,6 +2,11 @@
 type: Repository Process
 title: writing-directives-and-decisions
 description: Use to turn creative repository work into an author-approved design, durable decisions, and executable directives.
+invocation: model
+effects: [workspace-write]
+relationships:
+  - type: instance_of
+    target: ../../concepts/repository-process.md
 ---
 
 # writing-directives-and-decisions

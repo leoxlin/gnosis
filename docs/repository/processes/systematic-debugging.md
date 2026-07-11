@@ -2,6 +2,11 @@
 type: Repository Process
 title: systematic-debugging
 description: Use for any bug, failing test, build failure, performance problem, or unexpected technical behavior before proposing a fix.
+invocation: model
+effects: [workspace-write]
+relationships:
+  - type: instance_of
+    target: ../../concepts/repository-process.md
 ---
 
 # systematic-debugging

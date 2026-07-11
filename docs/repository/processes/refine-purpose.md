@@ -2,6 +2,11 @@
 type: Repository Process
 title: refine-purpose
 description: Use when the repository purpose must be created or changed through author-confirmed understanding.
+invocation: model
+effects: [workspace-write]
+relationships:
+  - type: instance_of
+    target: ../../concepts/repository-process.md
 ---
 
 # refine-purpose

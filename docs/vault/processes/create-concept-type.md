@@ -2,6 +2,11 @@
 type: Vault Process
 title: create-concept-type
 description: Use when a vault needs a new or refined ontological category.
+invocation: model
+effects: [vault-write]
+relationships:
+  - type: instance_of
+    target: ../../concepts/vault-process.md
 ---
 
 # create-concept-type

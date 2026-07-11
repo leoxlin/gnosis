@@ -2,6 +2,11 @@
 type: Repository Process
 title: receiving-code-review
 description: Use before acting on review feedback, especially when a suggestion is unclear, broad, or inconsistent with repository constraints.
+invocation: model
+effects: [workspace-write]
+relationships:
+  - type: instance_of
+    target: ../../concepts/repository-process.md
 ---
 
 # receiving-code-review

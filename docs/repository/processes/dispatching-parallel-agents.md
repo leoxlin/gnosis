@@ -2,6 +2,11 @@
 type: Repository Process
 title: dispatching-parallel-agents
 description: Use when two or more problem domains can be investigated or changed without shared state, overlapping files, or sequential dependencies.
+invocation: model
+effects: [workspace-write]
+relationships:
+  - type: instance_of
+    target: ../../concepts/repository-process.md
 ---
 
 # dispatching-parallel-agents

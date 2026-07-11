@@ -3,7 +3,7 @@ type: Documentation
 title: Basic Usage
 description: Install the `gnosis` CLI, configure vault behavior, query knowledge, run core commands, and check repository quality.
 tags: [documentation, usage, cli, vault]
-timestamp: 2026-07-10T11:28:39Z
+timestamp: 2026-07-11T18:50:19Z
 ---
 
 # Basic Usage
@@ -76,6 +76,13 @@ Get the machine-readable retrieval and graph pre-pass used by agents:
 
 ```bash
 gnosis query graph -vault ./my-vault -pretty "how is rate limiting connected to retries?"
+```
+
+Discover a process for an agent request, then invoke the selected exact revision:
+
+```bash
+gnosis process discover -vault ./my-vault -type 'Vault Process' -pretty "answer from this vault"
+gnosis process invoke -vault ./my-vault -id 'gnosis://vault/my-vault/processes/query-vault.md' -pretty
 ```
 
 You can also run tasks directly through mise without installing the binary:
@@ -151,11 +158,52 @@ Common options, which must appear before the quoted question, are:
 -depth <n>     maximum link traversal depth (default 3)
 ```
 
-`query search` prints text unless `-json` or `-pretty` is supplied. `query graph` always returns JSON; `-pretty` indents it. The JSON object contains `answer_type`, `candidates`, `path`, `should_read`, and `index_only`. Candidate descriptions are bounded and page bodies are never included in command output.
+`query search` prints text unless `-json` or `-pretty` is supplied. `query graph` always returns JSON; `-pretty` indents it. The JSON object contains `answer_type`, `candidates`, `path`, `should_read`, and `index_only`. Each candidate carries its ID in `page`, stable URI, exact type, bounded description, effective origin, content revision, and score; page bodies are never included in query output.
 
 An exact title, alias, or concept-path lookup with a description may return `index_only: true`, meaning an agent can answer without opening the page. Relationship questions return the shortest resolved Markdown-link path within the requested depth. Both commands are read-only and do not update indexes or logs.
 
-`gnosis read` is also read-only. It requires non-empty `-type` and `-title` flags, matches both values exactly across configured vault roots, and writes the complete matching Markdown file to standard output. Missing and duplicate type-and-title pairs are errors.
+`gnosis read` is also read-only. The compatibility form requires non-empty `-type` and `-title` flags and matches both exactly across configured vault roots. Agents should pass the exact effective ID or `gnosis://` URI returned by another command:
+
+```bash
+gnosis read -vault ./my-vault -id 'processes/query-vault.md'
+gnosis read -vault ./my-vault -id 'gnosis://vault/my-vault/processes/query-vault.md' -pretty
+```
+
+`-json` or `-pretty` with `-id` returns the page identity, origin, revision, and Markdown. Missing or ambiguous selectors are errors.
+
+## Agent integration
+
+gnosis exposes one shared agent contract through the CLI and an MCP server. The contract separates cheap discovery from exact invocation:
+
+1. `discover_processes` / `gnosis process discover` ranks only exact `Vault Process` and `Repository Process` records. Results contain the selection conditions, invocation mode, possible effects, origin, revision, and stable URI without the full workflow.
+2. `invoke_process` / `gnosis process invoke` loads the required sections and resolved outbound relationships for one exact URI. Invocation is read-only: the agent executes the returned contract under its existing authority and instructions.
+3. `read_page`, `query_knowledge`, `trace_links`, and `find_path` provide exact reads, bounded retrieval, and deterministic directed graph traversal. Their CLI equivalents are `gnosis read -id`, `gnosis query graph`, `gnosis graph neighbors`, and `gnosis graph path`.
+
+Run the MCP server over standard input and output from a vault or import workspace:
+
+```bash
+gnosis mcp serve -vault ./my-vault
+```
+
+The `gnosis` plugin declares this server in `.mcp.json`; compatible agent hosts can start it with the plugin. It publishes six read-only tools, every effective page as a `gnosis://` Markdown resource, and a live prompt for each executable process. Prompt retrieval reads the current effective page rather than copying its workflow into plugin packaging.
+
+Trace typed outbound links or find a bounded path using an ID or URI:
+
+```bash
+gnosis graph neighbors -vault ./my-vault -id 'processes/query-vault.md' -direction out -pretty
+gnosis graph path -vault ./my-vault -from 'processes/query-vault.md' -to 'concepts/retry.md' -direction out -depth 4 -pretty
+```
+
+Explicit frontmatter relationships preserve their type and direction. Markdown body links appear as `links_to`. A path result distinguishes `found`, `unknown_source`, `unknown_target`, `disconnected`, and `depth_exceeded` instead of collapsing every failure into an empty path.
+
+Every machine-readable identity includes its effective origin (`local`, `import`, or `bundle`) and SHA-256 content revision. Local and imported precedence remains the configured vault's authority boundary; process effects never grant an agent permission it did not already have. Only exact process types are invocable, while all other records remain queryable knowledge.
+
+List concept metadata as JSON when a host needs broad type discovery rather than process selection:
+
+```bash
+gnosis concepts -vault ./my-vault -json
+gnosis concepts -vault ./my-vault -type 'Repository Decision' -pretty
+```
 
 ## Output and failures
 

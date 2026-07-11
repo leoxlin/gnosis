@@ -31,6 +31,14 @@ func Validate(root string) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
+	effectiveSelectors := make(map[string]struct{})
+	searchSource := &SearchSource{resolution: resolution}
+	if pages, pagesErr := searchSource.pages(); pagesErr == nil {
+		for _, page := range pages {
+			effectiveSelectors[page.document.ID] = struct{}{}
+			effectiveSelectors[page.document.URI] = struct{}{}
+		}
+	}
 
 	result := Result{}
 	for _, source := range resolution.Sources {
@@ -64,7 +72,7 @@ func Validate(root string) (Result, error) {
 			}
 
 			result.FilesChecked++
-			validateFile(source.Path, path, source.Config, &result)
+			validateFile(source.Path, path, source.Config, effectiveSelectors, &result)
 			return nil
 		})
 		if err != nil {
@@ -77,7 +85,7 @@ func Validate(root string) (Result, error) {
 	return result, nil
 }
 
-func validateFile(root, path string, config Config, result *Result) {
+func validateFile(root, path string, config Config, effectiveSelectors map[string]struct{}, result *Result) {
 	bytes, err := os.ReadFile(path)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
@@ -121,13 +129,119 @@ func validateFile(root, path string, config Config, result *Result) {
 		if strings.TrimSpace(body) == "" {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("%s: empty markdown body", path))
 		}
+		validateRelationships(root, path, fields, effectiveSelectors, result)
+
+		if conceptType, scalar := fields.scalar("type"); scalar && isProcessType(strings.TrimSpace(conceptType)) {
+			validateProcessRecord(path, fields, body, result)
+		}
 	}
 
 	validateReservedName(path, body, result)
-	validateLinks(root, path, text, config, result)
+	validateLinks(root, path, text, config, effectiveSelectors, result)
 }
 
-func validateLinks(root, path, text string, config Config, result *Result) {
+func validateProcessRecord(path string, fields Frontmatter, body string, result *Result) {
+	sections, missing, duplicates := parseProcessSections(body)
+	for _, section := range missing {
+		result.Errors = append(result.Errors, fmt.Sprintf("%s: missing required section %q", path, section))
+	}
+	for _, section := range duplicates {
+		result.Errors = append(result.Errors, fmt.Sprintf("%s: duplicate process section %q", path, section))
+	}
+	if strings.TrimSpace(sections.UseWhen) != "" && len(markdownBullets(sections.UseWhen)) == 0 {
+		result.Errors = append(result.Errors, fmt.Sprintf("%s: process section %q must contain at least one bullet", path, "Use when"))
+	}
+	if description, scalar := fields.scalar("description"); !scalar || strings.TrimSpace(description) == "" {
+		result.Errors = append(result.Errors, fmt.Sprintf("%s: process requires non-empty %q frontmatter", path, "description"))
+	}
+
+	if invocation, scalar := fields.scalar("invocation"); scalar {
+		invocation = strings.TrimSpace(invocation)
+		if invocation != "" && !validProcessInvocation(invocation) {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: frontmatter %q must be %q or %q", path, "invocation", "model", "explicit"))
+		}
+	} else if _, exists := fields["invocation"]; exists {
+		result.Errors = append(result.Errors, fmt.Sprintf("%s: frontmatter %q must be a scalar", path, "invocation"))
+	}
+
+	effects, valid := fields.scalars("effects")
+	if !valid {
+		result.Errors = append(result.Errors, fmt.Sprintf("%s: frontmatter %q must be a scalar or sequence of scalars", path, "effects"))
+	} else {
+		for _, effect := range effects {
+			if !validProcessEffect(effect) {
+				result.Errors = append(result.Errors, fmt.Sprintf("%s: unsupported process effect %q", path, effect))
+			}
+		}
+	}
+}
+
+func validateRelationships(root, path string, fields Frontmatter, effectiveSelectors map[string]struct{}, result *Result) {
+	specs, err := relationshipSpecs(fields)
+	if err != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
+		return
+	}
+	for index, spec := range specs {
+		if _, exists := effectiveSelectors[strings.TrimSpace(spec.Target)]; exists {
+			continue
+		}
+		link, include, err := parseLinkDestination(spec.Target)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: invalid relationships[%d] target: %v", path, index, err))
+			continue
+		}
+		if !include {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: relationships[%d] target %q must be an internal Markdown path", path, index, spec.Target))
+			continue
+		}
+		extension := strings.ToLower(filepath.Ext(link.Path))
+		if extension != "" && extension != ".md" {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: relationships[%d] target %q must be a Markdown path", path, index, spec.Target))
+			continue
+		}
+		target, err := linkTarget(root, path, link)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: relationships[%d]: %v", path, index, err))
+			continue
+		}
+		candidates := []string{target}
+		if extension == "" {
+			candidates = append(candidates, target+".md")
+		}
+		resolved := resolvesPhysicalCandidate(candidates)
+		if !resolved {
+			resolved = resolvesEffectiveCandidate(root, path, link, effectiveSelectors)
+		}
+		if !resolved {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: unresolved relationships[%d] target %s", path, index, spec.Target))
+		}
+	}
+}
+
+func resolvesPhysicalCandidate(candidates []string) bool {
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+func resolvesEffectiveCandidate(root, sourcePath string, link Link, effectiveSelectors map[string]struct{}) bool {
+	sourceID, err := filepath.Rel(root, sourcePath)
+	if err != nil {
+		return false
+	}
+	for _, candidate := range logicalDocumentCandidates(filepath.ToSlash(sourceID), link) {
+		if _, exists := effectiveSelectors[candidate]; exists {
+			return true
+		}
+	}
+	return false
+}
+
+func validateLinks(root, path, text string, config Config, effectiveSelectors map[string]struct{}, result *Result) {
 	preferred := config.LinkFormatValue()
 	links, err := internalLinks(text)
 	if err != nil {
@@ -159,7 +273,9 @@ func validateLinks(root, path, text string, config Config, result *Result) {
 		}
 		if _, err := os.Stat(target); err != nil {
 			if os.IsNotExist(err) {
-				result.Errors = append(result.Errors, fmt.Sprintf("%s: unresolved internal link %s", path, link.Raw))
+				if !resolvesEffectiveCandidate(root, path, link, effectiveSelectors) {
+					result.Errors = append(result.Errors, fmt.Sprintf("%s: unresolved internal link %s", path, link.Raw))
+				}
 			} else {
 				result.Errors = append(result.Errors, fmt.Sprintf("%s: cannot check link %s: %v", path, link.Raw, err))
 			}

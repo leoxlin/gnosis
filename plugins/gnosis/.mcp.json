@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "gnosis": {
+      "type": "stdio",
+      "command": "gnosis",
+      "args": ["mcp", "serve"]
+    }
+  }
+}

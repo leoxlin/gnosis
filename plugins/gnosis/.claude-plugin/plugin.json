@@ -2,7 +2,7 @@
   "name": "gnosis",
   "displayName": "gnosis",
   "version": "0.1.0",
-  "description": "Apply gnosis vault and repository processes.",
+  "description": "Discover, invoke, and trace gnosis vault and repository processes.",
   "author": {
     "name": "Leo Xuzhang Lin",
     "url": "https://github.com/leoxlin"

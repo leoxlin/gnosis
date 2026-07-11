@@ -2,6 +2,11 @@
 type: Repository Process
 title: subagent-driven-development
 description: Use when an open directive has independently reviewable implementation tasks that should execute in the current session with isolated agent context.
+invocation: model
+effects: [workspace-write]
+relationships:
+  - type: instance_of
+    target: ../../concepts/repository-process.md
 ---
 
 # subagent-driven-development

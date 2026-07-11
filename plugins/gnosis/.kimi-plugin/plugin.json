@@ -1,7 +1,7 @@
 {
   "name": "gnosis",
   "version": "0.1.0",
-  "description": "Apply gnosis vault and repository processes.",
+  "description": "Discover, invoke, and trace gnosis vault and repository processes.",
   "author": {
     "name": "Leo Xuzhang Lin",
     "url": "https://github.com/leoxlin"
@@ -13,7 +13,7 @@
   "interface": {
     "displayName": "gnosis",
     "shortDescription": "Apply vault and repository knowledge.",
-    "longDescription": "Gateway skills that select canonical Vault Process and Repository Process records through gnosis.",
+    "longDescription": "Gateway skills and MCP tools that discover, invoke, read, and trace canonical gnosis process records.",
     "developerName": "Leo Xuzhang Lin",
     "websiteURL": "https://github.com/leoxlin/gnosis"
   }

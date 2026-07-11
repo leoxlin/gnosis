@@ -2,6 +2,11 @@
 type: Repository Process
 title: using-git-worktrees
 description: Use when feature work needs isolation or before executing a directive in a separate workspace.
+invocation: model
+effects: [workspace-write]
+relationships:
+  - type: instance_of
+    target: ../../concepts/repository-process.md
 ---
 
 # using-git-worktrees

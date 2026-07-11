@@ -2,6 +2,11 @@
 type: Repository Process
 title: verification-before-completion
 description: Use immediately before claiming work is correct, complete, fixed, passing, or ready for delivery.
+invocation: model
+effects: [read]
+relationships:
+  - type: instance_of
+    target: ../../concepts/repository-process.md
 ---
 
 # verification-before-completion

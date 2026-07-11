@@ -22,6 +22,7 @@ const (
 // paths.
 type Document struct {
 	ID          string
+	URI         string
 	Title       string
 	Description string
 	Type        string
@@ -29,6 +30,9 @@ type Document struct {
 	Tags        []string
 	Body        string
 	Links       []string
+	Edges       []Edge
+	Origin      Origin
+	Revision    string
 }
 
 // Retriever ranks vault documents.
@@ -64,12 +68,16 @@ type QueryOptions struct {
 // Candidate is the compact, user-facing representation of a search hit.
 type Candidate struct {
 	Page        string  `json:"page"`
+	URI         string  `json:"uri"`
+	Type        string  `json:"type"`
 	Title       string  `json:"title"`
 	Description string  `json:"description"`
+	Origin      Origin  `json:"origin"`
+	Revision    string  `json:"revision"`
 	Score       float64 `json:"score"`
 }
 
-// QueryResult is the stable response shared by query and graph-query.
+// QueryResult is the stable response shared by CLI and MCP knowledge queries.
 type QueryResult struct {
 	AnswerType AnswerType  `json:"answer_type"`
 	Candidates []Candidate `json:"candidates"`
@@ -262,8 +270,12 @@ func (e *Engine) Query(question string, options QueryOptions) QueryResult {
 	for _, hit := range hits {
 		result.Candidates = append(result.Candidates, Candidate{
 			Page:        hit.Document.ID,
+			URI:         hit.Document.URI,
+			Type:        hit.Document.Type,
 			Title:       hit.Document.Title,
 			Description: truncateRunes(hit.Document.Description, maxDescriptionRune),
+			Origin:      hit.Document.Origin,
+			Revision:    hit.Document.Revision,
 			Score:       roundScore(hit.Score),
 		})
 	}

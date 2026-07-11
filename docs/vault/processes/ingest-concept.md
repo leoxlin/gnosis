@@ -2,6 +2,11 @@
 type: Vault Process
 title: ingest-concept
 description: Use when one named knowledge object should become or update one concept page.
+invocation: model
+effects: [vault-write]
+relationships:
+  - type: instance_of
+    target: ../../concepts/vault-process.md
 ---
 
 # ingest-concept

@@ -11,7 +11,7 @@ Keep repeatable vault and repository workflows as canonical process records in t
 - `using-gnosis-vault` selects and follows [Vault Process](../../concepts/vault-process.md) records.
 - `using-gnosis-forge` selects and follows [Repository Process](../../concepts/repository-process.md) records.
 
-Each gateway uses `gnosis concepts` to discover records and `gnosis read` to read the applicable concept definition and selected process. A process record, rather than plugin packaging, is the source of truth for its selection conditions, knowledge inputs, ordered work, and completion gate.
+Each gateway prefers the gnosis MCP contract to discover and invoke processes, with `gnosis process discover` and `gnosis process invoke` as equivalent CLI fallbacks. Discovery exposes compact selection metadata; invocation loads one exact process revision. A process record, rather than plugin packaging or a copied prompt, is the source of truth for its selection conditions, knowledge inputs, ordered work, and completion gate.
 
 # Why
 
@@ -28,5 +28,6 @@ Rejected alternatives:
 # Constraints
 
 - Marketplaces and local skill links expose only the `gnosis` plugin and its two gateway skills.
-- Gateway skills retrieve their concept definition and process records with `gnosis concepts` and `gnosis read`; they do not copy process instructions.
-- Process records retain their identities, selection conditions, and completion gates. Runtime gateways respect the configured vault, including its imports.
+- Gateway skills retrieve process records through the MCP or CLI agent contract; they do not copy process instructions.
+- Process records retain their identities, invocation modes, possible effects, selection conditions, and completion gates. Runtime gateways respect effective-page precedence across the configured vault and expose every selected record's origin and revision.
+- Only exact `Vault Process` and `Repository Process` records are invocable. Other knowledge remains readable and queryable but cannot become executable merely through wording or tags.

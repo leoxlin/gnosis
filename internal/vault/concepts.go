@@ -7,27 +7,38 @@ import (
 	"strings"
 )
 
-// ListConcepts writes concept type previews, or concepts of an exact type,
-// from the vault rooted at root.
-func ListConcepts(root, conceptType string, output io.Writer) error {
+// ConceptTypeSummary is compact metadata for one available concept type.
+type ConceptTypeSummary struct {
+	Type        string `json:"type"`
+	Description string `json:"description"`
+}
+
+// ConceptCatalog is the machine-readable form of the concepts command.
+type ConceptCatalog struct {
+	Type         string               `json:"type,omitempty"`
+	ConceptTypes []ConceptTypeSummary `json:"concept_types,omitempty"`
+	Concepts     []DocumentRef        `json:"concepts,omitempty"`
+}
+
+// Concepts returns concept type previews or exact-type document references.
+func Concepts(root, conceptType string) (ConceptCatalog, error) {
 	conceptType = strings.TrimSpace(conceptType)
 	source, err := NewSearchSource(root)
 	if err != nil {
-		return fmt.Errorf("concepts: %w", err)
+		return ConceptCatalog{}, fmt.Errorf("concepts: %w", err)
 	}
 	documents, err := source.Documents()
 	if err != nil {
-		return fmt.Errorf("concepts: %w", err)
+		return ConceptCatalog{}, fmt.Errorf("concepts: %w", err)
 	}
 	if conceptType == "" {
-		writeConceptTypePreviews(output, documents)
-		return nil
+		return ConceptCatalog{ConceptTypes: conceptTypeSummaries(documents)}, nil
 	}
 
-	matching := make([]Document, 0)
+	matching := make([]DocumentRef, 0)
 	for _, document := range documents {
 		if document.Type == conceptType {
-			matching = append(matching, document)
+			matching = append(matching, document.Ref())
 		}
 	}
 	sort.Slice(matching, func(i, j int) bool {
@@ -36,24 +47,32 @@ func ListConcepts(root, conceptType string, output io.Writer) error {
 		}
 		return matching[i].Title < matching[j].Title
 	})
+	return ConceptCatalog{Type: conceptType, Concepts: matching}, nil
+}
 
-	if len(matching) == 0 {
-		fmt.Fprintf(output, "no concepts with type %q\n", conceptType)
+// ListConcepts writes concept type previews, or concepts of an exact type,
+// from the vault rooted at root.
+func ListConcepts(root, conceptType string, output io.Writer) error {
+	catalog, err := Concepts(root, conceptType)
+	if err != nil {
+		return err
+	}
+	if catalog.Type == "" {
+		writeConceptTypePreviews(output, catalog.ConceptTypes)
 		return nil
 	}
-	for _, document := range matching {
+	if len(catalog.Concepts) == 0 {
+		fmt.Fprintf(output, "no concepts with type %q\n", catalog.Type)
+		return nil
+	}
+	for _, document := range catalog.Concepts {
 		fmt.Fprintf(output, "Title: %s\n", document.Title)
 		fmt.Fprintf(output, "Description: %s\n\n", document.Description)
 	}
 	return nil
 }
 
-type conceptTypePreview struct {
-	name        string
-	description string
-}
-
-func writeConceptTypePreviews(output io.Writer, documents []Document) {
+func conceptTypeSummaries(documents []Document) []ConceptTypeSummary {
 	descriptions := make(map[string]string)
 	types := make(map[string]struct{})
 	for _, document := range documents {
@@ -67,26 +86,29 @@ func writeConceptTypePreviews(output io.Writer, documents []Document) {
 		types[document.Type] = struct{}{}
 	}
 
-	previews := make([]conceptTypePreview, 0, len(types))
+	previews := make([]ConceptTypeSummary, 0, len(types))
 	for name := range types {
 		description := strings.TrimSpace(descriptions[name])
 		if description == "" {
 			description = name
 		}
-		previews = append(previews, conceptTypePreview{
-			name:        name,
-			description: description,
+		previews = append(previews, ConceptTypeSummary{
+			Type:        name,
+			Description: description,
 		})
 	}
 	sort.Slice(previews, func(i, j int) bool {
-		return previews[i].name < previews[j].name
+		return previews[i].Type < previews[j].Type
 	})
+	return previews
+}
 
+func writeConceptTypePreviews(output io.Writer, previews []ConceptTypeSummary) {
 	if len(previews) == 0 {
 		fmt.Fprintln(output, "no concept types")
 		return
 	}
 	for _, preview := range previews {
-		fmt.Fprintf(output, "Type: %s\nDescription: %s\n\n", preview.name, preview.description)
+		fmt.Fprintf(output, "Type: %s\nDescription: %s\n\n", preview.Type, preview.Description)
 	}
 }

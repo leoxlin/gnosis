@@ -2,6 +2,11 @@
 type: Repository Process
 title: writing-skills
 description: Use when creating, editing, or validating a runtime skill or its repository-owned process knowledge.
+invocation: model
+effects: [workspace-write]
+relationships:
+  - type: instance_of
+    target: ../../concepts/repository-process.md
 ---
 
 # writing-skills

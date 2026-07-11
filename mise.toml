@@ -1,5 +1,5 @@
 [tools]
-go = "1.22"
+go = "1.25"
 
 [tasks.setup-build]
 description = "Stage documentation embedded in the gnosis CLI"

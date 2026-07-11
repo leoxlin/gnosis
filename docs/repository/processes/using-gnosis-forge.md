@@ -2,6 +2,11 @@
 type: Repository Process
 title: using-gnosis-forge
 description: Use when an author explicitly asks gnosis to apply repository knowledge and processes to repository work.
+invocation: explicit
+effects: [read, workspace-write, external]
+relationships:
+  - type: instance_of
+    target: ../../concepts/repository-process.md
 ---
 
 # using-gnosis-forge

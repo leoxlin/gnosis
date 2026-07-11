@@ -2,6 +2,11 @@
 type: Repository Process
 title: executing-plans
 description: Use when an open directive with an implementation plan must be executed directly or in a separate session.
+invocation: model
+effects: [workspace-write]
+relationships:
+  - type: instance_of
+    target: ../../concepts/repository-process.md
 ---
 
 # executing-plans

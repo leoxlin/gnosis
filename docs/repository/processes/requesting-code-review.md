@@ -2,6 +2,11 @@
 type: Repository Process
 title: requesting-code-review
 description: Use after an implementation task or major feature and before integration to verify requirements and code quality independently.
+invocation: model
+effects: [read]
+relationships:
+  - type: instance_of
+    target: ../../concepts/repository-process.md
 ---
 
 # requesting-code-review
