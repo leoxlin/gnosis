@@ -104,7 +104,7 @@ The repository separates deterministic plugin tests from behavior evaluations. S
 
 ## Relevance to `gnosis`
 
-Superpowers is a useful complement and comparison point for [`gnosis`](../repository/purpose.md):
+Superpowers is a useful complement and comparison point for [`gnosis`](../gnosis/purpose.md):
 
 - `gnosis` grounds durable purpose, concepts, sources, and decisions; Superpowers coordinates action from a request to delivered code.
 - Both use human-readable skills as a portable interface for agents and keep canonical instructions independent of a particular model or harness.
@@ -113,7 +113,7 @@ Superpowers is a useful complement and comparison point for [`gnosis`](../reposi
 - Its separation of canonical skills, tool maps, and bootstrap adapters is a concrete portability pattern for multi-harness skill bundles.
 - Its progress ledger solves recovery for active task orchestration, while `gnosis` keeps that ledger as transient execution scratch and leaves routine delivery history to git and CI.
 
-`gnosis` adapts the fourteen analyzed workflows into thirteen [Gnosis Process](../concepts/gnosis-process.md) records. The engineering gates remain recognizable, while purpose grounds design, `writing-directives-and-decisions` records durable decisions and creates Gnosis Directives, execution maintains directive status, and the `using-gnosis` gateway delegates selection of relevant process pages to a fresh read-only subagent. The durable boundary is recorded in [Consolidate runtime adapters in the `gnosis` plugin](../repository/decisions/consolidate-runtime-adapters-in-gnosis-plugin.md).
+`gnosis` adapts the fourteen analyzed workflows into thirteen [Gnosis Process](../concepts/gnosis-process.md) records. The engineering gates remain recognizable, while purpose grounds design, `writing-directives-and-decisions` records durable decisions and creates Gnosis Directives, execution maintains directive status, and the `using-gnosis` gateway delegates selection of relevant process pages to a fresh read-only subagent. The durable boundary is recorded in [Consolidate runtime adapters in the `gnosis` plugin](../gnosis/decisions/consolidate-runtime-adapters-in-gnosis-plugin.md).
 
 ## Trade-offs and cautions
 

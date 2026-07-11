@@ -13,8 +13,7 @@ rm -rf "$target"
 
 for source in \
   docs/concepts/*.md \
-  docs/repository/processes/*.md \
-  docs/vault/processes/*.md
+  docs/gnosis/processes/*.md
 do
   case "$source" in
     *'*')

@@ -137,7 +137,7 @@ type: Concept Type
 title: Local Gnosis Process
 ---
 `)
-	write(t, root, "repository/processes/using-gnosis.md", `---
+	write(t, root, "gnosis/processes/using-gnosis.md", `---
 type: Gnosis Process
 title: Local using-gnosis
 ---
@@ -158,7 +158,7 @@ title: Local using-gnosis
 	if got := byID["concepts/gnosis-process.md"].Title; got != "Local Gnosis Process" {
 		t.Fatalf("vault-process title = %q", got)
 	}
-	if got := byID["repository/processes/using-gnosis.md"].Title; got != "Local using-gnosis" {
+	if got := byID["gnosis/processes/using-gnosis.md"].Title; got != "Local using-gnosis" {
 		t.Fatalf("using-gnosis title = %q", got)
 	}
 	if _, exists := byID["documentation/basic-usage.md"]; exists {
@@ -216,7 +216,7 @@ vault_root = "imported"
 vault_name = "Imported"
 vault_root = "."
 `)
-	write(t, imported, "vault/processes/query-vault.md", `---
+	write(t, imported, "gnosis/processes/query-vault.md", `---
 type: Gnosis Process
 title: Imported query-vault
 ---
@@ -231,7 +231,7 @@ title: Imported query-vault
 		t.Fatal(err)
 	}
 	for _, document := range documents {
-		if document.ID != "vault/processes/query-vault.md" {
+		if document.ID != "gnosis/processes/query-vault.md" {
 			continue
 		}
 		if document.Title != "Imported query-vault" {
@@ -264,7 +264,7 @@ vault_root = "."
 	for _, document := range documents {
 		byID[document.ID] = struct{}{}
 	}
-	for _, id := range []string{"concepts/gnosis-process.md", "concepts/gnosis-decision.md", "concepts/gnosis-directive.md", "concepts/gnosis-purpose.md", "vault/processes/query-vault.md", "repository/processes/verification-before-completion.md"} {
+	for _, id := range []string{"concepts/gnosis-process.md", "concepts/gnosis-decision.md", "concepts/gnosis-directive.md", "concepts/gnosis-purpose.md", "gnosis/processes/query-vault.md", "gnosis/processes/verification-before-completion.md"} {
 		if _, exists := byID[id]; !exists {
 			t.Fatalf("documents missing %s: %+v", id, documents)
 		}

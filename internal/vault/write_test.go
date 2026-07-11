@@ -148,7 +148,7 @@ path: notes
 	write(t, workspace, "local/concepts/gnosis-process.md", `---
 type: Concept Type
 title: Gnosis Process
-path: vault/processes
+path: gnosis/processes
 ---
 `)
 	builtInContent := []byte("---\ntype: Gnosis Process\ntitle: query-vault\n---\n\n# Local query vault\n")
