@@ -328,7 +328,7 @@ func TestRunConceptsValidatesArgumentsAndType(t *testing.T) {
 func queryTestVault(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
-	writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_root = \".\"\n\n[vault.imports]\ngnosis_vault = false\n")
+	writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_root = \".\"\n\n[vaults.gnosis]\ninclude = []\n")
 	writeTestFile(t, root, "transformer.md", `---
 type: Concept
 title: Transformer Architecture
@@ -492,7 +492,7 @@ func TestRunSetupCreatesImportWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(config), "gnosis_forge = true") {
+	if !strings.Contains(string(config), "[vaults.gnosis]\ninclude = [\"forge\"]") {
 		t.Fatalf("gnosis.toml = %q", config)
 	}
 }

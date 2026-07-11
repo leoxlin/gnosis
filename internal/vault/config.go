@@ -19,29 +19,31 @@ const (
 	LinkFormatAbsolute LinkFormat = "absolute"
 )
 
-// Config is the gnosis configuration for one vault or import-only workspace.
+// Config is the gnosis configuration for local vaults, imports, and bundles.
 type Config struct {
-	Vault VaultConfig `toml:"vault"`
+	Vault  VaultConfig  `toml:"vault"`
+	Vaults VaultsConfig `toml:"vaults"`
 }
 
-// VaultConfig holds the local vault settings and its imports. A configuration
-// with no name or root is an import-only workspace.
+// VaultConfig holds local vault settings.
 type VaultConfig struct {
-	Name             string       `toml:"vault_name"`
-	Root             string       `toml:"vault_root"`
-	Imports          VaultImports `toml:"imports"`
-	LinkFormat       string       `toml:"link_format"`
-	LinkFormatStrict bool         `toml:"link_format_strict"`
-	VaultIndex       bool         `toml:"vault_index"`
-	VaultLog         bool         `toml:"vault_log"`
+	Name             string `toml:"vault_name"`
+	Root             string `toml:"vault_root"`
+	LinkFormat       string `toml:"link_format"`
+	LinkFormatStrict bool   `toml:"link_format_strict"`
+	VaultIndex       bool   `toml:"vault_index"`
+	VaultLog         bool   `toml:"vault_log"`
 }
 
-// VaultImports lists local paths or future remote URLs for other vaults and
-// controls the built-in knowledge bundles.
-type VaultImports struct {
-	Vaults      []string `toml:"vaults"`
-	GnosisForge bool     `toml:"gnosis_forge"`
-	GnosisVault bool     `toml:"gnosis_vault"`
+// VaultsConfig lists local paths or future remote URLs for other vaults.
+type VaultsConfig struct {
+	Include []string     `toml:"include"`
+	Gnosis  GnosisConfig `toml:"gnosis"`
+}
+
+// GnosisConfig controls the built-in gnosis documentation bundles.
+type GnosisConfig struct {
+	Include []string `toml:"include"`
 }
 
 // VaultSource is one directory read as part of an ordered composed vault.
@@ -63,15 +65,19 @@ type ConfigResolution struct {
 
 // DefaultConfig returns the default gnosis configuration.
 func DefaultConfig() Config {
-	return Config{Vault: VaultConfig{
-		LinkFormat:       string(LinkFormatRelative),
-		LinkFormatStrict: false,
-		VaultIndex:       true,
-		VaultLog:         true,
-		Imports: VaultImports{
-			GnosisVault: true,
+	return Config{
+		Vault: VaultConfig{
+			LinkFormat:       string(LinkFormatRelative),
+			LinkFormatStrict: false,
+			VaultIndex:       true,
+			VaultLog:         true,
 		},
-	}}
+		Vaults: VaultsConfig{
+			Gnosis: GnosisConfig{
+				Include: []string{"vault"},
+			},
+		},
+	}
 }
 
 func (c Config) LinkFormatValue() LinkFormat {
@@ -84,8 +90,8 @@ func (c Config) LinkFormatValue() LinkFormat {
 func (c Config) IsStrict() bool     { return c.Vault.LinkFormatStrict }
 func (c Config) IndexEnabled() bool { return c.Vault.VaultIndex }
 func (c Config) LogEnabled() bool   { return c.Vault.VaultLog }
-func (c Config) ForgeEnabled() bool { return c.Vault.Imports.GnosisForge }
-func (c Config) VaultEnabled() bool { return c.Vault.Imports.GnosisVault }
+func (c Config) ForgeEnabled() bool { return includes(c.Vaults.Gnosis.Include, "forge") }
+func (c Config) VaultEnabled() bool { return includes(c.Vaults.Gnosis.Include, "vault") }
 func (c Config) HasLocalVault() bool {
 	return strings.TrimSpace(c.Vault.Name) != "" || strings.TrimSpace(c.Vault.Root) != ""
 }
@@ -101,8 +107,8 @@ func LoadConfig(root string) (Config, []string, error) {
 
 // ResolveConfig reads configuration from root in this order:
 // gnosis.local.toml, gnosis.toml, then ~/.config/gnosis.toml. It never walks
-// parent directories. When none of those files exists, it uses the defaults
-// with an empty [vault] section, so only default imports are available.
+// parent directories. When none of those files exists, it uses the defaults,
+// including the bundled vault documentation.
 //
 // A selected configuration resolves its local vault root followed by recursive
 // imports in declared order.
@@ -133,9 +139,6 @@ func ResolveConfig(root string) (ConfigResolution, error) {
 	stack := make(map[string]struct{})
 	if err := resolveVaultConfig(configRoot, config, &resolution, seen, stack); err != nil {
 		return resolution, err
-	}
-	if len(resolution.Sources) == 0 {
-		return resolution, fmt.Errorf("%s does not define a local vault root or imports", configPath)
 	}
 	return resolution, nil
 }
@@ -213,10 +216,10 @@ func resolveVaultConfig(root string, config Config, resolution *ConfigResolution
 		resolution.Sources = append(resolution.Sources, VaultSource{Path: vaultRoot, VaultRoot: root, Config: config})
 	}
 
-	for i, importRef := range config.Vault.Imports.Vaults {
+	for i, importRef := range config.Vaults.Include {
 		importRoot, err := resolveImport(root, importRef)
 		if err != nil {
-			return fmt.Errorf("vault.imports.vaults[%d]: %w", i, err)
+			return fmt.Errorf("vaults.include[%d]: %w", i, err)
 		}
 		if err := resolveVault(importRoot, resolution, seen, stack); err != nil {
 			return err
@@ -226,9 +229,6 @@ func resolveVaultConfig(root string, config Config, resolution *ConfigResolution
 }
 
 func validateConfig(config Config, root string) error {
-	if !config.HasLocalVault() && len(config.Vault.Imports.Vaults) == 0 {
-		return fmt.Errorf("[vault] must define vault_name and vault_root, or vault.imports must list a vault")
-	}
 	if config.HasLocalVault() {
 		if strings.TrimSpace(config.Vault.Name) == "" {
 			return fmt.Errorf("vault.vault_name must not be empty")
@@ -245,12 +245,30 @@ func validateConfig(config Config, root string) error {
 			return fmt.Errorf("vault.link_format must be %q or %q, got %q", LinkFormatRelative, LinkFormatAbsolute, config.Vault.LinkFormat)
 		}
 	}
-	for i, value := range config.Vault.Imports.Vaults {
+	for i, value := range config.Vaults.Include {
 		if strings.TrimSpace(value) == "" {
-			return fmt.Errorf("vault.imports.vaults[%d] must not be empty", i)
+			return fmt.Errorf("vaults.include[%d] must not be empty", i)
+		}
+	}
+	for i, value := range config.Vaults.Gnosis.Include {
+		switch value {
+		case "forge", "vault":
+		case "":
+			return fmt.Errorf("vaults.gnosis.include[%d] must not be empty", i)
+		default:
+			return fmt.Errorf("vaults.gnosis.include[%d] must be %q or %q, got %q", i, "forge", "vault", value)
 		}
 	}
 	return nil
+}
+
+func includes(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func resolveVaultRoot(config Config, root string) (string, error) {
@@ -300,9 +318,8 @@ func resolveImport(root, value string) (string, error) {
 // WriteWorkspaceConfig creates an import-only workspace configuration.
 func WriteWorkspaceConfig(root string, imports []string, force bool) (bool, error) {
 	var contents strings.Builder
-	contents.WriteString("[vault.imports]\n")
-	contents.WriteString("gnosis_forge = true\n")
-	contents.WriteString("vaults = [")
+	contents.WriteString("[vaults]\n")
+	contents.WriteString("include = [")
 	for i, value := range imports {
 		if i > 0 {
 			contents.WriteString(", ")
@@ -310,6 +327,8 @@ func WriteWorkspaceConfig(root string, imports []string, force bool) (bool, erro
 		contents.WriteString(strconv.Quote(value))
 	}
 	contents.WriteString("]\n")
+	contents.WriteString("\n[vaults.gnosis]\n")
+	contents.WriteString("include = [\"forge\"]\n")
 	return WriteGeneratedFile(filepath.Join(root, "gnosis.toml"), []byte(contents.String()), force)
 }
 

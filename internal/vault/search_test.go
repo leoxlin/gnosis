@@ -15,8 +15,8 @@ vault_root = "docs"
 vault_index = false
 vault_log = false
 
-[vault.imports]
-gnosis_vault = false
+[vaults.gnosis]
+include = []
 `)
 	write(t, root, "docs/concept.md", `---
 type: Concept
@@ -105,9 +105,11 @@ func TestSearchSourcePrefersLocalRootOverImportedVaults(t *testing.T) {
 vault_name = "Workspace"
 vault_root = "local"
 
-[vault.imports]
-vaults = ["imported"]
-gnosis_vault = false
+[vaults]
+include = ["imported"]
+
+[vaults.gnosis]
+include = []
 `)
 	writeConfig(t, imported, `[vault]
 vault_name = "Imported"
@@ -135,8 +137,8 @@ func TestSearchSourceIncludesBundledDocumentsWithVaultPrecedence(t *testing.T) {
 vault_name = "Workspace"
 vault_root = "."
 
-[vault.imports]
-gnosis_forge = true
+[vaults.gnosis]
+include = ["forge", "vault"]
 `)
 	write(t, root, "concepts/vault-process.md", `---
 type: Concept Type
@@ -188,8 +190,8 @@ func TestSearchSourceLetsImportsOverrideBundledDocuments(t *testing.T) {
 	if err := os.MkdirAll(imported, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeConfig(t, workspace, `[vault.imports]
-vaults = ["imported"]
+	writeConfig(t, workspace, `[vaults]
+include = ["imported"]
 `)
 	writeConfig(t, imported, `[vault]
 vault_name = "Imported"
@@ -227,8 +229,8 @@ func TestSearchSourceCanDisableBundledVaultDocuments(t *testing.T) {
 vault_name = "Workspace"
 vault_root = "."
 
-[vault.imports]
-gnosis_vault = false
+[vaults.gnosis]
+include = []
 `)
 
 	source, err := NewSearchSource(root)

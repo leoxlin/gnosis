@@ -6,6 +6,8 @@ link_format_strict = true
 vault_index = false
 vault_log = false
 
-[vault.imports]
-gnosis_forge = false
-gnosis_vault = false
+[vaults]
+include = []
+
+[vaults.gnosis]
+include = []

@@ -112,17 +112,21 @@ create the corresponding files and validation does not require them; `gnosis ind
 an option to false does not delete existing files. Unknown settings and unsafe
 directories are errors.
 
-An import-only workspace omits the local vault fields and lists vaults under the
-nested import section:
+An import-only workspace omits the local vault fields and lists vaults in the
+top-level `vaults` section:
 
 ```toml
-[vault.imports]
-vaults = ["../my-vault"]
+[vaults]
+include = ["../my-vault"]
+
+[vaults.gnosis]
+include = ["forge", "vault"]
 ```
 
-`gnosis` also includes its vault documentation by default. Set
-`gnosis_vault = false` to exclude it. `gnosis setup` enables the optional forge
-documentation with `gnosis_forge = true`; set that value to false to exclude it.
+Both `[vault]` and `[vaults]` are optional. The default behavior is equivalent
+to `[vaults.gnosis]` with `include = ["vault"]`. Use an empty list to exclude
+bundled documentation. `gnosis setup` enables the optional forge documentation
+with `include = ["forge"]`.
 Local vault pages and pages from declared imports take precedence over bundled
 pages with the same vault-relative path.
 

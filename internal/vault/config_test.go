@@ -27,6 +27,23 @@ func TestResolveConfigUsesDefaultsWithoutConfiguration(t *testing.T) {
 	}
 }
 
+func TestResolveConfigAllowsOnlyBundledDocumentation(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	root := t.TempDir()
+	writeConfig(t, root, "[vaults.gnosis]\ninclude = [\"vault\"]\n")
+
+	resolution, err := ResolveConfig(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !resolution.Config.VaultEnabled() || resolution.Config.ForgeEnabled() {
+		t.Fatalf("forge = %t vault = %t, want vault only", resolution.Config.ForgeEnabled(), resolution.Config.VaultEnabled())
+	}
+	if len(resolution.Sources) != 0 {
+		t.Fatalf("sources = %v, want none", resolution.Sources)
+	}
+}
+
 func TestResolveConfigPrefersLocalConfiguration(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -130,8 +147,8 @@ func TestDefaultBundledVaultDocumentationCanBeDisabled(t *testing.T) {
 vault_name = "Local"
 vault_root = "."
 
-[vault.imports]
-gnosis_vault = false
+[vaults.gnosis]
+include = []
 `)
 
 	resolution, err := ResolveConfig(root)
@@ -143,6 +160,35 @@ gnosis_vault = false
 	}
 	if resolution.Config.ForgeEnabled() {
 		t.Fatal("forge documentation is enabled by default")
+	}
+}
+
+func TestGnosisBundleIncludesSelectBundlesExplicitly(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, `[vault]
+vault_name = "Local"
+vault_root = "."
+
+[vaults.gnosis]
+include = ["forge"]
+`)
+
+	resolution, err := ResolveConfig(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !resolution.Config.ForgeEnabled() || resolution.Config.VaultEnabled() {
+		t.Fatalf("forge = %t vault = %t, want forge only", resolution.Config.ForgeEnabled(), resolution.Config.VaultEnabled())
+	}
+}
+
+func TestResolveConfigRejectsNestedVaultImports(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, "[vault]\nvault_name = \"Local\"\nvault_root = \".\"\n\n[vault.imports]\nvaults = [\"other\"]\n")
+
+	_, err := ResolveConfig(root)
+	if err == nil {
+		t.Fatalf("error = %v, want nested vault imports to be rejected", err)
 	}
 }
 
@@ -164,11 +210,11 @@ vault_root = "."
 vault_name = "first"
 vault_root = "."
 
-[vault.imports]
-vaults = ["../third"]
+[vaults]
+include = ["../third"]
 `)
-	writeConfig(t, workspace, `[vault.imports]
-vaults = ["first", "second"]
+	writeConfig(t, workspace, `[vaults]
+include = ["first", "second"]
 `)
 
 	resolution, err := ResolveConfig(workspace)
@@ -196,8 +242,8 @@ vault_dirs = ["docs"]
 
 func TestResolveConfigRejectsRemoteImportsAndCycles(t *testing.T) {
 	root := t.TempDir()
-	writeConfig(t, root, `[vault.imports]
-vaults = ["https://github.com/leoxlin/gnosis.git"]
+	writeConfig(t, root, `[vaults]
+include = ["https://github.com/leoxlin/gnosis.git"]
 `)
 	if _, err := ResolveConfig(root); err == nil || !strings.Contains(err.Error(), "remote vault imports") {
 		t.Fatalf("remote error = %v", err)
@@ -207,11 +253,11 @@ vaults = ["https://github.com/leoxlin/gnosis.git"]
 	if err := os.Mkdir(other, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeConfig(t, root, `[vault.imports]
-vaults = ["other"]
+	writeConfig(t, root, `[vaults]
+include = ["other"]
 `)
-	writeConfig(t, other, `[vault.imports]
-vaults = [".."]
+	writeConfig(t, other, `[vaults]
+include = [".."]
 `)
 	if _, err := ResolveConfig(root); err == nil || !strings.Contains(err.Error(), "cycle") {
 		t.Fatalf("cycle error = %v", err)
