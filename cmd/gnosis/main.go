@@ -3,12 +3,13 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/spf13/cobra"
 
 	"gnosis/internal/forge"
 	"gnosis/internal/search"
@@ -26,94 +27,117 @@ func main() {
 
 func run(args []string, stdout, stderr io.Writer) error {
 	if len(args) == 0 {
-		usage(stderr)
+		command := newRootCommand(stdout, stderr)
+		command.SetOut(stderr)
+		if err := command.Usage(); err != nil {
+			return err
+		}
 		return errors.New("missing command")
 	}
 
-	switch args[0] {
-	case "query":
-		return runQuery(args[1:], stdout, stderr)
-	case "graph-query":
-		return runGraphQuery(args[1:], stdout, stderr)
-	case "index":
-		return runIndex(args[1:], stdout, stderr)
-	case "validate":
-		return runValidate(args[1:], stdout, stderr)
-	case "setup":
-		return runSetup(args[1:], stdout, stderr)
-	case "version":
-		if len(args) != 1 {
-			return unexpectedArguments("version", args[1:])
-		}
-		fmt.Fprintln(stdout, "gnosis 0.1.0")
-		return nil
-	case "help", "-h", "--help":
-		if len(args) != 1 {
-			return unexpectedArguments(args[0], args[1:])
-		}
-		usage(stdout)
-		return nil
-	default:
-		usage(stderr)
-		return fmt.Errorf("unknown command %q", args[0])
-	}
+	command := newRootCommand(stdout, stderr)
+	command.SetArgs(normalizeLegacyLongFlags(args))
+	return command.Execute()
 }
 
-func runQuery(args []string, stdout, stderr io.Writer) error {
-	fs := newFlagSet("query", "gnosis query [-vault <path>] [-top <n>] [-max-read <n>] [-depth <n>] [-json] [-pretty] <question>", stderr)
-	vaultPath := fs.String("vault", defaultVault, "path to the OKF vault")
-	top := fs.Int("top", 3, "number of candidate pages to return")
-	maxRead := fs.Int("max-read", 3, "maximum number of pages to recommend reading")
-	depth := fs.Int("depth", 3, "maximum graph traversal depth")
-	jsonOutput := fs.Bool("json", false, "emit machine-readable JSON")
-	pretty := fs.Bool("pretty", false, "pretty-print JSON output (implies -json)")
-	question, help, err := parseQuestionFlags(fs, args, stdout)
-	if err != nil || help {
-		return err
+func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
+	command := &cobra.Command{
+		Use:           "gnosis",
+		Short:         "Manage an OKF-compatible Obsidian vault",
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
-	if err := validateQueryOptions(*top, *maxRead, *depth); err != nil {
+	command.SetOut(stdout)
+	command.SetErr(stderr)
+	command.AddCommand(newSetupCommand(stdout), newIndexCommand(stdout), newValidateCommand(stdout, stderr), newQueryCommand(stdout), newGraphQueryCommand(stdout))
+	command.AddCommand(&cobra.Command{
+		Use:   "version",
+		Short: "Print the gnosis version",
+		Args:  noArgs("version"),
+		Run: func(_ *cobra.Command, _ []string) {
+			fmt.Fprintln(stdout, "gnosis 0.1.0")
+		},
+	})
+	return command
+}
+
+func newQueryCommand(stdout io.Writer) *cobra.Command {
+	var vaultPath string
+	var top, maxRead, depth int
+	var jsonOutput, pretty bool
+	command := &cobra.Command{
+		Use:   "query [flags] <question>",
+		Short: "Find relevant vault pages for a question",
+		Args:  questionArgs("query"),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return runQuery(vaultPath, top, maxRead, depth, jsonOutput, pretty, args[0], stdout)
+		},
+	}
+	flags := command.Flags()
+	flags.StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
+	flags.IntVar(&top, "top", 3, "number of candidate pages to return")
+	flags.IntVar(&maxRead, "max-read", 3, "maximum number of pages to recommend reading")
+	flags.IntVar(&depth, "depth", 3, "maximum graph traversal depth")
+	flags.BoolVar(&jsonOutput, "json", false, "emit machine-readable JSON")
+	flags.BoolVar(&pretty, "pretty", false, "pretty-print JSON output (implies --json)")
+	return command
+}
+
+func newGraphQueryCommand(stdout io.Writer) *cobra.Command {
+	var vaultPath string
+	var top, maxRead, depth int
+	var pretty bool
+	command := &cobra.Command{
+		Use:   "graph-query [flags] <question>",
+		Short: "Query the vault and emit graph-aware JSON",
+		Args:  questionArgs("graph-query"),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return runGraphQuery(vaultPath, top, maxRead, depth, pretty, args[0], stdout)
+		},
+	}
+	flags := command.Flags()
+	flags.StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
+	flags.IntVar(&top, "top", 3, "number of candidate pages to return")
+	flags.IntVar(&maxRead, "max-read", 3, "maximum number of pages to recommend reading")
+	flags.IntVar(&depth, "depth", 3, "maximum graph traversal depth")
+	flags.BoolVar(&pretty, "pretty", false, "pretty-print JSON output")
+	return command
+}
+
+func runQuery(vaultPath string, top, maxRead, depth int, jsonOutput, pretty bool, question string, stdout io.Writer) error {
+	if err := validateQueryOptions(top, maxRead, depth); err != nil {
 		return fmt.Errorf("query: %w", err)
 	}
 
-	result, err := queryVault(*vaultPath, question, search.QueryOptions{
-		Top:      *top,
-		MaxRead:  *maxRead,
-		MaxDepth: *depth,
+	result, err := queryVault(vaultPath, question, search.QueryOptions{
+		Top:      top,
+		MaxRead:  maxRead,
+		MaxDepth: depth,
 	})
 	if err != nil {
 		return err
 	}
-	if *jsonOutput || *pretty {
-		return writeQueryJSON(stdout, result, *pretty)
+	if jsonOutput || pretty {
+		return writeQueryJSON(stdout, result, pretty)
 	}
 	writeQueryText(stdout, result)
 	return nil
 }
 
-func runGraphQuery(args []string, stdout, stderr io.Writer) error {
-	fs := newFlagSet("graph-query", "gnosis graph-query [-vault <path>] [-top <n>] [-max-read <n>] [-depth <n>] [-pretty] <question>", stderr)
-	vaultPath := fs.String("vault", defaultVault, "path to the OKF vault")
-	top := fs.Int("top", 3, "number of candidate pages to return")
-	maxRead := fs.Int("max-read", 3, "maximum number of pages to recommend reading")
-	depth := fs.Int("depth", 3, "maximum graph traversal depth")
-	pretty := fs.Bool("pretty", false, "pretty-print JSON output")
-	question, help, err := parseQuestionFlags(fs, args, stdout)
-	if err != nil || help {
-		return err
-	}
-	if err := validateQueryOptions(*top, *maxRead, *depth); err != nil {
+func runGraphQuery(vaultPath string, top, maxRead, depth int, pretty bool, question string, stdout io.Writer) error {
+	if err := validateQueryOptions(top, maxRead, depth); err != nil {
 		return fmt.Errorf("graph-query: %w", err)
 	}
 
-	result, err := queryVault(*vaultPath, question, search.QueryOptions{
-		Top:      *top,
-		MaxRead:  *maxRead,
-		MaxDepth: *depth,
+	result, err := queryVault(vaultPath, question, search.QueryOptions{
+		Top:      top,
+		MaxRead:  maxRead,
+		MaxDepth: depth,
 	})
 	if err != nil {
 		return err
 	}
-	return writeQueryJSON(stdout, result, *pretty)
+	return writeQueryJSON(stdout, result, pretty)
 }
 
 func queryVault(root, question string, options search.QueryOptions) (search.Result, error) {
@@ -179,15 +203,22 @@ func writeQueryText(output io.Writer, result search.Result) {
 	}
 }
 
-func runIndex(args []string, stdout, stderr io.Writer) error {
-	fs := newFlagSet("index", "gnosis index [-vault <path>]", stderr)
-	vaultPath := fs.String("vault", defaultVault, "path to the OKF vault")
-	help, err := parseFlags(fs, args, stdout)
-	if err != nil || help {
-		return err
+func newIndexCommand(stdout io.Writer) *cobra.Command {
+	var vaultPath string
+	command := &cobra.Command{
+		Use:   "index [flags]",
+		Short: "Generate vault indexes",
+		Args:  noArgs("index"),
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return runIndex(vaultPath, stdout)
+		},
 	}
+	command.Flags().StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
+	return command
+}
 
-	root := *vaultPath
+func runIndex(vaultPath string, stdout io.Writer) error {
+	root := vaultPath
 	info, err := os.Stat(root)
 	if err != nil {
 		return err
@@ -219,15 +250,22 @@ func runIndex(args []string, stdout, stderr io.Writer) error {
 	return nil
 }
 
-func runValidate(args []string, stdout, stderr io.Writer) error {
-	fs := newFlagSet("validate", "gnosis validate [-vault <path>]", stderr)
-	vaultPath := fs.String("vault", defaultVault, "path to the OKF vault")
-	help, err := parseFlags(fs, args, stdout)
-	if err != nil || help {
-		return err
+func newValidateCommand(stdout, stderr io.Writer) *cobra.Command {
+	var vaultPath string
+	command := &cobra.Command{
+		Use:   "validate [flags]",
+		Short: "Validate vault structure and links",
+		Args:  noArgs("validate"),
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return runValidate(vaultPath, stdout, stderr)
+		},
 	}
+	command.Flags().StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
+	return command
+}
 
-	result, err := vault.Validate(*vaultPath)
+func runValidate(vaultPath string, stdout, stderr io.Writer) error {
+	result, err := vault.Validate(vaultPath)
 	if err != nil {
 		return err
 	}
@@ -244,17 +282,26 @@ func runValidate(args []string, stdout, stderr io.Writer) error {
 	return nil
 }
 
-func runSetup(args []string, stdout, stderr io.Writer) error {
-	fs := newFlagSet("setup", "gnosis setup [-vault <path>] [-force] [-concepts]", stderr)
-	vaultPath := fs.String("vault", defaultVault, "path to the new OKF vault")
-	force := fs.Bool("force", false, "overwrite existing files")
-	includeConcepts := fs.Bool("concepts", false, "include reusable project concept definitions")
-	help, err := parseFlags(fs, args, stdout)
-	if err != nil || help {
-		return err
+func newSetupCommand(stdout io.Writer) *cobra.Command {
+	var vaultPath string
+	var force, includeConcepts bool
+	command := &cobra.Command{
+		Use:   "setup [flags]",
+		Short: "Create an OKF-compatible vault",
+		Args:  noArgs("setup"),
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return runSetup(vaultPath, force, includeConcepts, stdout)
+		},
 	}
+	flags := command.Flags()
+	flags.StringVar(&vaultPath, "vault", defaultVault, "path to the new OKF vault")
+	flags.BoolVar(&force, "force", false, "overwrite existing files")
+	flags.BoolVar(&includeConcepts, "concepts", false, "include reusable project concept definitions")
+	return command
+}
 
-	root := *vaultPath
+func runSetup(vaultPath string, force, includeConcepts bool, stdout io.Writer) error {
+	root := vaultPath
 	if err := os.MkdirAll(root, 0o755); err != nil {
 		return err
 	}
@@ -270,7 +317,7 @@ func runSetup(args []string, stdout, stderr io.Writer) error {
 			return err
 		}
 		paths, err := vault.Scaffold(vaultRoot, vault.ScaffoldOptions{
-			Force:        *force,
+			Force:        force,
 			DisableIndex: !config.IndexEnabled(),
 			DisableLog:   !config.LogEnabled(),
 		})
@@ -279,8 +326,8 @@ func runSetup(args []string, stdout, stderr io.Writer) error {
 		}
 		created = append(created, paths...)
 
-		if *includeConcepts {
-			conceptPaths, err := forge.Concepts(vaultRoot, forge.ConceptOptions{Force: *force})
+		if includeConcepts {
+			conceptPaths, err := forge.Concepts(vaultRoot, forge.ConceptOptions{Force: force})
 			if err != nil {
 				return err
 			}
@@ -289,7 +336,7 @@ func runSetup(args []string, stdout, stderr io.Writer) error {
 				// Refresh indexes so newly written concept pages are listed.
 				// The base scaffold generated indexes before the concepts
 				// existed, so overwrite when concepts changed this run.
-				overwrite := *force || len(conceptPaths) > 0
+				overwrite := force || len(conceptPaths) > 0
 				indexPaths, err := vault.GenerateIndexes(vaultRoot, vault.IndexOptions{Overwrite: overwrite})
 				if err != nil {
 					return err
@@ -305,67 +352,53 @@ func runSetup(args []string, stdout, stderr io.Writer) error {
 	return nil
 }
 
-func newFlagSet(name, commandUsage string, stderr io.Writer) *flag.FlagSet {
-	fs := flag.NewFlagSet(name, flag.ContinueOnError)
-	fs.SetOutput(stderr)
-	fs.Usage = func() {
-		fmt.Fprintf(fs.Output(), "Usage: %s\n\nOptions:\n", commandUsage)
-		fs.PrintDefaults()
-	}
-	return fs
-}
-
-func parseFlags(fs *flag.FlagSet, args []string, helpOutput io.Writer) (bool, error) {
-	if len(args) == 1 && (args[0] == "-h" || args[0] == "--help") {
-		fs.SetOutput(helpOutput)
-	}
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return true, nil
+func questionArgs(command string) cobra.PositionalArgs {
+	return func(_ *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return fmt.Errorf("%s: missing question", command)
 		}
-		return false, err
-	}
-	if fs.NArg() > 0 {
-		return false, unexpectedArguments(fs.Name(), fs.Args())
-	}
-	return false, nil
-}
-
-func parseQuestionFlags(fs *flag.FlagSet, args []string, helpOutput io.Writer) (string, bool, error) {
-	if len(args) == 1 && (args[0] == "-h" || args[0] == "--help") {
-		fs.SetOutput(helpOutput)
-	}
-	if err := fs.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return "", true, nil
+		if len(args) > 1 {
+			return fmt.Errorf("%s: unexpected argument(s): %s", command, strings.Join(args[1:], " "))
 		}
-		return "", false, err
+		if strings.TrimSpace(args[0]) == "" {
+			return fmt.Errorf("%s: question must not be empty", command)
+		}
+		return nil
 	}
-	if fs.NArg() == 0 {
-		return "", false, fmt.Errorf("%s: missing question", fs.Name())
-	}
-	if fs.NArg() > 1 {
-		return "", false, unexpectedArguments(fs.Name(), fs.Args()[1:])
-	}
-	question := strings.TrimSpace(fs.Arg(0))
-	if question == "" {
-		return "", false, fmt.Errorf("%s: question must not be empty", fs.Name())
-	}
-	return question, false, nil
 }
 
-func unexpectedArguments(command string, args []string) error {
-	return fmt.Errorf("%s: unexpected argument(s): %s", command, strings.Join(args, " "))
+func noArgs(command string) cobra.PositionalArgs {
+	return func(_ *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return nil
+		}
+		return fmt.Errorf("%s: unexpected argument(s): %s", command, strings.Join(args, " "))
+	}
 }
 
-func usage(output io.Writer) {
-	fmt.Fprintln(output, `gnosis manages an OKF-compatible Obsidian vault.
-
-Usage:
-  gnosis setup [-vault <path>] [-force] [-concepts]
-  gnosis index [-vault <path>]
-  gnosis validate [-vault <path>]
-  gnosis query [-vault <path>] [-top <n>] [-max-read <n>] [-depth <n>] [-json] [-pretty] <question>
-  gnosis graph-query [-vault <path>] [-top <n>] [-max-read <n>] [-depth <n>] [-pretty] <question>
-  gnosis version`)
+// normalizeLegacyLongFlags keeps the single-dash long options accepted by the
+// previous flag-based CLI while Cobra uses its standard double-dash spelling.
+func normalizeLegacyLongFlags(args []string) []string {
+	longFlags := map[string]bool{
+		"vault": true, "top": true, "max-read": true, "depth": true,
+		"json": true, "pretty": true, "force": true, "concepts": true,
+	}
+	normalized := make([]string, 0, len(args))
+	for _, arg := range args {
+		if arg == "--" {
+			normalized = append(normalized, args[len(normalized):]...)
+			break
+		}
+		if strings.HasPrefix(arg, "-") && !strings.HasPrefix(arg, "--") {
+			name, value, hasValue := strings.Cut(strings.TrimPrefix(arg, "-"), "=")
+			if longFlags[name] {
+				arg = "--" + name
+				if hasValue {
+					arg += "=" + value
+				}
+			}
+		}
+		normalized = append(normalized, arg)
+	}
+	return normalized
 }

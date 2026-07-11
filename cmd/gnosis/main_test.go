@@ -46,7 +46,7 @@ func TestRunSubcommandHelpIsSuccessful(t *testing.T) {
 	if err := run([]string{"validate", "--help"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(stdout.String(), "Usage: gnosis validate") {
+	if !strings.Contains(stdout.String(), "Usage:") || !strings.Contains(stdout.String(), "gnosis validate") {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
 	if stderr.Len() != 0 {
