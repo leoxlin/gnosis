@@ -63,7 +63,7 @@ gnosis index -vault ./my-vault
 Read one complete document by its exact concept type and title:
 
 ```bash
-gnosis read -vault ./my-vault -type 'Repository Process' -title 'using-gnosis'
+gnosis read -vault ./my-vault -type 'Repository Process' -title 'using-gnosis-forge'
 ```
 
 Query the live vault with a compact human-readable result:

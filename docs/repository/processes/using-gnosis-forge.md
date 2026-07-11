@@ -1,16 +1,16 @@
 ---
 type: Repository Process
-title: using-gnosis
+title: using-gnosis-forge
 description: Use when an author explicitly asks gnosis to apply repository knowledge and processes to repository work.
 ---
 
-# using-gnosis
+# using-gnosis-forge
 
-`using-gnosis` is the explicit entry point for knowledge-driven repository work. It selects relevant Repository Process records, grounds them in durable repository knowledge, and then checks their instructions against implementation truth.
+`using-gnosis-forge` is the explicit entry point for knowledge-driven repository work. It selects relevant Repository Process records, grounds them in durable repository knowledge, and then checks their instructions against implementation truth.
 
 ## Use when
 
-- The author manually invokes `using-gnosis` for a repository task.
+- The author manually invokes `using-gnosis-forge` for a repository task.
 - A resumed manual run needs to reconstruct its governing purpose, decisions, process, or directive.
 
 Do not invoke this process implicitly. A dispatched subagent follows the process and knowledge named in its brief instead of restarting process selection.
