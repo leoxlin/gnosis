@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"gnosis/internal/forge"
+	"gnosis/internal/bundle"
 	"gnosis/internal/vault"
 )
 
@@ -370,7 +370,7 @@ func runScaffold(vaultPath, vaultName string, force, includeConcepts bool, stdou
 		return err
 	}
 	if includeConcepts {
-		conceptPaths, err := forge.Concepts(root, forge.ConceptOptions{Force: force})
+		conceptPaths, err := writeRepositoryConcepts(root, force)
 		if err != nil {
 			return err
 		}
@@ -394,6 +394,26 @@ func runScaffold(vaultPath, vaultName string, force, includeConcepts bool, stdou
 	}
 	fmt.Fprintf(stdout, "ok: vault scaffolded under %s\n", filepath.Clean(root))
 	return nil
+}
+
+func writeRepositoryConcepts(root string, force bool) ([]string, error) {
+	documents, err := bundle.RepositoryConcepts()
+	if err != nil {
+		return nil, err
+	}
+
+	created := make([]string, 0, len(documents))
+	for _, document := range documents {
+		path := filepath.Join(root, document.Path)
+		changed, err := vault.WriteGeneratedFile(path, document.Data, force)
+		if err != nil {
+			return created, err
+		}
+		if changed {
+			created = append(created, path)
+		}
+	}
+	return created, nil
 }
 
 func newSetupCommand(stdout io.Writer) *cobra.Command {

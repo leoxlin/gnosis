@@ -27,7 +27,15 @@ func Documents(includeForge, includeVault bool) ([]Document, error) {
 	if includeVault {
 		patterns = append(patterns, "content/concepts/vault-*.md", "content/documentation/*.md", "content/vault/processes/*.md")
 	}
+	return documents(patterns)
+}
 
+// RepositoryConcepts returns the built-in repository concept definitions.
+func RepositoryConcepts() ([]Document, error) {
+	return documents([]string{"content/concepts/repository-*.md"})
+}
+
+func documents(patterns []string) ([]Document, error) {
 	paths := []string{}
 	for _, pattern := range patterns {
 		matches, err := fs.Glob(stagedFS, pattern)

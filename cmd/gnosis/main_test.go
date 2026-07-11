@@ -441,6 +441,37 @@ func TestRunScaffoldWithConceptsIndexesThem(t *testing.T) {
 	}
 }
 
+func TestRunScaffoldWithConceptsPreservesExistingFilesUnlessForced(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "vault")
+	custom := "---\ntype: Concept Type\ntitle: Custom Purpose\ndescription: Local custom concept.\n---\n\n# Custom Purpose\n"
+	writeTestFile(t, root, "concepts/repository-purpose.md", custom)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+
+	if err := run([]string{"scaffold", "-vault", root, "-concepts"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	purposePath := filepath.Join(root, "concepts", "repository-purpose.md")
+	preserved, err := os.ReadFile(purposePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(preserved) != custom {
+		t.Fatal("expected scaffold to preserve an existing concept")
+	}
+
+	if err := run([]string{"scaffold", "-vault", root, "-concepts", "-force"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := os.ReadFile(purposePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(updated), "title: Custom Purpose") {
+		t.Fatal("expected forced scaffold to replace the existing concept")
+	}
+}
+
 func TestRunScaffoldAndIndexHonorDisabledNavigation(t *testing.T) {
 	root := t.TempDir()
 	writeTestFile(t, root, "gnosis.toml", `[vault]
