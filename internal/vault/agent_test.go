@@ -82,18 +82,18 @@ The plan is complete.
 		t.Fatal(err)
 	}
 	procedures := discovery["procedures"]
-	var queryVault ConceptRecord
+	var queryVault map[string]any
 	for _, procedure := range procedures {
-		if procedure.URI == "gnosis://agent-test/processes/query-vault.md" {
+		if procedure["uri"] == "gnosis://agent-test/processes/query-vault.md" {
 			queryVault = procedure
 		}
 	}
-	if queryVault.URI == "" {
+	if queryVault == nil {
 		t.Fatalf("procedures missing local query-vault: %+v", procedures)
 	}
-	tags, ok := queryVault.Fields["tags"].([]any)
+	tags, ok := queryVault["tags"].([]any)
 	if !ok || len(tags) != 1 || tags[0] != "test-vault" {
-		t.Fatalf("tags = %#v", queryVault.Fields["tags"])
+		t.Fatalf("tags = %#v", queryVault["tags"])
 	}
 }
 

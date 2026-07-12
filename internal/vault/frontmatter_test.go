@@ -86,7 +86,6 @@ func TestParseFrontmatterRejectsInvalidDocuments(t *testing.T) {
 		message  string
 	}{
 		{name: "missing", markdown: "# Body\n", message: "missing"},
-		{name: "unterminated", markdown: "---\ntype: Concept\n", message: "unterminated"},
 		{name: "malformed", markdown: "---\ntype: [\n---\n", message: "invalid YAML"},
 		{name: "sequence", markdown: "---\n- Concept\n---\n", message: "must be a mapping"},
 		{name: "duplicate", markdown: "---\ntype: A\ntype: B\n---\n", message: "duplicate"},

@@ -1,9 +1,11 @@
 package vault
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/adrg/frontmatter"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -11,13 +13,13 @@ import (
 type Frontmatter map[string]*yaml.Node
 
 func parseFrontmatter(markdown string) (Frontmatter, string, error) {
-	header, body, err := splitFrontmatter(markdown)
-	if err != nil {
-		return nil, "", err
-	}
-
 	var document yaml.Node
-	if err := yaml.Unmarshal([]byte(header), &document); err != nil {
+	body, err := frontmatter.MustParse(strings.NewReader(markdown), &document,
+		frontmatter.NewFormat("---", "---", yaml.Unmarshal))
+	if errors.Is(err, frontmatter.ErrNotFound) {
+		return nil, "", fmt.Errorf("missing YAML frontmatter")
+	}
+	if err != nil {
 		return nil, "", fmt.Errorf("invalid YAML frontmatter: %w", err)
 	}
 	if len(document.Content) != 1 || document.Content[0].Kind != yaml.MappingNode {
@@ -38,37 +40,7 @@ func parseFrontmatter(markdown string) (Frontmatter, string, error) {
 		fields[key.Value] = value
 	}
 
-	return fields, body, nil
-}
-
-func splitFrontmatter(markdown string) (string, string, error) {
-	firstEnd := strings.IndexByte(markdown, '\n')
-	if firstEnd < 0 || strings.TrimSuffix(markdown[:firstEnd], "\r") != "---" {
-		return "", "", fmt.Errorf("missing YAML frontmatter")
-	}
-
-	headerStart := firstEnd + 1
-	lineStart := headerStart
-	for lineStart <= len(markdown) {
-		lineEnd := strings.IndexByte(markdown[lineStart:], '\n')
-		if lineEnd < 0 {
-			lineEnd = len(markdown)
-		} else {
-			lineEnd += lineStart
-		}
-		if strings.TrimSuffix(markdown[lineStart:lineEnd], "\r") == "---" {
-			bodyStart := lineEnd
-			if bodyStart < len(markdown) {
-				bodyStart++
-			}
-			return markdown[headerStart:lineStart], markdown[bodyStart:], nil
-		}
-		if lineEnd == len(markdown) {
-			break
-		}
-		lineStart = lineEnd + 1
-	}
-	return "", "", fmt.Errorf("unterminated YAML frontmatter")
+	return fields, string(body), nil
 }
 
 func (f Frontmatter) scalar(key string) (string, bool) {

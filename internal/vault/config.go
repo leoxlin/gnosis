@@ -108,15 +108,6 @@ func (c Config) HasLocalVault() bool {
 	return strings.TrimSpace(c.Vault.Name) != "" || strings.TrimSpace(c.Vault.Root) != ""
 }
 
-// LoadConfig resolves every vault root readable from root.
-func LoadConfig(root string) (Config, []string, error) {
-	resolution, err := ResolveConfig(root)
-	if err != nil {
-		return resolution.Config, nil, err
-	}
-	return resolution.Config, resolution.VaultRoots, nil
-}
-
 // ResolveConfig reads configuration from root in this order:
 // gnosis.local.toml, gnosis.toml, then ~/.config/gnosis.toml. It never walks
 // parent directories. When none of those files exists, it uses the defaults,

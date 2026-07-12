@@ -24,7 +24,7 @@ limits:
 		t.Fatal(err)
 	}
 	records := catalog["concepts"]
-	if len(records) != 1 || records[0].URI != "gnosis://Test/policy.md" {
+	if len(records) != 1 || records[0]["uri"] != "gnosis://Test/policy.md" {
 		t.Fatalf("catalog = %+v", catalog)
 	}
 	encoded, err := json.Marshal(records[0])
