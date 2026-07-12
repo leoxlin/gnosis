@@ -4,6 +4,10 @@ title: refine-purpose
 description: Use when the repository purpose must be created or changed through author-confirmed understanding.
 invocation: model
 effects: [vault-write]
+use_when:
+  - Creating the repository purpose.
+  - Changing its outcome, beneficiaries, sub-purposes, or boundaries.
+  - Resolving a material ambiguity in author-owned repository intent.
 relationships:
   - type: instance_of
     target: gnosis://core/concepts/gnosis-process.md
@@ -12,12 +16,6 @@ relationships:
 # refine-purpose
 
 `refine-purpose` establishes shared, author-confirmed understanding before it changes the repository purpose.
-
-## Use when
-
-- Creating the repository purpose.
-- Changing its outcome, beneficiaries, sub-purposes, or boundaries.
-- Resolving a material ambiguity in author-owned repository intent.
 
 ## Knowledge inputs
 

@@ -4,6 +4,11 @@ title: dispatching-parallel-agents
 description: Use when two or more problem domains can be investigated or changed without shared state, overlapping files, or sequential dependencies.
 invocation: model
 effects: [vault-write, workspace-write]
+use_when:
+  - Failures belong to distinct tests or subsystems with unrelated root causes.
+  - Several investigations can reach conclusions without consuming one another's output.
+  - Agents have separate workspaces or read-only scopes that prevent interference.
+  - Related failures, exploratory diagnosis, shared-state changes, and sequential dependencies remain under one coordinating process.
 relationships:
   - type: instance_of
     target: gnosis://core/concepts/gnosis-process.md
@@ -12,14 +17,6 @@ relationships:
 # dispatching-parallel-agents
 
 Parallel dispatch assigns one independent problem domain to each agent with isolated, deliberately constructed context. Concurrency is earned by independence, not merely by task count.
-
-## Use when
-
-- Failures belong to distinct tests or subsystems with unrelated root causes.
-- Several investigations can reach conclusions without consuming one another's output.
-- Agents have separate workspaces or read-only scopes that prevent interference.
-
-Keep related failures, exploratory diagnosis, shared-state changes, and sequential dependencies under one coordinating process.
 
 ## Knowledge inputs
 

@@ -4,6 +4,10 @@ title: using-git-worktrees
 description: Use when feature work needs isolation or before executing a directive in a separate workspace.
 invocation: model
 effects: [workspace-write]
+use_when:
+  - Starting feature work whose changes should be isolated from the current checkout.
+  - Executing a directive that calls for a separate workspace.
+  - Resuming work where the current checkout's ownership or branch state is unclear.
 relationships:
   - type: instance_of
     target: gnosis://core/concepts/gnosis-process.md
@@ -12,12 +16,6 @@ relationships:
 # using-git-worktrees
 
 This process establishes a safe isolated workspace while respecting author preferences and harness-owned worktrees. Detection precedes creation; native isolation precedes manual git worktrees.
-
-## Use when
-
-- Starting feature work whose changes should be isolated from the current checkout.
-- Executing a directive that calls for a separate workspace.
-- Resuming work where the current checkout's ownership or branch state is unclear.
 
 ## Knowledge inputs
 

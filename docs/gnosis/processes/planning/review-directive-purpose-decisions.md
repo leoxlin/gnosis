@@ -4,16 +4,14 @@ title: review-directive-purpose-decisions
 description: Use only when a persisted complex draft needs independent review against repository purpose and decisions.
 invocation: explicit
 effects: [read, vault-write]
+use_when:
+  - A complex directive is drafted or materially restructured.
 relationships:
   - type: instance_of
     target: gnosis://core/concepts/gnosis-process.md
 ---
 
 # review-directive-purpose-decisions
-
-## Use when
-
-- A complex directive is drafted or materially restructured.
 
 ## Knowledge inputs
 

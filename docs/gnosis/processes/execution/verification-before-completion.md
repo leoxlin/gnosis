@@ -4,6 +4,11 @@ title: verification-before-completion
 description: Use immediately before claiming work is correct, complete, fixed, passing, or ready for delivery.
 invocation: model
 effects: [read]
+use_when:
+  - Reporting a task, fix, directive, build, or test suite complete.
+  - Committing, opening a pull request, merging, or moving to another task.
+  - Accepting work returned by an agent or automation.
+  - Changing a directive to done.
 relationships:
   - type: instance_of
     target: gnosis://core/concepts/gnosis-process.md
@@ -12,13 +17,6 @@ relationships:
 # verification-before-completion
 
 Completion claims require fresh evidence. Confidence, prior output, partial checks, and delegated reports do not establish the current repository state.
-
-## Use when
-
-- Reporting a task, fix, directive, build, or test suite complete.
-- Committing, opening a pull request, merging, or moving to another task.
-- Accepting work returned by an agent or automation.
-- Changing a directive to `done`.
 
 ## Knowledge inputs
 

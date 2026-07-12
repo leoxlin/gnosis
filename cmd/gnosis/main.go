@@ -210,13 +210,32 @@ func newQueryCommand(stdout io.Writer) *cobra.Command {
 func newProcessCommand(stdout io.Writer) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "process",
-		Short: "Load an exact executable vault process",
+		Short: "Discover and load executable vault processes",
 		Args:  noArgs("process"),
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return errors.New("process: missing subcommand")
 		},
 	}
-	command.AddCommand(newProcessInvokeCommand(stdout))
+	command.AddCommand(newProcessDiscoveryCommand(stdout), newProcessInvokeCommand(stdout))
+	return command
+}
+
+func newProcessDiscoveryCommand(stdout io.Writer) *cobra.Command {
+	var vaultPath string
+	command := &cobra.Command{
+		Use:   "discovery [flags]",
+		Short: "List all model-invocable processes for agent selection",
+		Args:  noArgs("process discovery"),
+		RunE: func(_ *cobra.Command, _ []string) error {
+			result, err := vault.DiscoverProcesses(vaultPath)
+			if err != nil {
+				return fmt.Errorf("process discovery: %w", err)
+			}
+			return writeJSON(stdout, result, true)
+		},
+	}
+	flags := command.Flags()
+	flags.StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
 	return command
 }
 

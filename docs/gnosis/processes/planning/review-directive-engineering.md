@@ -4,16 +4,14 @@ title: review-directive-engineering
 description: Use only when the latest complex draft needs a maximally skeptical, independent engineering-plan review.
 invocation: explicit
 effects: [read, external]
+use_when:
+  - A complex directive is drafted or materially restructured.
 relationships:
   - type: instance_of
     target: gnosis://core/concepts/gnosis-process.md
 ---
 
 # review-directive-engineering
-
-## Use when
-
-- A complex directive is drafted or materially restructured.
 
 ## Knowledge inputs
 

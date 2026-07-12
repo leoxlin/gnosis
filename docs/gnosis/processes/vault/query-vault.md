@@ -4,6 +4,10 @@ title: query-vault
 description: Use when answering a question from recorded vault knowledge.
 invocation: model
 effects: [read]
+use_when:
+  - Answering a question from a vault.
+  - Tracing linked concepts or comparing recorded claims.
+  - Identifying a gap in the knowledge currently recorded.
 relationships:
   - type: instance_of
     target: gnosis://core/concepts/gnosis-process.md
@@ -12,12 +16,6 @@ relationships:
 # query-vault
 
 `query-vault` answers from the smallest relevant set of recorded knowledge, preserving provenance, uncertainty, conflicts, and gaps.
-
-## Use when
-
-- Answering a question from a vault.
-- Tracing linked concepts or comparing recorded claims.
-- Identifying a gap in the knowledge currently recorded.
 
 ## Knowledge inputs
 

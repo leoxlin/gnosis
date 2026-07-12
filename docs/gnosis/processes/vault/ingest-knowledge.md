@@ -4,6 +4,9 @@ title: ingest-knowledge
 description: Use when supplied evidence should create or update one or more concept pages.
 invocation: model
 effects: [vault-write]
+use_when:
+  - Ingesting a source about one named concept or several related concepts.
+  - Extracting durable claims, relationships, uncertainty, and provenance from supplied evidence.
 relationships:
   - type: instance_of
     target: gnosis://core/concepts/gnosis-process.md
@@ -12,11 +15,6 @@ relationships:
 # ingest-knowledge
 
 `ingest-knowledge` compiles supplied evidence into the smallest useful set of durable, connected, and traceable concept records, including the single-concept case.
-
-## Use when
-
-- Ingesting a source about one named concept or several related concepts.
-- Extracting durable claims, relationships, uncertainty, and provenance from supplied evidence.
 
 ## Knowledge inputs
 

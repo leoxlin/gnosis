@@ -141,15 +141,18 @@ func validateFile(root, path string, config Config, effectiveSelectors map[strin
 }
 
 func validateProcessRecord(path string, fields Frontmatter, body string, result *Result) {
-	sections, missing, duplicates := parseProcessSections(body)
+	_, missing, duplicates := parseProcessSections(body)
 	for _, section := range missing {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: missing required section %q", path, section))
 	}
 	for _, section := range duplicates {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: duplicate process section %q", path, section))
 	}
-	if strings.TrimSpace(sections.UseWhen) != "" && len(markdownBullets(sections.UseWhen)) == 0 {
-		result.Errors = append(result.Errors, fmt.Sprintf("%s: process section %q must contain at least one bullet", path, "Use when"))
+	useWhen, valid := fields.scalars("use_when")
+	if !valid {
+		result.Errors = append(result.Errors, fmt.Sprintf("%s: frontmatter %q must be a scalar or sequence of scalars", path, "use_when"))
+	} else if len(useWhen) == 0 {
+		result.Errors = append(result.Errors, fmt.Sprintf("%s: process requires at least one non-empty %q frontmatter value", path, "use_when"))
 	}
 	if description, scalar := fields.scalar("description"); !scalar || strings.TrimSpace(description) == "" {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: process requires non-empty %q frontmatter", path, "description"))

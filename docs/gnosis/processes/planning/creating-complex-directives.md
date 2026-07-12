@@ -4,17 +4,15 @@ title: creating-complex-directives
 description: Use only after requirements refinement routes material design, research, governance, or dependent-delivery work.
 invocation: explicit
 effects: [read, vault-write, external]
+use_when:
+  - Refined requirements contain material architecture, purpose, decision, research, or cross-directive dependency work.
+  - The requirements need multiple dependent, independently useful deliveries.
 relationships:
   - type: instance_of
     target: gnosis://core/concepts/gnosis-process.md
 ---
 
 # creating-complex-directives
-
-## Use when
-
-- Refined requirements contain material architecture, purpose, decision, research, or cross-directive dependency work.
-- Or they require multiple dependent, independently useful deliveries.
 
 ## Knowledge inputs
 

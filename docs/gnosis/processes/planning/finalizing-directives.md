@@ -4,17 +4,15 @@ title: finalizing-directives
 description: Use only when simple drafts or reviewed complex drafts must become validated execution handoffs.
 invocation: explicit
 effects: [read, vault-write]
+use_when:
+  - A simple directive is drafted.
+  - Complex-directive reviews have returned findings or approval.
 relationships:
   - type: instance_of
     target: gnosis://core/concepts/gnosis-process.md
 ---
 
 # finalizing-directives
-
-## Use when
-
-- A simple directive is drafted.
-- Complex-directive reviews have returned findings or approval.
 
 ## Knowledge inputs
 

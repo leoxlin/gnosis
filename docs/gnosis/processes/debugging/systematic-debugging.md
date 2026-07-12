@@ -4,6 +4,12 @@ title: systematic-debugging
 description: Use for diagnosing or fixing any bug, failing test, build failure, performance problem, or unexpected technical behavior.
 invocation: model
 effects: [vault-write, workspace-write]
+use_when:
+  - A test, build, integration, or production behavior fails.
+  - Behavior is intermittent, unexpectedly slow, or environment-dependent.
+  - An earlier fix failed or a seemingly obvious fix has not been demonstrated.
+  - Planning a fix requires evidence-backed requirements.
+  - Root-cause evidence is required before proposing a fix.
 relationships:
   - type: instance_of
     target: gnosis://core/concepts/gnosis-process.md
@@ -12,15 +18,6 @@ relationships:
 # systematic-debugging
 
 Systematic debugging finds and verifies root cause before planning or changing production behavior.
-
-## Use when
-
-- A test, build, integration, or production behavior fails.
-- Behavior is intermittent, unexpectedly slow, or environment-dependent.
-- An earlier fix failed or a seemingly obvious fix has not been demonstrated.
-- Planning a fix requires evidence-backed requirements.
-
-The hard gate is root-cause evidence before a proposed fix.
 
 ## Knowledge inputs
 

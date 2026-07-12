@@ -129,16 +129,14 @@ vault_log = false
 type: Gnosis Process
 title: start
 description: Start with shared knowledge.
+use_when:
+  - Starting.
 relationships:
   - type: uses
     target: ../shared/end.md
 ---
 
 # start
-
-## Use when
-
-- Starting.
 
 ## Knowledge inputs
 
@@ -260,15 +258,13 @@ title: invalid
 description: Invalid process.
 invocation: surprise
 effects: [read, teleport]
+use_when:
+  - Testing invalid records.
 relationships:
   - type: uses
 ---
 
 # invalid
-
-## Use when
-
-- Testing invalid records.
 
 ## Process
 
@@ -302,10 +298,6 @@ title: vague-process
 
 # vague-process
 
-## Use when
-
-Any time.
-
 ## Knowledge inputs
 
 - Current facts.
@@ -324,7 +316,7 @@ The work is complete.
 		t.Fatal(err)
 	}
 	joined := strings.Join(result.Errors, "\n")
-	for _, want := range []string{"description", "at least one bullet"} {
+	for _, want := range []string{"description", "use_when"} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("errors = %v, want %q", result.Errors, want)
 		}
@@ -383,16 +375,14 @@ title: query-vault
 description: Use when answering a question from recorded vault knowledge.
 invocation: model
 effects: [read]
+use_when:
+  - Answering a question from a vault.
 relationships:
   - type: uses
     target: ../concepts/provenance.md
 ---
 
 # query-vault
-
-## Use when
-
-- Answering a question from a vault.
 
 ## Knowledge inputs
 

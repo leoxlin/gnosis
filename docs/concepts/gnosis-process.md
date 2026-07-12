@@ -17,10 +17,10 @@ Do not use it for one-off knowledge, settled choices, implementation handoffs, o
 
 ## Minimum record
 
-- A selection-focused `description` and at least one `## Use when` bullet.
+- A selection-focused `description` and at least one `use_when` frontmatter value.
 - Unique, non-empty `## Knowledge inputs`, `## Process`, and `## Completion` sections.
 - Self-contained instructions. Links and hard-coded knowledge URIs may target other `Gnosis Process` records or gnosis concept records; copy required rules inline and name dynamic runtime inputs without linking them.
-- Optional `invocation`, `effects`, and typed `relationships` frontmatter.
+- Optional `invocation`, `effects`, and typed `relationships` frontmatter. An `explicit` invocation is omitted from discovery and is invoked only by another active process.
 
 ## Schema
 
@@ -31,11 +31,12 @@ title: <name>
 description: <selection condition>
 invocation: <model | explicit>
 effects: [<read | vault-write | workspace-write | external>]
+use_when:
+  - <selection condition>
 ---
 
 # <name>
 
-## Use when
 ## Knowledge inputs
 ## Process
 ## Completion

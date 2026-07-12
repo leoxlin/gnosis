@@ -17,7 +17,7 @@ Use this skill as the process gateway. Process records are the source of workflo
    Resolved vault and repository: [vault and repository]
    Applicable agent instructions: [agent instructions]
 
-   Run `gnosis concepts -type 'Gnosis Process'` exactly once. From that output, select the smallest applicable dependency-ordered series of exact `Gnosis Process` records using each record's `description` and `use_when`. Treat no other concept type as executable, and reject an `explicit` process unless the author invoked or requested it. Read every selected exact URI with `gnosis read '<gnosis URI>'`.
+   Run `gnosis process discovery` exactly once. From that output, select the smallest applicable dependency-ordered series of exact `Gnosis Process` records using each record's `description` and `use_when`. The command lists only model-invocable processes; do not select another concept type. Read every selected exact URI with `gnosis read '<gnosis URI>'`.
 
    Return the heading `FULL ORDERED PROCESS LIST TO EXECUTE`. Under it, return every selected process in dependency order, with each command on its own line and exactly formatted as `gnosis read 'gnosis://....'`. After each command, include its revision, origin, effects, and concise selection rationale. If no process applies, say so under that heading.
    ```

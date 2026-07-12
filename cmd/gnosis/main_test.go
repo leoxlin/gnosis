@@ -45,6 +45,7 @@ func TestRunSubcommandHelpIsSuccessful(t *testing.T) {
 		usage string
 	}{
 		{args: []string{"validate", "--help"}, usage: "gnosis validate"},
+		{args: []string{"process", "discovery", "--help"}, usage: "gnosis process discovery"},
 		{args: []string{"process", "invoke", "--help"}, usage: "gnosis process invoke"},
 		{args: []string{"graph", "path", "--help"}, usage: "gnosis graph path"},
 	} {
@@ -404,20 +405,74 @@ func TestRunConceptsListsGnosisProcessesForSelection(t *testing.T) {
 	}
 }
 
-func TestRunDoesNotExposeRemovedCommands(t *testing.T) {
-	for _, test := range []struct {
-		args []string
-		want string
-	}{
-		{args: []string{"process", "discover", "request"}, want: "unexpected argument"},
-		{args: []string{"mcp", "serve"}, want: "unknown command"},
+func TestRunProcessDiscoveryReturnsSelectableModelProcesses(t *testing.T) {
+	root := processCommandTestVault(t)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if err := run([]string{"process", "discovery", "--vault", root}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), "\n  \"processes\":") {
+		t.Fatalf("discovery must emit pretty JSON by default: %q", stdout.String())
+	}
+	var discovery struct {
+		Processes []struct {
+			ID       string   `json:"id"`
+			URI      string   `json:"uri"`
+			UseWhen  []string `json:"use_when"`
+			Effects  []string `json:"effects"`
+			Revision string   `json:"revision"`
+		} `json:"processes"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &discovery); err != nil {
+		t.Fatal(err)
+	}
+	var process struct {
+		ID       string   `json:"id"`
+		URI      string   `json:"uri"`
+		UseWhen  []string `json:"use_when"`
+		Effects  []string `json:"effects"`
+		Revision string   `json:"revision"`
+	}
+	for _, candidate := range discovery.Processes {
+		if candidate.ID == "processes/query-vault.md" {
+			process = candidate
+		}
+		if candidate.ID == "processes/internal-review.md" {
+			t.Fatalf("discovery must hide explicit process: %+v", candidate)
+		}
+	}
+	if process.ID != "processes/query-vault.md" || process.URI == "" || process.Revision == "" || strings.Join(process.UseWhen, ",") != "Answering a question from a vault." || strings.Join(process.Effects, ",") != "read" {
+		t.Fatalf("process = %+v", process)
+	}
+	if strings.Contains(stdout.String(), `"invocation": "explicit"`) {
+		t.Fatalf("discovery must hide explicit processes: %s", stdout.String())
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestRunProcessDiscoveryDoesNotAcceptSearchRequest(t *testing.T) {
+	for _, args := range [][]string{
+		{"process", "discovery", "answer from recorded knowledge"},
+		{"process", "discovery", "--pretty"},
 	} {
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
-		err := run(test.args, &stdout, &stderr)
-		if err == nil || !strings.Contains(err.Error(), test.want) {
-			t.Fatalf("args = %v error = %v, want %q", test.args, err, test.want)
+		err := run(args, &stdout, &stderr)
+		if err == nil || !strings.Contains(err.Error(), "unexpected argument") && !strings.Contains(err.Error(), "unknown flag") {
+			t.Fatalf("args = %v error = %v, want argument or flag rejection", args, err)
 		}
+	}
+}
+
+func TestRunDoesNotExposeRemovedMCPCommand(t *testing.T) {
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	err := run([]string{"mcp", "serve"}, &stdout, &stderr)
+	if err == nil || !strings.Contains(err.Error(), "unknown command") {
+		t.Fatalf("error = %v, want unknown command", err)
 	}
 }
 
@@ -689,16 +744,14 @@ title: query-vault
 description: Use when answering a question from recorded vault knowledge.
 invocation: model
 effects: [read]
+use_when:
+  - Answering a question from a vault.
 relationships:
   - type: uses
     target: ../concepts/provenance.md
 ---
 
 # query-vault
-
-## Use when
-
-- Answering a question from a vault.
 
 ## Knowledge inputs
 
@@ -711,6 +764,30 @@ relationships:
 ## Completion
 
 The answer is grounded.
+`)
+	writeTestFile(t, root, "processes/internal-review.md", `---
+type: Gnosis Process
+title: internal-review
+description: Used by another process only.
+invocation: explicit
+effects: [read]
+use_when:
+  - Reviewing an exact draft.
+---
+
+# internal-review
+
+## Knowledge inputs
+
+- An exact draft.
+
+## Process
+
+1. Review the draft.
+
+## Completion
+
+The review is complete.
 `)
 	return root
 }

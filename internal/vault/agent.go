@@ -69,18 +69,22 @@ type Page struct {
 
 // ProcessSections are the canonical executable sections of a process record.
 type ProcessSections struct {
-	UseWhen         string `json:"use_when"`
 	KnowledgeInputs string `json:"knowledge_inputs"`
 	Process         string `json:"process"`
 	Completion      string `json:"completion"`
 }
 
-// ProcessSummary is the exact process descriptor returned with an invocation.
+// ProcessSummary is a process descriptor for selection or invocation.
 type ProcessSummary struct {
 	DocumentRef
 	UseWhen    []string `json:"use_when"`
 	Invocation string   `json:"invocation"`
 	Effects    []string `json:"effects"`
+}
+
+// ProcessDiscovery contains all model-invocable process candidates.
+type ProcessDiscovery struct {
+	Processes []ProcessSummary `json:"processes"`
 }
 
 // GraphEdge is a resolved, directed edge with exact endpoint identities.
@@ -194,6 +198,36 @@ func ReadPage(root, selector string) (Page, error) {
 		return Page{}, err
 	}
 	return Page{Document: page.document.Ref(), Markdown: markdown}, nil
+}
+
+// DiscoverProcesses lists model-invocable process records in stable order.
+// Explicit processes are intentionally excluded because a parent process must
+// invoke them as part of its own execution contract.
+func DiscoverProcesses(root string) (ProcessDiscovery, error) {
+	source, err := NewSearchSource(root)
+	if err != nil {
+		return ProcessDiscovery{}, err
+	}
+	pages, err := source.resolvedPages()
+	if err != nil {
+		return ProcessDiscovery{}, err
+	}
+	processes := make([]ProcessSummary, 0, len(pages))
+	for _, page := range pages {
+		if !isProcessType(page.document.Type) {
+			continue
+		}
+		summary, err := processSummary(page)
+		if err != nil {
+			return ProcessDiscovery{}, err
+		}
+		if summary.Invocation == "explicit" {
+			continue
+		}
+		processes = append(processes, summary)
+	}
+	sort.Slice(processes, func(i, j int) bool { return processes[i].ID < processes[j].ID })
+	return ProcessDiscovery{Processes: processes}, nil
 }
 
 // InvokeProcess loads one exact process as an execution contract. It is read-only.
@@ -313,7 +347,7 @@ func processSummary(page *searchPage) (ProcessSummary, error) {
 	if err != nil {
 		return ProcessSummary{}, err
 	}
-	sections, missing, duplicates := parseProcessSections(page.document.Body)
+	_, missing, duplicates := parseProcessSections(page.document.Body)
 	if len(missing) > 0 {
 		return ProcessSummary{}, fmt.Errorf("process %q missing required section(s): %s", page.document.ID, strings.Join(missing, ", "))
 	}
@@ -323,9 +357,12 @@ func processSummary(page *searchPage) (ProcessSummary, error) {
 	if strings.TrimSpace(page.document.Description) == "" {
 		return ProcessSummary{}, fmt.Errorf("process %q missing non-empty description frontmatter", page.document.ID)
 	}
-	useWhen := markdownBullets(sections.UseWhen)
+	useWhen, valid := fields.scalars("use_when")
+	if !valid {
+		return ProcessSummary{}, fmt.Errorf("process %q frontmatter %q must be a scalar or sequence of scalars", page.document.ID, "use_when")
+	}
 	if len(useWhen) == 0 {
-		return ProcessSummary{}, fmt.Errorf("process %q must declare at least one bullet under %q", page.document.ID, "Use when")
+		return ProcessSummary{}, fmt.Errorf("process %q must declare at least one non-empty %q frontmatter value", page.document.ID, "use_when")
 	}
 	invocation, _ := fields.scalar("invocation")
 	invocation = strings.TrimSpace(invocation)
@@ -357,7 +394,7 @@ func processSummary(page *searchPage) (ProcessSummary, error) {
 
 func parseProcessSections(body string) (ProcessSections, []string, []string) {
 	sections, duplicates := markdownSections(body)
-	required := []string{"Use when", "Knowledge inputs", "Process", "Completion"}
+	required := []string{"Knowledge inputs", "Process", "Completion"}
 	missing := []string{}
 	for _, name := range required {
 		if strings.TrimSpace(sections[name]) == "" {
@@ -365,7 +402,6 @@ func parseProcessSections(body string) (ProcessSections, []string, []string) {
 		}
 	}
 	return ProcessSections{
-		UseWhen:         sections["Use when"],
 		KnowledgeInputs: sections["Knowledge inputs"],
 		Process:         sections["Process"],
 		Completion:      sections["Completion"],
@@ -416,21 +452,6 @@ func markdownSections(markdown string) (map[string]string, []string) {
 	flush()
 	sort.Strings(duplicates)
 	return sections, duplicates
-}
-
-func markdownBullets(markdown string) []string {
-	result := []string{}
-	for _, line := range strings.Split(markdown, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if len(trimmed) < 3 || (trimmed[0] != '-' && trimmed[0] != '*' && trimmed[0] != '+') || trimmed[1] != ' ' {
-			continue
-		}
-		value := strings.TrimSpace(trimmed[2:])
-		if value != "" {
-			result = append(result, value)
-		}
-	}
-	return result
 }
 
 func relationshipSpecs(fields Frontmatter) ([]relationshipSpec, error) {

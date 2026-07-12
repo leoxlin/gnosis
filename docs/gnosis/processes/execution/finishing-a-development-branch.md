@@ -4,6 +4,10 @@ title: finishing-a-development-branch
 description: Use after implementation and review are complete to verify delivery readiness and let the author choose integration or cleanup.
 invocation: model
 effects: [vault-write, workspace-write, external]
+use_when:
+  - All implementation tasks and blocking reviews are complete.
+  - The work needs to be merged, proposed as a pull request, retained, or discarded.
+  - A directive is ready for its final delivery and status decision.
 relationships:
   - type: instance_of
     target: gnosis://core/concepts/gnosis-process.md
@@ -12,12 +16,6 @@ relationships:
 # finishing-a-development-branch
 
 Finishing a branch verifies the completed work, detects who owns the workspace, presents bounded delivery choices, and performs only the author's selected integration or cleanup.
-
-## Use when
-
-- All implementation tasks and blocking reviews are complete.
-- The work needs to be merged, proposed as a pull request, retained, or discarded.
-- A directive is ready for its final delivery and status decision.
 
 ## Knowledge inputs
 

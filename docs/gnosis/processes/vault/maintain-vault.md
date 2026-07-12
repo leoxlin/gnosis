@@ -4,6 +4,10 @@ title: maintain-vault
 description: Use when auditing or repairing the integrity of a vault.
 invocation: model
 effects: [vault-write]
+use_when:
+  - Auditing a vault for validation failures, stale navigation, or broken links.
+  - Repairing orphaned, duplicate, or inconsistent concept records.
+  - Reviewing frontmatter, summaries, and source-backed claims for vault quality.
 relationships:
   - type: instance_of
     target: gnosis://core/concepts/gnosis-process.md
@@ -12,12 +16,6 @@ relationships:
 # maintain-vault
 
 `maintain-vault` repairs high-confidence structural and semantic problems while preserving uncertainty and author-owned meaning decisions.
-
-## Use when
-
-- Auditing a vault for validation failures, stale navigation, or broken links.
-- Repairing orphaned, duplicate, or inconsistent concept records.
-- Reviewing frontmatter, summaries, and source-backed claims for vault quality.
 
 ## Knowledge inputs
 

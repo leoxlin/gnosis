@@ -4,16 +4,14 @@ title: creating-simple-directive
 description: Use only after requirements refinement routes one bounded delivery with no material design or dependency work.
 invocation: explicit
 effects: [read, vault-write]
+use_when:
+  - Refinement selected one bounded delivery with no material architecture, purpose, decision, research, or cross-directive dependency.
 relationships:
   - type: instance_of
     target: gnosis://core/concepts/gnosis-process.md
 ---
 
 # creating-simple-directive
-
-## Use when
-
-- Refinement selected one bounded delivery with no material architecture, purpose, decision, research, or cross-directive dependency.
 
 ## Knowledge inputs
 
