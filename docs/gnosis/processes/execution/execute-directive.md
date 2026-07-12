@@ -29,7 +29,7 @@ Use [dispatching-parallel-agents](dispatching-parallel-agents.md) only for genui
 
 ## Process
 
-1. Read the directive with `gnosis read --id '<directive URI>'`, then inspect its linked decisions and current implementation. Resolve contradictions, obsolete assumptions, missing dependencies, or unclear steps with the author before implementation.
+1. Read the directive with `gnosis read --id '<directive URI>' --pretty`; stop unless its current status is `open`. Inspect linked decisions and implementation. Require every prerequisite directive to be `done` and its supplied contract present in the checkout. Resolve contradictions, obsolete assumptions, or unclear steps with the author before implementation.
 2. When isolation is needed, invoke `gnosis process invoke --id 'gnosis://core/gnosis/processes/execution/using-git-worktrees.md' --pretty` and complete that process before continuing.
 3. Select the smallest adequate mode:
    - **Direct:** execute tasks in order in the controlling session.
