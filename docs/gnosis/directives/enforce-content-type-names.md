@@ -2,7 +2,7 @@
 type: GnosisDirective
 title: Enforce Content Type Names
 description: Require TypeName-form names for every Concept Type definition and migrate built-in types.
-status: open
+status: done
 ---
 
 # Goal
