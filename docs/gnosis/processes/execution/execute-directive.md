@@ -35,12 +35,12 @@ Use [dispatching-parallel-agents](dispatching-parallel-agents.md) only for genui
    - **Direct:** execute tasks in order in the controlling session.
    - **Delegated:** assign each independently reviewable task, one at a time, to a fresh implementer with only its directive text, inherited interfaces, relevant decisions, and exact process URIs. Keep briefs, reports, diff packages, and progress in repository-ignored scratch files.
 4. For every task, invoke each governing process by exact URI with `gnosis process invoke --id '<process URI>' --pretty`. Require its completion evidence and the task's focused and surrounding verification before advancing.
-5. In delegated mode, require a file-based implementation report and exact base-to-head diff package. Invoke `gnosis process invoke --id 'gnosis://core/gnosis/processes/review/code-review.md' --pretty` for each task, resolve blocking findings, and record the approved commit range before dispatching the next task.
+5. In delegated mode, require a file-based implementation report and exact base-to-head diff package. Assess each task against its acceptance criteria and verification evidence, resolve blocking findings, and record the reviewed commit range before dispatching the next task.
 6. If execution cannot continue, preserve the complete directive, set its status to `blocked`, record the concrete blocker and evidence, persist it with `gnosis write --type 'Gnosis Directive' --title '<title>' <draft-file>`, and stop instead of guessing.
-7. After all tasks, invoke `code-review` for the complete merge-base-to-head range when the change requires independent review. Resolve and re-review all blocking findings.
+7. After all tasks, assess the complete merge-base-to-head range when the change requires independent review. Resolve and reassess all blocking findings.
 8. Invoke `gnosis process invoke --id 'gnosis://core/gnosis/processes/execution/verification-before-completion.md' --pretty` against every acceptance criterion, then invoke `gnosis process invoke --id 'gnosis://core/gnosis/processes/execution/finishing-a-development-branch.md' --pretty`.
 9. Set the directive to `done` only when fresh evidence satisfies its acceptance criteria and the selected delivery outcome preserves the verified work. A discarded implementation remains or returns to `open`.
 
 ## Completion
 
-The directive is `blocked` with actionable evidence or `done` with every task, required review, acceptance criterion, and selected delivery outcome freshly verified. Delegated tasks have durable reports and approved commit ranges, and no claim rests on an unchecked plan assertion.
+The directive is `blocked` with actionable evidence or `done` with every task, required assessment, acceptance criterion, and selected delivery outcome freshly verified. Delegated tasks have durable reports and reviewed commit ranges, and no claim rests on an unchecked plan assertion.
