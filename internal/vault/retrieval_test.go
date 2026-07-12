@@ -84,21 +84,6 @@ func TestSearchPreservesDuplicateBasenamesByFullID(t *testing.T) {
 	}
 }
 
-func TestQueryCanUseReplaceableRetriever(t *testing.T) {
-	page := document("external/page.md")
-	page.Title = "External Page"
-	retriever := &staticRetriever{hits: []Hit{{Document: page, Score: 42}}}
-	engine := NewWithRetriever([]Document{page}, retriever)
-
-	result := engine.Query("anything", QueryOptions{Top: 1, MaxRead: 1, MaxDepth: 1})
-	if len(result.Candidates) != 1 || result.Candidates[0].URI != page.URI || result.Candidates[0].Score != 42 {
-		t.Fatalf("result = %+v", result)
-	}
-	if retriever.query != "anything" || retriever.limit != 1 {
-		t.Fatalf("retriever call = %q limit %d", retriever.query, retriever.limit)
-	}
-}
-
 func TestQueryExactDescriptionIsIndexOnly(t *testing.T) {
 	engine := New([]Document{
 		{
@@ -227,19 +212,4 @@ func TestFindPathTraversesReverseLinks(t *testing.T) {
 	if strings.Join(path, ",") != "gnosis://test/target.md,gnosis://test/source.md" {
 		t.Fatalf("path = %v", path)
 	}
-}
-
-type staticRetriever struct {
-	hits  []Hit
-	query string
-	limit int
-}
-
-func (r *staticRetriever) Search(query string, limit int) []Hit {
-	r.query = query
-	r.limit = limit
-	if len(r.hits) > limit {
-		return append([]Hit(nil), r.hits[:limit]...)
-	}
-	return append([]Hit(nil), r.hits...)
 }

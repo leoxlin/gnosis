@@ -34,7 +34,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 	}
 
 	command := newRootCommand(stdout, stderr)
-	command.SetArgs(normalizeLegacyLongFlags(args))
+	command.SetArgs(args)
 	return command.Execute()
 }
 
@@ -51,7 +51,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	command.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "Print the gnosis version",
-		Args:  noArgs("version"),
+		Args:  cobra.NoArgs,
 		Run: func(_ *cobra.Command, _ []string) {
 			fmt.Fprintln(stdout, "gnosis 0.1.0")
 		},
@@ -65,7 +65,7 @@ func newConceptsCommand(stdout io.Writer) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "concepts [flags]",
 		Short: "List concept types or concepts of an exact type",
-		Args:  noArgs("concepts"),
+		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if jsonOutput {
 				typeName := strings.TrimSpace(conceptType)
@@ -98,7 +98,7 @@ func newReadCommand(stdout io.Writer) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "read [gnosis-uri] [flags]",
 		Short: "Print one exact vault document",
-		Args:  exactArgs("read", 1),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			uri := strings.TrimSpace(args[0])
 			if !strings.HasPrefix(uri, "gnosis://") {
@@ -131,7 +131,7 @@ func newWriteCommand(input io.Reader, stdout io.Writer) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "write <gnosis-uri>",
 		Short: "Write a typed Markdown document into the current vault",
-		Args:  exactArgs("write", 1),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			uri := strings.TrimSpace(args[0])
 			if !strings.HasPrefix(uri, "gnosis://") {
@@ -168,7 +168,7 @@ func newQueryCommand(stdout io.Writer) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "query",
 		Short: "Query the vault",
-		Args:  noArgs("query"),
+		Args:  cobra.NoArgs,
 	}
 	command.AddCommand(newSearchQueryCommand(stdout), newGraphQueryCommand(stdout))
 	return command
@@ -178,7 +178,7 @@ func newProcedureCommand(stdout io.Writer) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "procedure",
 		Short: "Discover and load executable vault procedures",
-		Args:  noArgs("procedure"),
+		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return errors.New("procedure: missing subcommand")
 		},
@@ -192,7 +192,7 @@ func newProcedureDiscoveryCommand(stdout io.Writer) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "discovery [flags]",
 		Short: "List all model-invocable processes for agent selection",
-		Args:  noArgs("procedure discovery"),
+		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			result, err := vault.DiscoverProcesses(vaultPath)
 			if err != nil {
@@ -211,7 +211,7 @@ func newProcedureInvokeCommand(stdout io.Writer) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "invoke [flags]",
 		Short: "Load one exact procedure execution contract",
-		Args:  noArgs("procedure invoke"),
+		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			uri = strings.TrimSpace(uri)
 			if !strings.HasPrefix(uri, "gnosis://") {
@@ -234,7 +234,7 @@ func newGraphCommand(stdout io.Writer) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "graph",
 		Short: "Traverse exact directed vault links",
-		Args:  noArgs("graph"),
+		Args:  cobra.NoArgs,
 	}
 	command.AddCommand(newGraphNeighborsCommand(stdout), newGraphPathCommand(stdout))
 	return command
@@ -246,7 +246,7 @@ func newGraphNeighborsCommand(stdout io.Writer) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "neighbors [flags]",
 		Short: "List typed links adjacent to one exact page",
-		Args:  noArgs("graph neighbors"),
+		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			uri = strings.TrimSpace(uri)
 			if !strings.HasPrefix(uri, "gnosis://") {
@@ -274,7 +274,7 @@ func newGraphPathCommand(stdout io.Writer) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "path [flags]",
 		Short: "Find a typed path between exact pages",
-		Args:  noArgs("graph path"),
+		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			from = strings.TrimSpace(from)
 			to = strings.TrimSpace(to)
@@ -386,13 +386,13 @@ func queryVault(root, question string, options vault.QueryOptions) (vault.QueryR
 
 func validateQueryOptions(top, maxRead, depth int) error {
 	if top <= 0 {
-		return errors.New("-top must be greater than zero")
+		return errors.New("--top must be greater than zero")
 	}
 	if maxRead < 0 {
-		return errors.New("-max-read must be zero or greater")
+		return errors.New("--max-read must be zero or greater")
 	}
 	if depth <= 0 {
-		return errors.New("-depth must be greater than zero")
+		return errors.New("--depth must be greater than zero")
 	}
 	return nil
 }
@@ -440,7 +440,7 @@ func newIndexCommand(stdout io.Writer) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "index [flags]",
 		Short: "Generate vault indexes",
-		Args:  noArgs("index"),
+		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return runIndex(vaultPath, stdout)
 		},
@@ -487,7 +487,7 @@ func newValidateCommand(stdout, stderr io.Writer) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "validate [flags]",
 		Short: "Validate vault structure and links",
-		Args:  noArgs("validate"),
+		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return runValidate(vaultPath, stdout, stderr)
 		},
@@ -520,7 +520,7 @@ func newScaffoldCommand(stdout io.Writer) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "scaffold [flags]",
 		Short: "Create an OKF-compatible gnosis vault",
-		Args:  noArgs("scaffold"),
+		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return runScaffold(vaultPath, vaultName, force, includeConcepts, stdout)
 		},
@@ -596,7 +596,7 @@ func newSetupCommand(stdout io.Writer) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "setup [flags]",
 		Short: "Configure a workspace to import gnosis vaults",
-		Args:  noArgs("setup"),
+		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return runSetup(vaultPath, imports, force, stdout)
 		},
@@ -639,53 +639,4 @@ func questionArgs(command string) cobra.PositionalArgs {
 		}
 		return nil
 	}
-}
-
-func noArgs(command string) cobra.PositionalArgs {
-	return func(_ *cobra.Command, args []string) error {
-		if len(args) == 0 {
-			return nil
-		}
-		return fmt.Errorf("%s: unexpected argument(s): %s", command, strings.Join(args, " "))
-	}
-}
-
-func exactArgs(command string, count int) cobra.PositionalArgs {
-	return func(_ *cobra.Command, args []string) error {
-		if len(args) == count {
-			return nil
-		}
-		if len(args) < count {
-			return fmt.Errorf("%s: missing argument", command)
-		}
-		return fmt.Errorf("%s: unexpected argument(s): %s", command, strings.Join(args[count:], " "))
-	}
-}
-
-// normalizeLegacyLongFlags keeps the single-dash long options accepted by the
-// previous flag-based CLI while Cobra uses its standard double-dash spelling.
-func normalizeLegacyLongFlags(args []string) []string {
-	longFlags := map[string]bool{
-		"vault": true, "top": true, "max-read": true, "depth": true,
-		"json": true, "force": true, "concepts": true, "name": true, "import": true,
-		"type": true, "title": true, "from": true, "to": true, "direction": true, "relation": true, "filename": true, "update": true,
-	}
-	normalized := make([]string, 0, len(args))
-	for _, arg := range args {
-		if arg == "--" {
-			normalized = append(normalized, args[len(normalized):]...)
-			break
-		}
-		if strings.HasPrefix(arg, "-") && !strings.HasPrefix(arg, "--") {
-			name, value, hasValue := strings.Cut(strings.TrimPrefix(arg, "-"), "=")
-			if longFlags[name] {
-				arg = "--" + name
-				if hasValue {
-					arg += "=" + value
-				}
-			}
-		}
-		normalized = append(normalized, arg)
-	}
-	return normalized
 }

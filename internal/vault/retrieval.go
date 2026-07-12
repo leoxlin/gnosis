@@ -34,11 +34,6 @@ type Document struct {
 	Revision    string
 }
 
-// Retriever ranks vault documents.
-type Retriever interface {
-	Search(query string, limit int) []Hit
-}
-
 // Hit is a ranked document match.
 type Hit struct {
 	Document Document
@@ -124,7 +119,6 @@ type Engine struct {
 	documentFrequency map[string]int
 	averageLength     [fieldCount]float64
 	adjacency         map[string][]string
-	retriever         Retriever
 }
 
 // New constructs a live in-memory index from documents.
@@ -183,17 +177,6 @@ func New(documents []Document) *Engine {
 	}
 
 	engine.buildAdjacency()
-	engine.retriever = engine
-	return engine
-}
-
-// NewWithRetriever constructs the document graph while delegating ranking to
-// retriever. A nil retriever uses the built-in BM25F implementation.
-func NewWithRetriever(documents []Document, retriever Retriever) *Engine {
-	engine := New(documents)
-	if retriever != nil {
-		engine.retriever = retriever
-	}
 	return engine
 }
 
@@ -254,13 +237,13 @@ func (e *Engine) Query(question string, options QueryOptions) QueryResult {
 	var hits []Hit
 	if answerType == AnswerPath && len(endpoints) == 2 {
 		hits = e.pathCandidates(endpoints, options.Top)
-		from := e.retrieve(endpoints[0], 1)
-		to := e.retrieve(endpoints[1], 1)
+		from := e.Search(endpoints[0], 1)
+		to := e.Search(endpoints[1], 1)
 		if len(from) > 0 && len(to) > 0 {
 			result.Path = e.FindPath(from[0].Document.URI, to[0].Document.URI, options.MaxDepth)
 		}
 	} else {
-		hits = e.retrieve(question, options.Top)
+		hits = e.Search(question, options.Top)
 	}
 
 	for _, hit := range hits {
@@ -415,17 +398,10 @@ func (e *Engine) pathCandidates(endpoints []string, limit int) []Hit {
 			combined = append(combined, hit)
 		}
 	}
-	appendHits(e.retrieve(endpoints[0], 1))
-	appendHits(e.retrieve(endpoints[1], 1))
-	appendHits(e.retrieve(strings.Join(endpoints, " "), limit))
+	appendHits(e.Search(endpoints[0], 1))
+	appendHits(e.Search(endpoints[1], 1))
+	appendHits(e.Search(strings.Join(endpoints, " "), limit))
 	return combined
-}
-
-func (e *Engine) retrieve(query string, limit int) []Hit {
-	if e.retriever == nil {
-		return []Hit{}
-	}
-	return e.retriever.Search(query, limit)
 }
 
 func normalizedOptions(options QueryOptions) QueryOptions {

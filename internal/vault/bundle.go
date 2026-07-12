@@ -28,7 +28,7 @@ func BundledConcepts() ([]BundledDocument, error) {
 }
 
 func readBundledDocuments(patterns []string) ([]BundledDocument, error) {
-	content := docs.Content()
+	content := docs.Content
 	paths := []string{}
 	for _, pattern := range patterns {
 		matches, err := fs.Glob(content, pattern)

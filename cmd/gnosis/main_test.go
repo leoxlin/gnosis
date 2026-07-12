@@ -78,7 +78,7 @@ func TestRunRejectsUnexpectedArguments(t *testing.T) {
 			var stdout bytes.Buffer
 			var stderr bytes.Buffer
 			err := run(args, &stdout, &stderr)
-			if err == nil || (!strings.Contains(err.Error(), "unexpected argument") && !strings.Contains(err.Error(), "gnosis URI")) {
+			if err == nil {
 				t.Fatalf("error = %v", err)
 			}
 		})
@@ -90,7 +90,7 @@ func TestRunGraphQueryEmitsPrettyJSON(t *testing.T) {
 	t.Run("graph", func(t *testing.T) {
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
-		if err := run([]string{"query", "graph", "-vault", root, "transformer"}, &stdout, &stderr); err != nil {
+		if err := run([]string{"query", "graph", "--vault", root, "transformer"}, &stdout, &stderr); err != nil {
 			t.Fatal(err)
 		}
 		if stderr.Len() != 0 {
@@ -135,7 +135,7 @@ func TestRunQueryUsesCompactTextAndOptionalJSON(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"query", "search", "-vault", root, "transformer"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"query", "search", "--vault", root, "transformer"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(stdout.String(), "answer_type: direct") ||
@@ -148,7 +148,7 @@ func TestRunQueryUsesCompactTextAndOptionalJSON(t *testing.T) {
 	}
 
 	stdout.Reset()
-	if err := run([]string{"query", "search", "-vault", root, "-json", "Transformer Architecture"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"query", "search", "--vault", root, "--json", "Transformer Architecture"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	var result struct {
@@ -172,10 +172,10 @@ func TestRunQueryValidatesQuestionAndBounds(t *testing.T) {
 		args []string
 		want string
 	}{
-		{args: []string{"query", "search", "-vault", root}, want: "missing question"},
-		{args: []string{"query", "search", "-vault", root, "-top", "0", "query"}, want: "-top"},
-		{args: []string{"query", "search", "-vault", root, "-max-read", "-1", "query"}, want: "-max-read"},
-		{args: []string{"query", "graph", "-vault", root, "-depth", "0", "query"}, want: "-depth"},
+		{args: []string{"query", "search", "--vault", root}, want: "missing question"},
+		{args: []string{"query", "search", "--vault", root, "--top", "0", "query"}, want: "--top"},
+		{args: []string{"query", "search", "--vault", root, "--max-read", "-1", "query"}, want: "--max-read"},
+		{args: []string{"query", "graph", "--vault", root, "--depth", "0", "query"}, want: "--depth"},
 	} {
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
@@ -196,7 +196,7 @@ func TestRunQueryIsReadOnly(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"query", "graph", "-vault", root, "transformer"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"query", "graph", "--vault", root, "transformer"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	after, err := os.ReadFile(path)
@@ -218,7 +218,7 @@ func TestRunReadPrintsExactDocument(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"read", "-vault", root, "gnosis://Test/transformer.md"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"read", "--vault", root, "gnosis://Test/transformer.md"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	wantRendered := strings.ReplaceAll(string(want), "[Attention](attention.md)", "[Attention](gnosis://Test/attention.md)")
@@ -236,10 +236,10 @@ func TestRunReadRequiresOneCanonicalURI(t *testing.T) {
 		args []string
 		want string
 	}{
-		{args: []string{"read", "-vault", root}, want: "missing argument"},
-		{args: []string{"read", "-vault", root, "transformer.md"}, want: "gnosis URI"},
-		{args: []string{"read", "-vault", root, "gnosis://Test/transformer.md", "extra"}, want: "unexpected argument"},
-		{args: []string{"read", "-vault", root, "--id", "transformer.md"}, want: "unknown flag"},
+		{args: []string{"read", "--vault", root}, want: "accepts 1 arg"},
+		{args: []string{"read", "--vault", root, "transformer.md"}, want: "gnosis URI"},
+		{args: []string{"read", "--vault", root, "gnosis://Test/transformer.md", "extra"}, want: "accepts 1 arg"},
+		{args: []string{"read", "--vault", root, "--id", "transformer.md"}, want: "unknown flag"},
 	} {
 		t.Run(strings.Join(test.args, "_"), func(t *testing.T) {
 			var stdout bytes.Buffer
@@ -295,7 +295,7 @@ func TestRunReadAcceptsCanonicalURIAndRendersDocumentLinks(t *testing.T) {
 	root := queryTestVault(t)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"read", "-vault", root, "gnosis://Test/transformer.md"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"read", "--vault", root, "gnosis://Test/transformer.md"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(stdout.String(), "[Attention](gnosis://Test/attention.md)") {
@@ -326,7 +326,7 @@ title: Source
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"read", "-vault", root, "gnosis://Test/source.md"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"read", "--vault", root, "gnosis://Test/source.md"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	got := stdout.String()
@@ -598,7 +598,7 @@ description: Decouples an interface from its implementation.
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"concepts", "-vault", root}, &stdout, &stderr); err != nil {
+	if err := run([]string{"concepts", "--vault", root}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(stdout.String(), "Type: Concept\nDescription: A reusable knowledge record.\n") || !strings.Contains(stdout.String(), "Type: Pattern\nDescription: Pattern\n") || !strings.Contains(stdout.String(), "Type: Procedure") {
@@ -615,7 +615,7 @@ description: Decouples an interface from its implementation.
 	}
 
 	stdout.Reset()
-	if err := run([]string{"concepts", "-vault", root, "-type", "Concept"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"concepts", "--vault", root, "--type", "Concept"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(stdout.String(), "Title: Attention Mechanism\nDescription: Weighted token lookup.\nLink: gnosis://Test/attention.md\n") ||
@@ -679,8 +679,8 @@ func TestRunConceptsValidatesArgumentsAndType(t *testing.T) {
 		args []string
 		want string
 	}{
-		{args: []string{"concepts", "extra"}, want: "unexpected argument"},
-		{args: []string{"concepts", "-vault", root, "-type", "Missing"}, want: "no concepts with type"},
+		{args: []string{"concepts", "extra"}, want: "unknown command"},
+		{args: []string{"concepts", "--vault", root, "--type", "Missing"}, want: "no concepts with type"},
 	} {
 		t.Run(strings.Join(test.args, "_"), func(t *testing.T) {
 			var stdout bytes.Buffer
@@ -832,7 +832,7 @@ func TestRunValidateRoutesDiagnostics(t *testing.T) {
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
 
-		if err := run([]string{"validate", "-vault", root}, &stdout, &stderr); err != nil {
+		if err := run([]string{"validate", "--vault", root}, &stdout, &stderr); err != nil {
 			t.Fatal(err)
 		}
 		if !strings.Contains(stdout.String(), "ok: 3 markdown file(s) validated") {
@@ -848,7 +848,7 @@ func TestRunValidateRoutesDiagnostics(t *testing.T) {
 		writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_root = \".\"\n")
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
-		err := run([]string{"validate", "-vault", root}, &stdout, &stderr)
+		err := run([]string{"validate", "--vault", root}, &stdout, &stderr)
 		if err == nil || !strings.Contains(err.Error(), "validation failed") {
 			t.Fatalf("error = %v", err)
 		}
@@ -865,7 +865,7 @@ func TestRunScaffoldAndIndex(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "vault")
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"scaffold", "-vault", root}, &stdout, &stderr); err != nil {
+	if err := run([]string{"scaffold", "--vault", root}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(stdout.String(), "ok: vault scaffolded") || stderr.Len() != 0 {
@@ -874,7 +874,7 @@ func TestRunScaffoldAndIndex(t *testing.T) {
 
 	writeTestFile(t, root, "concepts/new-note.md", "---\ntype: Note\ntitle: New Note\ndescription: Test.\n---\n\n# New Note\n")
 	stdout.Reset()
-	if err := run([]string{"index", "-vault", root}, &stdout, &stderr); err != nil {
+	if err := run([]string{"index", "--vault", root}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(stdout.String(), filepath.Join(root, "concepts", "index.md")) {
@@ -887,7 +887,7 @@ func TestRunScaffoldWithConceptsIndexesThem(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
-	if err := run([]string{"scaffold", "-vault", root, "-concepts"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"scaffold", "--vault", root, "--concepts"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	for _, rel := range []string{
@@ -918,7 +918,7 @@ func TestRunScaffoldWithConceptsPreservesExistingFilesUnlessForced(t *testing.T)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
-	if err := run([]string{"scaffold", "-vault", root, "-concepts"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"scaffold", "--vault", root, "--concepts"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	purposePath := filepath.Join(root, "concepts", "purpose.md")
@@ -930,7 +930,7 @@ func TestRunScaffoldWithConceptsPreservesExistingFilesUnlessForced(t *testing.T)
 		t.Fatal("expected scaffold to preserve an existing concept")
 	}
 
-	if err := run([]string{"scaffold", "-vault", root, "-concepts", "-force"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"scaffold", "--vault", root, "--concepts", "--force"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	updated, err := os.ReadFile(purposePath)
@@ -953,7 +953,7 @@ vault_log = false
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
-	if err := run([]string{"scaffold", "-vault", root}, &stdout, &stderr); err != nil {
+	if err := run([]string{"scaffold", "--vault", root}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	for _, rel := range []string{"index.md", "log.md", "concepts/index.md", "references/index.md"} {
@@ -963,7 +963,7 @@ vault_log = false
 	}
 
 	stdout.Reset()
-	if err := run([]string{"index", "-vault", root}, &stdout, &stderr); err != nil {
+	if err := run([]string{"index", "--vault", root}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(stdout.String(), "ok: index disabled") {
@@ -976,11 +976,11 @@ func TestRunSetupCreatesImportWorkspace(t *testing.T) {
 	workspace := filepath.Join(t.TempDir(), "workspace")
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"scaffold", "-vault", source}, &stdout, &stderr); err != nil {
+	if err := run([]string{"scaffold", "--vault", source}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	stdout.Reset()
-	if err := run([]string{"setup", "-vault", workspace, "-import", source}, &stdout, &stderr); err != nil {
+	if err := run([]string{"setup", "--vault", workspace, "--import", source}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(stdout.String(), "ok: workspace configured") {

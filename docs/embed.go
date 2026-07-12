@@ -1,15 +1,7 @@
 // Package docs exposes the canonical documentation bundled with gnosis.
 package docs
 
-import (
-	"embed"
-	"io/fs"
-)
+import "embed"
 
 //go:embed concepts/*.md procedures/*/*.md
-var content embed.FS
-
-// Content returns the documentation included in the gnosis binary.
-func Content() fs.FS {
-	return content
-}
+var Content embed.FS
