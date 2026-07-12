@@ -106,7 +106,6 @@ func TestRunGraphQueryEmitsCompactAndPrettyJSON(t *testing.T) {
 			var result struct {
 				AnswerType string `json:"answer_type"`
 				Candidates []struct {
-					Page        string `json:"page"`
 					URI         string `json:"uri"`
 					Type        string `json:"type"`
 					Description string `json:"description"`
@@ -120,7 +119,7 @@ func TestRunGraphQueryEmitsCompactAndPrettyJSON(t *testing.T) {
 			if result.AnswerType != "direct" || len(result.Candidates) == 0 {
 				t.Fatalf("result = %+v", result)
 			}
-			if result.Candidates[0].Page != "transformer.md" {
+			if result.Candidates[0].URI != "gnosis://Test/transformer.md" {
 				t.Fatalf("top candidate = %+v", result.Candidates[0])
 			}
 			if result.Candidates[0].URI == "" || result.Candidates[0].Type != "Concept" {
@@ -148,7 +147,7 @@ func TestRunQueryUsesCompactTextAndOptionalJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.Contains(stdout.String(), "answer_type: direct") ||
-		!strings.Contains(stdout.String(), "Transformer Architecture (transformer.md)") ||
+		!strings.Contains(stdout.String(), "Transformer Architecture (gnosis://Test/transformer.md)") ||
 		strings.Contains(stdout.String(), "Self-attention details live only in the body") {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
@@ -282,7 +281,6 @@ func TestRunReadURIAsMarkdownAndPrettyJSON(t *testing.T) {
 	}
 	var page struct {
 		Document struct {
-			ID  string `json:"id"`
 			URI string `json:"uri"`
 		} `json:"document"`
 		Markdown string `json:"markdown"`
@@ -290,7 +288,7 @@ func TestRunReadURIAsMarkdownAndPrettyJSON(t *testing.T) {
 	if err := json.Unmarshal(stdout.Bytes(), &page); err != nil {
 		t.Fatal(err)
 	}
-	if page.Document.ID != "processes/query-vault.md" || page.Document.URI == "" || page.Markdown != wantRendered {
+	if page.Document.URI != uri || page.Markdown != wantRendered || strings.Contains(stdout.String(), `"id"`) {
 		t.Fatalf("page = %+v", page)
 	}
 	if !strings.Contains(stdout.String(), "\n  \"document\"") {
@@ -354,12 +352,12 @@ func TestRunProcessInvokeWithoutDiscovery(t *testing.T) {
 	root := processCommandTestVault(t)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"procedure", "invoke", "--vault", root, "--id", "gnosis://Process%20Test/processes/query-vault.md", "--pretty"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"procedure", "invoke", "--vault", root, "--uri", "gnosis://Process%20Test/processes/query-vault.md", "--pretty"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	var invocation struct {
 		Process struct {
-			ID string `json:"id"`
+			URI string `json:"uri"`
 		} `json:"process"`
 		Sections struct {
 			Completion string `json:"completion"`
@@ -368,7 +366,7 @@ func TestRunProcessInvokeWithoutDiscovery(t *testing.T) {
 	if err := json.Unmarshal(stdout.Bytes(), &invocation); err != nil {
 		t.Fatal(err)
 	}
-	if invocation.Process.ID != "processes/query-vault.md" || invocation.Sections.Completion == "" {
+	if invocation.Process.URI != "gnosis://Process%20Test/processes/query-vault.md" || invocation.Sections.Completion == "" || strings.Contains(stdout.String(), `"id"`) {
 		t.Fatalf("invocation = %+v", invocation)
 	}
 }
@@ -406,7 +404,6 @@ func TestRunProcessDiscoveryReturnsSelectableModelProcesses(t *testing.T) {
 	}
 	var discovery struct {
 		Procedures []struct {
-			ID      string   `json:"id"`
 			URI     string   `json:"uri"`
 			UseWhen []string `json:"use_when"`
 			Tags    []string `json:"tags"`
@@ -416,20 +413,19 @@ func TestRunProcessDiscoveryReturnsSelectableModelProcesses(t *testing.T) {
 		t.Fatal(err)
 	}
 	var process struct {
-		ID      string   `json:"id"`
 		URI     string   `json:"uri"`
 		UseWhen []string `json:"use_when"`
 		Tags    []string `json:"tags"`
 	}
 	for _, candidate := range discovery.Procedures {
-		if candidate.ID == "processes/query-vault.md" {
+		if candidate.URI == "gnosis://Process%20Test/processes/query-vault.md" {
 			process = candidate
 		}
-		if candidate.ID == "processes/internal-review.md" {
+		if candidate.URI == "gnosis://Process%20Test/processes/internal-review.md" {
 			t.Fatalf("discovery must hide explicit process: %+v", candidate)
 		}
 	}
-	if process.ID != "processes/query-vault.md" || process.URI == "" || strings.Join(process.Tags, ",") != "gnosis-vault" || strings.Join(process.UseWhen, ",") != "Answering a question from a vault." {
+	if process.URI != "gnosis://Process%20Test/processes/query-vault.md" || strings.Join(process.Tags, ",") != "gnosis-vault" || strings.Join(process.UseWhen, ",") != "Answering a question from a vault." {
 		t.Fatalf("process = %+v", process)
 	}
 	if strings.Contains(stdout.String(), `"invocation": "explicit"`) {
@@ -472,38 +468,38 @@ func TestRunGraphNeighborsAndPath(t *testing.T) {
 	root := processCommandTestVault(t)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"graph", "neighbors", "--vault", root, "--id", "processes/query-vault.md", "--direction", "out", "--relation", "links_to", "--pretty"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"graph", "neighbors", "--vault", root, "--uri", "gnosis://Process%20Test/processes/query-vault.md", "--direction", "out", "--relation", "links_to", "--pretty"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	var neighbors struct {
 		Edges []struct {
 			Relation string `json:"relation"`
 			To       struct {
-				ID string `json:"id"`
+				URI string `json:"uri"`
 			} `json:"to"`
 		} `json:"edges"`
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &neighbors); err != nil {
 		t.Fatal(err)
 	}
-	if len(neighbors.Edges) != 1 || neighbors.Edges[0].Relation != "links_to" || neighbors.Edges[0].To.ID != "concepts/provenance.md" {
+	if len(neighbors.Edges) != 1 || neighbors.Edges[0].Relation != "links_to" || neighbors.Edges[0].To.URI != "gnosis://Process%20Test/concepts/provenance.md" || strings.Contains(stdout.String(), `"id"`) {
 		t.Fatalf("neighbors = %+v", neighbors)
 	}
 
 	stdout.Reset()
-	if err := run([]string{"graph", "path", "--vault", root, "--from", "processes/query-vault.md", "--to", "concepts/provenance.md", "--direction", "out", "--depth", "2", "--pretty"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"graph", "path", "--vault", root, "--from", "gnosis://Process%20Test/processes/query-vault.md", "--to", "gnosis://Process%20Test/concepts/provenance.md", "--direction", "out", "--depth", "2", "--pretty"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	var path struct {
 		Status string `json:"status"`
 		Nodes  []struct {
-			ID string `json:"id"`
+			URI string `json:"uri"`
 		} `json:"nodes"`
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &path); err != nil {
 		t.Fatal(err)
 	}
-	if path.Status != "found" || len(path.Nodes) != 2 {
+	if path.Status != "found" || len(path.Nodes) != 2 || strings.Contains(stdout.String(), `"id"`) {
 		t.Fatalf("path = %+v", path)
 	}
 }
@@ -639,7 +635,6 @@ description: A reusable knowledge record.
 	var catalog struct {
 		Type     string `json:"type"`
 		Concepts []struct {
-			ID       string `json:"id"`
 			URI      string `json:"uri"`
 			Revision string `json:"revision"`
 		} `json:"concepts"`
@@ -651,7 +646,7 @@ description: A reusable knowledge record.
 		t.Fatalf("catalog = %+v", catalog)
 	}
 	for _, concept := range catalog.Concepts {
-		if concept.ID == "" || concept.URI == "" || concept.Revision == "" {
+		if concept.URI == "" || concept.Revision == "" {
 			t.Fatalf("concept identity = %+v", concept)
 		}
 	}

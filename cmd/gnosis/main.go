@@ -200,18 +200,18 @@ func newProcedureDiscoveryCommand(stdout io.Writer) *cobra.Command {
 }
 
 func newProcedureInvokeCommand(stdout io.Writer) *cobra.Command {
-	var vaultPath, id string
+	var vaultPath, uri string
 	var pretty bool
 	command := &cobra.Command{
 		Use:   "invoke [flags]",
 		Short: "Load one exact procedure execution contract",
 		Args:  noArgs("procedure invoke"),
 		RunE: func(_ *cobra.Command, _ []string) error {
-			id = strings.TrimSpace(id)
-			if id == "" {
-				return errors.New("procedure invoke: --id must not be empty")
+			uri = strings.TrimSpace(uri)
+			if !strings.HasPrefix(uri, "gnosis://") {
+				return errors.New("procedure invoke: --uri must be a gnosis URI")
 			}
-			result, err := vault.InvokeProcess(vaultPath, id)
+			result, err := vault.InvokeProcess(vaultPath, uri)
 			if err != nil {
 				return fmt.Errorf("procedure invoke: %w", err)
 			}
@@ -220,7 +220,7 @@ func newProcedureInvokeCommand(stdout io.Writer) *cobra.Command {
 	}
 	flags := command.Flags()
 	flags.StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
-	flags.StringVar(&id, "id", "", "exact process ID or gnosis URI")
+	flags.StringVar(&uri, "uri", "", "exact process gnosis URI")
 	flags.BoolVar(&pretty, "pretty", false, "pretty-print JSON output")
 	return command
 }
@@ -236,7 +236,7 @@ func newGraphCommand(stdout io.Writer) *cobra.Command {
 }
 
 func newGraphNeighborsCommand(stdout io.Writer) *cobra.Command {
-	var vaultPath, id, direction string
+	var vaultPath, uri, direction string
 	var relations []string
 	var pretty bool
 	command := &cobra.Command{
@@ -244,11 +244,11 @@ func newGraphNeighborsCommand(stdout io.Writer) *cobra.Command {
 		Short: "List typed links adjacent to one exact page",
 		Args:  noArgs("graph neighbors"),
 		RunE: func(_ *cobra.Command, _ []string) error {
-			id = strings.TrimSpace(id)
-			if id == "" {
-				return errors.New("graph neighbors: --id must not be empty")
+			uri = strings.TrimSpace(uri)
+			if !strings.HasPrefix(uri, "gnosis://") {
+				return errors.New("graph neighbors: --uri must be a gnosis URI")
 			}
-			result, err := vault.TraceNeighbors(vaultPath, id, vault.Direction(direction), relations)
+			result, err := vault.TraceNeighbors(vaultPath, uri, vault.Direction(direction), relations)
 			if err != nil {
 				return fmt.Errorf("graph neighbors: %w", err)
 			}
@@ -257,7 +257,7 @@ func newGraphNeighborsCommand(stdout io.Writer) *cobra.Command {
 	}
 	flags := command.Flags()
 	flags.StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
-	flags.StringVar(&id, "id", "", "exact page ID or gnosis URI")
+	flags.StringVar(&uri, "uri", "", "exact page gnosis URI")
 	flags.StringVar(&direction, "direction", string(vault.DirectionBoth), "edge direction: out, in, or both")
 	flags.StringSliceVar(&relations, "relation", nil, "relationship type filter")
 	flags.BoolVar(&pretty, "pretty", false, "pretty-print JSON output")
@@ -276,11 +276,11 @@ func newGraphPathCommand(stdout io.Writer) *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			from = strings.TrimSpace(from)
 			to = strings.TrimSpace(to)
-			if from == "" {
-				return errors.New("graph path: --from must not be empty")
+			if !strings.HasPrefix(from, "gnosis://") {
+				return errors.New("graph path: --from must be a gnosis URI")
 			}
-			if to == "" {
-				return errors.New("graph path: --to must not be empty")
+			if !strings.HasPrefix(to, "gnosis://") {
+				return errors.New("graph path: --to must be a gnosis URI")
 			}
 			if depth < 0 {
 				return errors.New("graph path: --depth must be zero or greater")
@@ -294,8 +294,8 @@ func newGraphPathCommand(stdout io.Writer) *cobra.Command {
 	}
 	flags := command.Flags()
 	flags.StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
-	flags.StringVar(&from, "from", "", "source page ID or gnosis URI")
-	flags.StringVar(&to, "to", "", "target page ID or gnosis URI")
+	flags.StringVar(&from, "from", "", "source page gnosis URI")
+	flags.StringVar(&to, "to", "", "target page gnosis URI")
 	flags.StringVar(&direction, "direction", string(vault.DirectionBoth), "edge direction: out, in, or both")
 	flags.StringSliceVar(&relations, "relation", nil, "relationship type filter")
 	flags.IntVar(&depth, "depth", 3, "maximum traversal depth")
@@ -421,7 +421,7 @@ func writeQueryText(output io.Writer, result vault.QueryResult) {
 	}
 	fmt.Fprintln(output, "candidates:")
 	for _, candidate := range result.Candidates {
-		fmt.Fprintf(output, "- %s (%s)", candidate.Title, candidate.Page)
+		fmt.Fprintf(output, "- %s (%s)", candidate.Title, candidate.URI)
 		if candidate.Description != "" {
 			fmt.Fprintf(output, " - %s", candidate.Description)
 		}

@@ -32,12 +32,13 @@ func Validate(root string) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	effectiveSelectors := make(map[string]struct{})
+	effectiveDocumentPaths := make(map[string]struct{})
 	searchSource := &SearchSource{resolution: resolution}
 	if pages, pagesErr := searchSource.pages(); pagesErr == nil {
 		for _, page := range pages {
-			effectiveSelectors[page.document.ID] = struct{}{}
-			effectiveSelectors[page.document.URI] = struct{}{}
+			// Relative paths are retained only to resolve authored relative links.
+			effectiveDocumentPaths[page.document.Path] = struct{}{}
+			effectiveDocumentPaths[page.document.URI] = struct{}{}
 		}
 	}
 
@@ -73,7 +74,7 @@ func Validate(root string) (Result, error) {
 			}
 
 			result.FilesChecked++
-			validateFile(source.Path, path, source.Config, effectiveSelectors, &result)
+			validateFile(source.Path, path, source.Config, effectiveDocumentPaths, &result)
 			return nil
 		})
 		if err != nil {
@@ -86,7 +87,7 @@ func Validate(root string) (Result, error) {
 	return result, nil
 }
 
-func validateFile(root, path string, config Config, effectiveSelectors map[string]struct{}, result *Result) {
+func validateFile(root, path string, config Config, effectiveDocumentPaths map[string]struct{}, result *Result) {
 	bytes, err := os.ReadFile(path)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
@@ -130,7 +131,7 @@ func validateFile(root, path string, config Config, effectiveSelectors map[strin
 		if strings.TrimSpace(body) == "" {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("%s: empty markdown body", path))
 		}
-		validateRelationships(root, path, fields, effectiveSelectors, result)
+		validateRelationships(root, path, fields, effectiveDocumentPaths, result)
 
 		if conceptType, scalar := fields.scalar("type"); scalar {
 			conceptType = strings.TrimSpace(conceptType)
@@ -144,7 +145,7 @@ func validateFile(root, path string, config Config, effectiveSelectors map[strin
 	}
 
 	validateReservedName(path, body, result)
-	validateLinks(root, path, text, config, effectiveSelectors, result)
+	validateLinks(root, path, text, config, effectiveDocumentPaths, result)
 }
 
 func validateConceptTypeName(path string, fields Frontmatter, result *Result) {
@@ -205,14 +206,14 @@ func validateProcessRecord(path string, fields Frontmatter, body string, result 
 	}
 }
 
-func validateRelationships(root, path string, fields Frontmatter, effectiveSelectors map[string]struct{}, result *Result) {
+func validateRelationships(root, path string, fields Frontmatter, effectiveDocumentPaths map[string]struct{}, result *Result) {
 	specs, err := relationshipSpecs(fields)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
 		return
 	}
 	for index, spec := range specs {
-		if _, exists := effectiveSelectors[strings.TrimSpace(spec.Target)]; exists {
+		if _, exists := effectiveDocumentPaths[strings.TrimSpace(spec.Target)]; exists {
 			continue
 		}
 		link, include, err := parseLinkDestination(spec.Target)
@@ -240,7 +241,7 @@ func validateRelationships(root, path string, fields Frontmatter, effectiveSelec
 		}
 		resolved := resolvesPhysicalCandidate(candidates)
 		if !resolved {
-			resolved = resolvesEffectiveCandidate(root, path, link, effectiveSelectors)
+			resolved = resolvesEffectiveCandidate(root, path, link, effectiveDocumentPaths)
 		}
 		if !resolved {
 			result.Errors = append(result.Errors, fmt.Sprintf("%s: unresolved relationships[%d] target %s", path, index, spec.Target))
@@ -257,20 +258,20 @@ func resolvesPhysicalCandidate(candidates []string) bool {
 	return false
 }
 
-func resolvesEffectiveCandidate(root, sourcePath string, link Link, effectiveSelectors map[string]struct{}) bool {
-	sourceID, err := filepath.Rel(root, sourcePath)
+func resolvesEffectiveCandidate(root, sourcePath string, link Link, effectiveDocumentPaths map[string]struct{}) bool {
+	pagePath, err := filepath.Rel(root, sourcePath)
 	if err != nil {
 		return false
 	}
-	for _, candidate := range logicalDocumentCandidates(filepath.ToSlash(sourceID), link) {
-		if _, exists := effectiveSelectors[candidate]; exists {
+	for _, candidate := range logicalDocumentCandidates(filepath.ToSlash(pagePath), link) {
+		if _, exists := effectiveDocumentPaths[candidate]; exists {
 			return true
 		}
 	}
 	return false
 }
 
-func validateLinks(root, path, text string, config Config, effectiveSelectors map[string]struct{}, result *Result) {
+func validateLinks(root, path, text string, config Config, effectiveDocumentPaths map[string]struct{}, result *Result) {
 	preferred := config.LinkFormatValue()
 	links, err := internalLinks(text)
 	if err != nil {
@@ -302,7 +303,7 @@ func validateLinks(root, path, text string, config Config, effectiveSelectors ma
 		}
 		if _, err := os.Stat(target); err != nil {
 			if os.IsNotExist(err) {
-				if !resolvesEffectiveCandidate(root, path, link, effectiveSelectors) {
+				if !resolvesEffectiveCandidate(root, path, link, effectiveDocumentPaths) {
 					result.Errors = append(result.Errors, fmt.Sprintf("%s: unresolved internal link %s", path, link.Raw))
 				}
 			} else {

@@ -44,7 +44,7 @@ func Concepts(root, conceptType string) (ConceptCatalog, error) {
 	}
 	sort.Slice(matching, func(i, j int) bool {
 		if matching[i].Title == matching[j].Title {
-			return matching[i].ID < matching[j].ID
+			return matching[i].URI < matching[j].URI
 		}
 		return matching[i].Title < matching[j].Title
 	})

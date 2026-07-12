@@ -36,7 +36,7 @@ func WriteDocument(root, uri string, content []byte, update bool) (string, error
 		return "", fmt.Errorf("write: current directory resolves multiple local vaults")
 	}
 	localRoot := filepath.Clean(resolution.LocalVaultRoots[0])
-	destination, destinationID, err := writeURIDestination(uri, resolution.Config.Vault.Name, localRoot)
+	destination, destinationPath, err := writeURIDestination(uri, resolution.Config.Vault.Name, localRoot)
 	if err != nil {
 		return "", fmt.Errorf("write: target URI: %w", err)
 	}
@@ -73,7 +73,7 @@ func WriteDocument(root, uri string, content []byte, update bool) (string, error
 	if relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("write: target path is outside Concept Type %q path", inputType)
 	}
-	if !update && hasExternalCollision(pages, localRoot, destinationID) {
+	if !update && hasExternalCollision(pages, localRoot, destinationPath) {
 		return "", fmt.Errorf("write: document already exists outside the current vault; rerun with --update")
 	}
 	if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
@@ -93,15 +93,15 @@ func writeURIDestination(rawURI, vaultName, localRoot string) (string, string, e
 	if u.Host != vaultName {
 		return "", "", fmt.Errorf("vault %q is not the current local vault %q", u.Host, vaultName)
 	}
-	id := strings.TrimPrefix(u.EscapedPath(), "/")
-	decodedID, err := url.PathUnescape(id)
-	if err != nil || decodedID == "" || strings.Contains(decodedID, "\\") || path.IsAbs(decodedID) || path.Clean(decodedID) != decodedID || strings.HasPrefix(decodedID, "../") {
+	escapedPath := strings.TrimPrefix(u.EscapedPath(), "/")
+	decodedPath, err := url.PathUnescape(escapedPath)
+	if err != nil || decodedPath == "" || strings.Contains(decodedPath, "\\") || path.IsAbs(decodedPath) || path.Clean(decodedPath) != decodedPath || strings.HasPrefix(decodedPath, "../") {
 		return "", "", fmt.Errorf("path must be a canonical vault-relative document path")
 	}
-	if documentURI(vaultName, decodedID) != rawURI {
+	if documentURI(vaultName, decodedPath) != rawURI {
 		return "", "", fmt.Errorf("must be canonical")
 	}
-	destination := filepath.Clean(filepath.Join(localRoot, filepath.FromSlash(decodedID)))
+	destination := filepath.Clean(filepath.Join(localRoot, filepath.FromSlash(decodedPath)))
 	relative, err := filepath.Rel(localRoot, destination)
 	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
 		return "", "", fmt.Errorf("path escapes the local vault")
@@ -141,12 +141,12 @@ func writeDestinationDirectory(localRoot, path string) (string, error) {
 	return destination, nil
 }
 
-func hasExternalCollision(pages []*searchPage, localRoot, destinationID string) bool {
+func hasExternalCollision(pages []*searchPage, localRoot, destinationPath string) bool {
 	for _, page := range pages {
 		if page.root == localRoot {
 			continue
 		}
-		if page.document.ID == destinationID {
+		if page.document.Path == destinationPath {
 			return true
 		}
 	}

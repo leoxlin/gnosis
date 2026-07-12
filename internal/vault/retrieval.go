@@ -17,11 +17,10 @@ const (
 	bm25B              = 0.75
 )
 
-// Document is a vault page indexed for retrieval. ID must be stable and unique
-// within the loaded vault. Links contain other document IDs, not filesystem
-// paths.
+// Document is a vault page indexed for retrieval. URI is its sole stable,
+// unique identity. Path is used only to resolve authored relative links.
 type Document struct {
-	ID          string
+	Path        string
 	URI         string
 	Title       string
 	Description string
@@ -67,7 +66,6 @@ type QueryOptions struct {
 
 // Candidate is the compact, user-facing representation of a search hit.
 type Candidate struct {
-	Page        string  `json:"page"`
 	URI         string  `json:"uri"`
 	Type        string  `json:"type"`
 	Title       string  `json:"title"`
@@ -93,7 +91,7 @@ const (
 	fieldAliases
 	fieldTags
 	fieldDescription
-	fieldID
+	fieldPath
 	fieldType
 	fieldBody
 	fieldCount
@@ -104,7 +102,7 @@ var fieldWeights = [fieldCount]float64{
 	fieldAliases:     5,
 	fieldTags:        3,
 	fieldDescription: 2,
-	fieldID:          2,
+	fieldPath:        2,
 	fieldType:        1,
 	fieldBody:        1,
 }
@@ -122,7 +120,7 @@ type indexedDocument struct {
 // Engine is an immutable, in-memory BM25F-style retriever and link graph.
 type Engine struct {
 	documents         []indexedDocument
-	byID              map[string]Document
+	byURI             map[string]Document
 	documentFrequency map[string]int
 	averageLength     [fieldCount]float64
 	adjacency         map[string][]string
@@ -132,13 +130,11 @@ type Engine struct {
 // New constructs a live in-memory index from documents.
 func New(documents []Document) *Engine {
 	documents = append([]Document(nil), documents...)
-	sort.Slice(documents, func(i, j int) bool {
-		return documents[i].ID < documents[j].ID
-	})
+	sort.Slice(documents, func(i, j int) bool { return documents[i].URI < documents[j].URI })
 
 	engine := &Engine{
 		documents:         make([]indexedDocument, 0, len(documents)),
-		byID:              make(map[string]Document, len(documents)),
+		byURI:             make(map[string]Document, len(documents)),
 		documentFrequency: make(map[string]int),
 		adjacency:         make(map[string][]string, len(documents)),
 	}
@@ -151,7 +147,7 @@ func New(documents []Document) *Engine {
 			fieldAliases:     strings.Join(document.Aliases, " "),
 			fieldTags:        strings.Join(document.Tags, " "),
 			fieldDescription: document.Description,
-			fieldID:          document.ID,
+			fieldPath:        document.Path,
 			fieldType:        document.Type,
 			fieldBody:        document.Body,
 		}
@@ -175,7 +171,7 @@ func New(documents []Document) *Engine {
 		}
 
 		engine.documents = append(engine.documents, indexed)
-		engine.byID[document.ID] = document
+		engine.byURI[document.URI] = document
 	}
 
 	for currentField := field(0); currentField < fieldCount; currentField++ {
@@ -236,7 +232,7 @@ func (e *Engine) Search(query string, limit int) []Hit {
 		if hits[i].Score != hits[j].Score {
 			return hits[i].Score > hits[j].Score
 		}
-		return hits[i].Document.ID < hits[j].Document.ID
+		return hits[i].Document.URI < hits[j].Document.URI
 	})
 	if len(hits) > limit {
 		hits = hits[:limit]
@@ -261,7 +257,7 @@ func (e *Engine) Query(question string, options QueryOptions) QueryResult {
 		from := e.retrieve(endpoints[0], 1)
 		to := e.retrieve(endpoints[1], 1)
 		if len(from) > 0 && len(to) > 0 {
-			result.Path = e.FindPath(from[0].Document.ID, to[0].Document.ID, options.MaxDepth)
+			result.Path = e.FindPath(from[0].Document.URI, to[0].Document.URI, options.MaxDepth)
 		}
 	} else {
 		hits = e.retrieve(question, options.Top)
@@ -269,7 +265,6 @@ func (e *Engine) Query(question string, options QueryOptions) QueryResult {
 
 	for _, hit := range hits {
 		result.Candidates = append(result.Candidates, Candidate{
-			Page:        hit.Document.ID,
 			URI:         hit.Document.URI,
 			Type:        hit.Document.Type,
 			Title:       hit.Document.Title,
@@ -305,21 +300,21 @@ func (e *Engine) Query(question string, options QueryOptions) QueryResult {
 		addShouldRead(page)
 	}
 	for _, candidate := range result.Candidates {
-		addShouldRead(candidate.Page)
+		addShouldRead(candidate.URI)
 	}
 	return result
 }
 
-// FindPath returns the deterministic shortest path between two document IDs,
+// FindPath returns the deterministic shortest path between two document URIs,
 // treating directed document links as traversable in both directions.
 func (e *Engine) FindPath(source, target string, maxDepth int) []string {
 	if maxDepth < 0 {
 		return []string{}
 	}
-	if _, exists := e.byID[source]; !exists {
+	if _, exists := e.byURI[source]; !exists {
 		return []string{}
 	}
-	if _, exists := e.byID[target]; !exists {
+	if _, exists := e.byURI[target]; !exists {
 		return []string{}
 	}
 	if source == target {
@@ -381,27 +376,27 @@ func (e *Engine) score(document indexedDocument, terms []string) float64 {
 }
 
 func (e *Engine) buildAdjacency() {
-	sets := make(map[string]map[string]struct{}, len(e.byID))
-	for id := range e.byID {
-		sets[id] = make(map[string]struct{})
+	sets := make(map[string]map[string]struct{}, len(e.byURI))
+	for uri := range e.byURI {
+		sets[uri] = make(map[string]struct{})
 	}
-	for _, document := range e.byID {
+	for _, document := range e.byURI {
 		for _, target := range document.Links {
-			if target == document.ID {
+			if target == document.URI {
 				continue
 			}
-			if _, exists := e.byID[target]; !exists {
+			if _, exists := e.byURI[target]; !exists {
 				continue
 			}
-			sets[document.ID][target] = struct{}{}
-			sets[target][document.ID] = struct{}{}
+			sets[document.URI][target] = struct{}{}
+			sets[target][document.URI] = struct{}{}
 		}
 	}
-	for id, neighbors := range sets {
+	for uri, neighbors := range sets {
 		for neighbor := range neighbors {
-			e.adjacency[id] = append(e.adjacency[id], neighbor)
+			e.adjacency[uri] = append(e.adjacency[uri], neighbor)
 		}
-		sort.Strings(e.adjacency[id])
+		sort.Strings(e.adjacency[uri])
 	}
 }
 
@@ -413,10 +408,10 @@ func (e *Engine) pathCandidates(endpoints []string, limit int) []Hit {
 			if len(combined) >= limit {
 				return
 			}
-			if _, exists := seen[hit.Document.ID]; exists {
+			if _, exists := seen[hit.Document.URI]; exists {
 				continue
 			}
-			seen[hit.Document.ID] = struct{}{}
+			seen[hit.Document.URI] = struct{}{}
 			combined = append(combined, hit)
 		}
 	}
@@ -461,18 +456,18 @@ func classifyMatch(query string, document Document) matchClass {
 		return matchNone
 	}
 
-	ids := []string{
-		document.ID,
-		strings.TrimSuffix(document.ID, filepath.Ext(document.ID)),
-		strings.TrimSuffix(filepath.Base(document.ID), filepath.Ext(document.ID)),
+	paths := []string{
+		document.Path,
+		strings.TrimSuffix(document.Path, filepath.Ext(document.Path)),
+		strings.TrimSuffix(filepath.Base(document.Path), filepath.Ext(document.Path)),
 	}
-	for _, value := range append(append([]string{document.Title}, document.Aliases...), ids...) {
+	for _, value := range append(append([]string{document.Title}, document.Aliases...), paths...) {
 		valueCanonical := canonical(value)
 		if valueCanonical != "" && valueCanonical == queryCanonical {
 			return matchExact
 		}
 	}
-	for _, value := range append(append([]string{document.Title}, document.Aliases...), document.ID) {
+	for _, value := range append(append([]string{document.Title}, document.Aliases...), document.Path) {
 		valueCanonical := canonical(value)
 		if valueCanonical != "" && strings.Contains(valueCanonical, queryCanonical) {
 			return matchPhrase

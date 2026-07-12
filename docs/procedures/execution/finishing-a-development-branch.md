@@ -23,7 +23,7 @@ Finishing a branch verifies the completed work, detects who owns the workspace, 
 
 ## Process
 
-1. Invoke `gnosis procedure invoke --id 'gnosis://core/procedures/execution/verification-before-completion.md' --pretty` across the full suite, build, documentation checks, and every directive acceptance criterion. Stop on failure.
+1. Invoke `gnosis procedure invoke --uri 'gnosis://core/procedures/execution/verification-before-completion.md' --pretty` across the full suite, build, documentation checks, and every directive acceptance criterion. Stop on failure.
 2. Detect normal checkout, named-branch worktree, or detached harness-managed workspace. Determine the likely base branch and ask when it is ambiguous.
 3. For a named branch, present four concise choices: merge locally, push and create a pull request, keep the branch, or discard. For detached HEAD, omit local merge and offer push as a new branch, keep, or discard.
 4. Execute only the selected choice:

@@ -15,22 +15,20 @@ var (
 // their canonical gnosis URIs. It preserves external, unresolved, and asset
 // destinations exactly as written.
 func renderDocumentLinks(page *searchPage, pages []*searchPage) (string, error) {
-	pathIDs := make(map[string]string, len(pages))
-	idPages := make(map[string]*searchPage, len(pages))
-	uriIDs := make(map[string]string, len(pages))
+	pathURIs := make(map[string]string, len(pages))
+	uriPages := make(map[string]*searchPage, len(pages))
 	for _, candidate := range pages {
-		pathIDs[candidate.path] = candidate.document.ID
-		idPages[candidate.document.ID] = candidate
-		uriIDs[candidate.document.URI] = candidate.document.ID
+		pathURIs[candidate.path] = candidate.document.URI
+		uriPages[candidate.document.URI] = candidate
 	}
 
 	rewrite := func(raw string) string {
 		destination := strings.TrimSuffix(strings.TrimPrefix(strings.TrimSpace(raw), "<"), ">")
-		id := resolveDocumentTarget(page, destination, pathIDs, idPages, uriIDs)
-		if id == "" {
+		uri := resolveDocumentTarget(page, destination, pathURIs, uriPages)
+		if uri == "" {
 			return raw
 		}
-		target, exists := idPages[id]
+		target, exists := uriPages[uri]
 		if !exists {
 			return raw
 		}

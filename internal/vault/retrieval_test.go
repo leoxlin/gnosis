@@ -5,16 +5,22 @@ import (
 	"testing"
 )
 
+func document(path string) Document {
+	return Document{Path: path, URI: "gnosis://test/" + path}
+}
+
 func TestSearchPrefersExactMetadataOverBodyMatches(t *testing.T) {
 	engine := New([]Document{
 		{
-			ID:          "concepts/rate-limiting.md",
+			Path:        "concepts/rate-limiting.md",
+			URI:         "gnosis://test/concepts/rate-limiting.md",
 			Title:       "Rate Limiting",
 			Description: "Controls request volume.",
 			Body:        "A concise concept page.",
 		},
 		{
-			ID:    "references/networking.md",
+			Path:  "references/networking.md",
+			URI:   "gnosis://test/references/networking.md",
 			Title: "Networking Notes",
 			Body:  strings.Repeat("rate limiting ", 30),
 		},
@@ -24,7 +30,7 @@ func TestSearchPrefersExactMetadataOverBodyMatches(t *testing.T) {
 	if len(hits) != 2 {
 		t.Fatalf("hits = %+v", hits)
 	}
-	if hits[0].Document.ID != "concepts/rate-limiting.md" || !hits[0].Exact {
+	if hits[0].Document.URI != "gnosis://test/concepts/rate-limiting.md" || !hits[0].Exact {
 		t.Fatalf("top hit = %+v", hits[0])
 	}
 }
@@ -32,13 +38,15 @@ func TestSearchPrefersExactMetadataOverBodyMatches(t *testing.T) {
 func TestSearchUsesDescriptionTagsBodyAndTechnicalTokens(t *testing.T) {
 	engine := New([]Document{
 		{
-			ID:          "decisions/navigation.md",
+			Path:        "decisions/navigation.md",
+			URI:         "gnosis://test/decisions/navigation.md",
 			Title:       "Navigation Settings",
 			Description: "Controls optional vault indexes.",
 			Tags:        []string{"vault_index", "configuration"},
 		},
 		{
-			ID:    "references/query.md",
+			Path:  "references/query.md",
+			URI:   "gnosis://test/references/query.md",
 			Title: "Query Reference",
 			Body:  "The body documents semantic-recall behavior.",
 		},
@@ -48,13 +56,13 @@ func TestSearchUsesDescriptionTagsBodyAndTechnicalTokens(t *testing.T) {
 		query string
 		want  string
 	}{
-		{query: "vault index", want: "decisions/navigation.md"},
-		{query: "optional indexes", want: "decisions/navigation.md"},
-		{query: "semantic recall", want: "references/query.md"},
+		{query: "vault index", want: "gnosis://test/decisions/navigation.md"},
+		{query: "optional indexes", want: "gnosis://test/decisions/navigation.md"},
+		{query: "semantic recall", want: "gnosis://test/references/query.md"},
 	} {
 		t.Run(test.query, func(t *testing.T) {
 			hits := engine.Search(test.query, 1)
-			if len(hits) != 1 || hits[0].Document.ID != test.want {
+			if len(hits) != 1 || hits[0].Document.URI != test.want {
 				t.Fatalf("hits = %+v, want %s", hits, test.want)
 			}
 		})
@@ -63,26 +71,27 @@ func TestSearchUsesDescriptionTagsBodyAndTechnicalTokens(t *testing.T) {
 
 func TestSearchPreservesDuplicateBasenamesByFullID(t *testing.T) {
 	engine := New([]Document{
-		{ID: "docs/concepts/indexing.md", Title: "Concept Indexing"},
-		{ID: "notes/indexing.md", Title: "Personal Indexing"},
+		{Path: "docs/concepts/indexing.md", URI: "gnosis://test/docs/concepts/indexing.md", Title: "Concept Indexing"},
+		{Path: "notes/indexing.md", URI: "gnosis://test/notes/indexing.md", Title: "Personal Indexing"},
 	})
 
 	hits := engine.Search("indexing", 2)
 	if len(hits) != 2 {
 		t.Fatalf("hits = %+v", hits)
 	}
-	if hits[0].Document.ID == hits[1].Document.ID {
-		t.Fatalf("duplicate IDs in hits: %+v", hits)
+	if hits[0].Document.URI == hits[1].Document.URI {
+		t.Fatalf("duplicate URIs in hits: %+v", hits)
 	}
 }
 
 func TestQueryCanUseReplaceableRetriever(t *testing.T) {
-	document := Document{ID: "external/page.md", Title: "External Page"}
-	retriever := &staticRetriever{hits: []Hit{{Document: document, Score: 42}}}
-	engine := NewWithRetriever([]Document{document}, retriever)
+	page := document("external/page.md")
+	page.Title = "External Page"
+	retriever := &staticRetriever{hits: []Hit{{Document: page, Score: 42}}}
+	engine := NewWithRetriever([]Document{page}, retriever)
 
 	result := engine.Query("anything", QueryOptions{Top: 1, MaxRead: 1, MaxDepth: 1})
-	if len(result.Candidates) != 1 || result.Candidates[0].Page != document.ID || result.Candidates[0].Score != 42 {
+	if len(result.Candidates) != 1 || result.Candidates[0].URI != page.URI || result.Candidates[0].Score != 42 {
 		t.Fatalf("result = %+v", result)
 	}
 	if retriever.query != "anything" || retriever.limit != 1 {
@@ -93,12 +102,14 @@ func TestQueryCanUseReplaceableRetriever(t *testing.T) {
 func TestQueryExactDescriptionIsIndexOnly(t *testing.T) {
 	engine := New([]Document{
 		{
-			ID:          "concepts/transformer.md",
+			Path:        "concepts/transformer.md",
+			URI:         "gnosis://test/concepts/transformer.md",
 			Title:       "Transformer Architecture",
 			Description: "A self-attention sequence model.",
 		},
 		{
-			ID:          "references/transformer-history.md",
+			Path:        "references/transformer-history.md",
+			URI:         "gnosis://test/references/transformer-history.md",
 			Title:       "Transformer History",
 			Description: "Related background.",
 		},
@@ -118,10 +129,11 @@ func TestQueryExactDescriptionIsIndexOnly(t *testing.T) {
 
 func TestQueryBoundsContextAndTruncatesDescription(t *testing.T) {
 	documents := []Document{}
-	for _, id := range []string{"a", "b", "c", "d"} {
+	for _, path := range []string{"a", "b", "c", "d"} {
 		documents = append(documents, Document{
-			ID:          id + ".md",
-			Title:       "Supporting " + id,
+			Path:        path + ".md",
+			URI:         "gnosis://test/" + path + ".md",
+			Title:       "Supporting " + path,
 			Description: strings.Repeat("knowledge ", 40),
 			Body:        "bounded context",
 		})
@@ -144,7 +156,9 @@ func TestQueryBoundsContextAndTruncatesDescription(t *testing.T) {
 }
 
 func TestQueryMaxReadZeroReturnsNoPageRecommendations(t *testing.T) {
-	engine := New([]Document{{ID: "page.md", Title: "Page", Body: "search term"}})
+	page := document("page.md")
+	page.Title, page.Body = "Page", "search term"
+	engine := New([]Document{page})
 	result := engine.Query("search term", QueryOptions{Top: 3, MaxRead: 0, MaxDepth: 3})
 	if len(result.ShouldRead) != 0 {
 		t.Fatalf("should_read = %v", result.ShouldRead)
@@ -152,7 +166,9 @@ func TestQueryMaxReadZeroReturnsNoPageRecommendations(t *testing.T) {
 }
 
 func TestQueryNoMatchesIsCompleteWithoutReads(t *testing.T) {
-	engine := New([]Document{{ID: "page.md", Title: "Page"}})
+	page := document("page.md")
+	page.Title = "Page"
+	engine := New([]Document{page})
 	result := engine.Query("zzznomatch", QueryOptions{Top: 3, MaxRead: 3, MaxDepth: 3})
 	if !result.IndexOnly || len(result.Candidates) != 0 || len(result.ShouldRead) != 0 {
 		t.Fatalf("result = %+v", result)
@@ -178,17 +194,17 @@ func TestQueryClassifiesListAndGap(t *testing.T) {
 
 func TestQueryFindsBoundedShortestPath(t *testing.T) {
 	engine := New([]Document{
-		{ID: "a.md", Title: "Alpha", Description: "A.", Links: []string{"b.md", "d.md"}},
-		{ID: "b.md", Title: "Beta", Description: "B.", Links: []string{"c.md"}},
-		{ID: "c.md", Title: "Gamma", Description: "C."},
-		{ID: "d.md", Title: "Delta", Description: "D.", Links: []string{"c.md"}},
+		{Path: "a.md", URI: "gnosis://test/a.md", Title: "Alpha", Description: "A.", Links: []string{"gnosis://test/b.md", "gnosis://test/d.md"}},
+		{Path: "b.md", URI: "gnosis://test/b.md", Title: "Beta", Description: "B.", Links: []string{"gnosis://test/c.md"}},
+		{Path: "c.md", URI: "gnosis://test/c.md", Title: "Gamma", Description: "C."},
+		{Path: "d.md", URI: "gnosis://test/d.md", Title: "Delta", Description: "D.", Links: []string{"gnosis://test/c.md"}},
 	})
 
 	result := engine.Query("How is Alpha connected to Gamma?", QueryOptions{Top: 3, MaxRead: 3, MaxDepth: 2})
 	if result.AnswerType != AnswerPath {
 		t.Fatalf("answer type = %q", result.AnswerType)
 	}
-	want := []string{"a.md", "b.md", "c.md"}
+	want := []string{"gnosis://test/a.md", "gnosis://test/b.md", "gnosis://test/c.md"}
 	if strings.Join(result.Path, ",") != strings.Join(want, ",") {
 		t.Fatalf("path = %v, want %v", result.Path, want)
 	}
@@ -204,11 +220,11 @@ func TestQueryFindsBoundedShortestPath(t *testing.T) {
 
 func TestFindPathTraversesReverseLinks(t *testing.T) {
 	engine := New([]Document{
-		{ID: "source.md", Links: []string{"target.md"}},
-		{ID: "target.md"},
+		{Path: "source.md", URI: "gnosis://test/source.md", Links: []string{"gnosis://test/target.md"}},
+		{Path: "target.md", URI: "gnosis://test/target.md"},
 	})
-	path := engine.FindPath("target.md", "source.md", 1)
-	if strings.Join(path, ",") != "target.md,source.md" {
+	path := engine.FindPath("gnosis://test/target.md", "gnosis://test/source.md", 1)
+	if strings.Join(path, ",") != "gnosis://test/target.md,gnosis://test/source.md" {
 		t.Fatalf("path = %v", path)
 	}
 }

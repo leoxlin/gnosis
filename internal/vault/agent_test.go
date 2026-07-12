@@ -14,7 +14,7 @@ func TestReadAndInvokeProcessRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if invocation.Process.ID != "processes/query-vault.md" || invocation.Process.URI != processURI || invocation.Process.Type != "Procedure" {
+	if invocation.Process.URI != processURI || invocation.Process.Type != "Procedure" {
 		t.Fatalf("invoked process = %+v", invocation.Process)
 	}
 	if invocation.Process.Origin.Kind != OriginLocal || invocation.Process.Origin.Vault != "agent-test" || invocation.Process.Revision == "" {
@@ -34,15 +34,11 @@ func TestReadAndInvokeProcessRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if page.Document.ID != invocation.Process.ID || !strings.Contains(page.Markdown, "# query-vault") {
+	if page.Document.URI != invocation.Process.URI || !strings.Contains(page.Markdown, "# query-vault") {
 		t.Fatalf("page = %+v", page)
 	}
-	byID, err := ReadPage(root, invocation.Process.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if byID.Document.URI != processURI || byID.Markdown != page.Markdown {
-		t.Fatalf("by ID = %+v", byID)
+	if _, err := ReadPage(root, "processes/query-vault.md"); err == nil {
+		t.Fatal("ReadPage accepted a relative path")
 	}
 }
 
@@ -85,7 +81,7 @@ The plan is complete.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(discovery.Procedures) != 1 || discovery.Procedures[0].ID != "processes/query-vault.md" || strings.Join(discovery.Procedures[0].Tags, ",") != "test-vault" {
+	if len(discovery.Procedures) != 1 || discovery.Procedures[0].URI != "gnosis://agent-test/processes/query-vault.md" || strings.Join(discovery.Procedures[0].Tags, ",") != "test-vault" {
 		t.Fatalf("procedures = %+v", discovery.Procedures)
 	}
 }
@@ -110,7 +106,7 @@ func TestReadPageAcceptsOnlyCanonicalGnosisURIs(t *testing.T) {
 func TestTraceLinksReturnsDirectedTypedEdges(t *testing.T) {
 	root := agentTestVault(t)
 
-	neighbors, err := TraceNeighbors(root, "processes/query-vault.md", DirectionOut, []string{"links_to"})
+	neighbors, err := TraceNeighbors(root, "gnosis://agent-test/processes/query-vault.md", DirectionOut, []string{"links_to"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,11 +114,11 @@ func TestTraceLinksReturnsDirectedTypedEdges(t *testing.T) {
 		t.Fatalf("edges = %+v", neighbors.Edges)
 	}
 	edge := neighbors.Edges[0]
-	if edge.From.ID != "processes/query-vault.md" || edge.To.ID != "concepts/provenance.md" || edge.Relation != "links_to" {
+	if edge.From.URI != "gnosis://agent-test/processes/query-vault.md" || edge.To.URI != "gnosis://agent-test/concepts/provenance.md" || edge.Relation != "links_to" {
 		t.Fatalf("edge = %+v", edge)
 	}
 
-	path, err := TracePath(root, "processes/query-vault.md", "concepts/provenance.md", DirectionOut, []string{"links_to"}, 2)
+	path, err := TracePath(root, "gnosis://agent-test/processes/query-vault.md", "gnosis://agent-test/concepts/provenance.md", DirectionOut, []string{"links_to"}, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +126,7 @@ func TestTraceLinksReturnsDirectedTypedEdges(t *testing.T) {
 		t.Fatalf("path = %+v", path)
 	}
 
-	reverse, err := TracePath(root, "concepts/provenance.md", "processes/query-vault.md", DirectionOut, []string{"links_to"}, 2)
+	reverse, err := TracePath(root, "gnosis://agent-test/concepts/provenance.md", "gnosis://agent-test/processes/query-vault.md", DirectionOut, []string{"links_to"}, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +134,7 @@ func TestTraceLinksReturnsDirectedTypedEdges(t *testing.T) {
 		t.Fatalf("reverse path = %+v", reverse)
 	}
 
-	incoming, err := TracePath(root, "concepts/provenance.md", "processes/query-vault.md", DirectionIn, []string{"links_to"}, 2)
+	incoming, err := TracePath(root, "gnosis://agent-test/concepts/provenance.md", "gnosis://agent-test/processes/query-vault.md", DirectionIn, []string{"links_to"}, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +193,7 @@ description: Imported shared knowledge.
 # Shared End
 `)
 
-	path, err := TracePath(workspace, "processes/start.md", "shared/end.md", DirectionOut, []string{"links_to"}, 2)
+	path, err := TracePath(workspace, "gnosis://workspace/processes/start.md", "gnosis://shared/shared/end.md", DirectionOut, []string{"links_to"}, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,7 +253,7 @@ relationships:
 # Provenance
 `)
 
-	unknown, err := TracePath(root, "missing.md", "concepts/end.md", DirectionOut, nil, 3)
+	unknown, err := TracePath(root, "gnosis://agent-test/missing.md", "gnosis://agent-test/concepts/end.md", DirectionOut, nil, 3)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +261,7 @@ relationships:
 		t.Fatalf("unknown path = %+v", unknown)
 	}
 
-	disconnected, err := TracePath(root, "concepts/provenance.md", "concepts/disconnected.md", DirectionOut, nil, 3)
+	disconnected, err := TracePath(root, "gnosis://agent-test/concepts/provenance.md", "gnosis://agent-test/concepts/disconnected.md", DirectionOut, nil, 3)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,7 +269,7 @@ relationships:
 		t.Fatalf("disconnected path = %+v", disconnected)
 	}
 
-	limited, err := TracePath(root, "concepts/provenance.md", "concepts/end.md", DirectionOut, nil, 1)
+	limited, err := TracePath(root, "gnosis://agent-test/concepts/provenance.md", "gnosis://agent-test/concepts/end.md", DirectionOut, nil, 1)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestSearchSourceLoadsConfiguredRootWithStableIDs(t *testing.T) {
+func TestSearchSourceLoadsConfiguredRootWithStableURIs(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]
 vault_name = "Test"
@@ -55,16 +55,16 @@ type: Hidden
 	if err != nil {
 		t.Fatal(err)
 	}
-	byID := make(map[string]int)
+	byURI := make(map[string]int)
 	for i, document := range documents {
-		byID[document.ID] = i
+		byURI[document.URI] = i
 	}
-	for _, id := range []string{"concept.md", "related.md"} {
-		if _, exists := byID[id]; !exists {
-			t.Fatalf("missing %s in %+v", id, documents)
+	for _, uri := range []string{"gnosis://Test/concept.md", "gnosis://Test/related.md"} {
+		if _, exists := byURI[uri]; !exists {
+			t.Fatalf("missing %s in %+v", uri, documents)
 		}
 	}
-	concept := documents[byID["concept.md"]]
+	concept := documents[byURI["gnosis://Test/concept.md"]]
 	if concept.Description != "A folded description." {
 		t.Fatalf("description = %q", concept.Description)
 	}
@@ -74,14 +74,14 @@ type: Hidden
 	if strings.Join(concept.Aliases, ",") != "Primary Idea" {
 		t.Fatalf("aliases = %v", concept.Aliases)
 	}
-	if strings.Join(concept.Links, ",") != "related.md" {
+	if strings.Join(concept.Links, ",") != "gnosis://Test/related.md" {
 		t.Fatalf("links = %v", concept.Links)
 	}
-	related := documents[byID["related.md"]]
+	related := documents[byURI["gnosis://Test/related.md"]]
 	if related.Description != "Summary fallback." {
 		t.Fatalf("summary fallback = %q", related.Description)
 	}
-	if strings.Join(related.Links, ",") != "concept.md" {
+	if strings.Join(related.Links, ",") != "gnosis://Test/concept.md" {
 		t.Fatalf("absolute link = %v", related.Links)
 	}
 }
@@ -119,7 +119,7 @@ vault_root = "."
 		t.Fatal(err)
 	}
 	for _, document := range documents {
-		if document.ID == "article.md" && document.Title == "Local" {
+		if document.URI == "gnosis://Workspace/article.md" && document.Title == "Local" {
 			return
 		}
 	}
@@ -151,20 +151,20 @@ title: Local using-gnosis
 	if err != nil {
 		t.Fatal(err)
 	}
-	byID := make(map[string]Document, len(documents))
+	byURI := make(map[string]Document, len(documents))
 	for _, document := range documents {
-		byID[document.ID] = document
+		byURI[document.URI] = document
 	}
-	if got := byID["concepts/procedure.md"].Title; got != "LocalProcedure" {
+	if got := byURI["gnosis://Workspace/concepts/procedure.md"].Title; got != "LocalProcedure" {
 		t.Fatalf("vault-process title = %q", got)
 	}
-	if got := byID["procedures/using-gnosis.md"].Title; got != "Local using-gnosis" {
+	if got := byURI["gnosis://Workspace/procedures/using-gnosis.md"].Title; got != "Local using-gnosis" {
 		t.Fatalf("using-gnosis title = %q", got)
 	}
-	if _, exists := byID["documentation/basic-usage.md"]; exists {
+	if _, exists := byURI["gnosis://core/documentation/basic-usage.md"]; exists {
 		t.Fatalf("documents include removed bundled documentation: %+v", documents)
 	}
-	if _, exists := byID["concepts/purpose.md"]; !exists {
+	if _, exists := byURI["gnosis://core/concepts/purpose.md"]; !exists {
 		t.Fatalf("documents missing bundled gnosis concepts: %+v", documents)
 	}
 	data, err := Read(root, "Procedure", "query-vault")
@@ -192,14 +192,14 @@ vault_root = "."
 		t.Fatal(err)
 	}
 	for _, document := range documents {
-		if document.ID == "concepts/procedure.md" {
+		if document.URI == "gnosis://core/concepts/procedure.md" {
 			if document.Origin.Vault != "core" || document.URI != "gnosis://core/concepts/procedure.md" {
 				t.Fatalf("bundled document = %+v", document)
 			}
 			return
 		}
 	}
-		t.Fatal("missing bundled gnosis procedure concept")
+	t.Fatal("missing bundled gnosis procedure concept")
 }
 
 func TestSearchSourceLetsImportsOverrideBundledDocuments(t *testing.T) {
@@ -231,7 +231,7 @@ title: Imported query-vault
 		t.Fatal(err)
 	}
 	for _, document := range documents {
-		if document.ID != "procedures/query-vault.md" {
+		if document.URI != "gnosis://Imported/procedures/query-vault.md" {
 			continue
 		}
 		if document.Title != "Imported query-vault" {
@@ -260,21 +260,21 @@ vault_root = "."
 	if len(documents) == 0 {
 		t.Fatal("documents = none, want bundled documents")
 	}
-	byID := make(map[string]struct{}, len(documents))
+	byURI := make(map[string]struct{}, len(documents))
 	for _, document := range documents {
-		byID[document.ID] = struct{}{}
+		byURI[document.URI] = struct{}{}
 	}
-	for _, id := range []string{"concepts/procedure.md", "concepts/decision.md", "concepts/directive.md", "concepts/purpose.md", "procedures/execution/execute-directive.md", "procedures/vault/query-vault.md", "procedures/execution/verification-before-completion.md"} {
-		if _, exists := byID[id]; !exists {
-			t.Fatalf("documents missing %s: %+v", id, documents)
+	for _, uri := range []string{"gnosis://core/concepts/procedure.md", "gnosis://core/concepts/decision.md", "gnosis://core/concepts/directive.md", "gnosis://core/concepts/purpose.md", "gnosis://core/procedures/execution/execute-directive.md", "gnosis://core/procedures/vault/query-vault.md", "gnosis://core/procedures/execution/verification-before-completion.md"} {
+		if _, exists := byURI[uri]; !exists {
+			t.Fatalf("documents missing %s: %+v", uri, documents)
 		}
 	}
-	for _, id := range []string{"procedures/executing-plans.md", "procedures/ingest-concept.md", "procedures/receiving-code-review.md", "procedures/requesting-code-review.md", "procedures/review/code-review.md", "procedures/subagent-driven-development.md", "procedures/using-gnosis-forge.md", "procedures/skills/writing-skills.md"} {
-		if _, exists := byID[id]; exists {
-			t.Fatalf("documents include retired process %s: %+v", id, documents)
+	for _, uri := range []string{"gnosis://core/procedures/executing-plans.md", "gnosis://core/procedures/ingest-concept.md", "gnosis://core/procedures/receiving-code-review.md", "gnosis://core/procedures/requesting-code-review.md", "gnosis://core/procedures/review/code-review.md", "gnosis://core/procedures/subagent-driven-development.md", "gnosis://core/procedures/using-gnosis-forge.md", "gnosis://core/procedures/skills/writing-skills.md"} {
+		if _, exists := byURI[uri]; exists {
+			t.Fatalf("documents include retired process %s: %+v", uri, documents)
 		}
 	}
-	if _, exists := byID["documentation/basic-usage.md"]; exists {
+	if _, exists := byURI["gnosis://core/documentation/basic-usage.md"]; exists {
 		t.Fatalf("documents include removed basic usage page: %+v", documents)
 	}
 }
@@ -306,11 +306,11 @@ title: B
 	if err != nil {
 		t.Fatal(err)
 	}
-	byID := make(map[string]Document, len(documents))
+	byURI := make(map[string]Document, len(documents))
 	for _, document := range documents {
-		byID[document.ID] = document
+		byURI[document.URI] = document
 	}
-	if strings.Join(byID["a.md"].Links, ",") != "b.md" {
+	if strings.Join(byURI["gnosis://Test/a.md"].Links, ",") != "gnosis://Test/b.md" {
 		t.Fatalf("documents = %+v", documents)
 	}
 }
@@ -334,12 +334,12 @@ description: Before.
 	if err != nil {
 		t.Fatal(err)
 	}
-	byID := make(map[string]Document, len(documents))
+	byURI := make(map[string]Document, len(documents))
 	for _, document := range documents {
-		byID[document.ID] = document
+		byURI[document.URI] = document
 	}
-	if byID["page.md"].Description != "Before." {
-		t.Fatalf("description = %q", byID["page.md"].Description)
+	if byURI["gnosis://Test/page.md"].Description != "Before." {
+		t.Fatalf("description = %q", byURI["gnosis://Test/page.md"].Description)
 	}
 
 	updated := strings.Replace(string(mustReadFile(t, path)), "Before.", "After.", 1)
@@ -350,12 +350,12 @@ description: Before.
 	if err != nil {
 		t.Fatal(err)
 	}
-	byID = make(map[string]Document, len(documents))
+	byURI = make(map[string]Document, len(documents))
 	for _, document := range documents {
-		byID[document.ID] = document
+		byURI[document.URI] = document
 	}
-	if byID["page.md"].Description != "After." {
-		t.Fatalf("description = %q", byID["page.md"].Description)
+	if byURI["gnosis://Test/page.md"].Description != "After." {
+		t.Fatalf("description = %q", byURI["gnosis://Test/page.md"].Description)
 	}
 }
 

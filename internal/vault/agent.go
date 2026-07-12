@@ -29,7 +29,7 @@ type Origin struct {
 	Precedence int        `json:"precedence"`
 }
 
-// Edge is one directed relationship from a document to another effective ID.
+// Edge is one directed relationship from a document to another effective URI.
 type Edge struct {
 	To       string `json:"to"`
 	Relation string `json:"relation"`
@@ -37,9 +37,8 @@ type Edge struct {
 	Source   string `json:"source,omitempty"`
 }
 
-// DocumentRef is the stable, compact identity shared by agent-facing APIs.
+// DocumentRef is the compact agent-facing representation of a document.
 type DocumentRef struct {
-	ID          string `json:"id"`
 	URI         string `json:"uri"`
 	Type        string `json:"type"`
 	Title       string `json:"title"`
@@ -51,7 +50,6 @@ type DocumentRef struct {
 // Ref returns the agent-facing identity for a document.
 func (d Document) Ref() DocumentRef {
 	return DocumentRef{
-		ID:          d.ID,
 		URI:         d.URI,
 		Type:        d.Type,
 		Title:       d.Title,
@@ -85,7 +83,6 @@ type ProcessSummary struct {
 // ProcedureSummary is the compact metadata used to select a procedure.
 // It deliberately excludes source-specific and execution-effect metadata.
 type ProcedureSummary struct {
-	ID          string   `json:"id"`
 	URI         string   `json:"uri"`
 	Type        string   `json:"type"`
 	Title       string   `json:"title"`
@@ -174,7 +171,7 @@ func QueryKnowledge(root, question string, options QueryOptions) (QueryResult, e
 	return New(documents).Query(question, options), nil
 }
 
-// ListPages returns every effective page in deterministic ID order.
+// ListPages returns every effective page in deterministic URI order.
 func ListPages(root string) ([]DocumentRef, error) {
 	source, err := NewSearchSource(root)
 	if err != nil {
@@ -191,7 +188,7 @@ func ListPages(root string) ([]DocumentRef, error) {
 	return result, nil
 }
 
-// ReadPage reads one exact effective page by ID or gnosis URI.
+// ReadPage reads one exact effective page by gnosis URI.
 func ReadPage(root, selector string) (Page, error) {
 	source, err := NewSearchSource(root)
 	if err != nil {
@@ -203,7 +200,7 @@ func ReadPage(root, selector string) (Page, error) {
 	}
 	page, ok := selectPage(pages, selector)
 	if !ok {
-		return Page{}, fmt.Errorf("no document found with ID or URI %q", selector)
+		return Page{}, fmt.Errorf("no document found with URI %q", selector)
 	}
 	markdown, err := renderDocumentLinks(page, pages)
 	if err != nil {
@@ -241,7 +238,7 @@ func DiscoverProcesses(root string) (ProcessDiscovery, error) {
 		}
 		procedures = append(procedures, procedureSummary(summary))
 	}
-	sort.Slice(procedures, func(i, j int) bool { return procedures[i].ID < procedures[j].ID })
+	sort.Slice(procedures, func(i, j int) bool { return procedures[i].URI < procedures[j].URI })
 	return ProcessDiscovery{Procedures: procedures}, nil
 }
 
@@ -257,10 +254,10 @@ func InvokeProcess(root, selector string) (ProcessInvocation, error) {
 	}
 	page, ok := selectPage(pages, selector)
 	if !ok {
-		return ProcessInvocation{}, fmt.Errorf("no process found with ID or URI %q", selector)
+		return ProcessInvocation{}, fmt.Errorf("no process found with URI %q", selector)
 	}
 	if !isProcessType(page.document.Type) {
-		return ProcessInvocation{}, fmt.Errorf("document %q has non-executable type %q", page.document.ID, page.document.Type)
+		return ProcessInvocation{}, fmt.Errorf("document %q has non-executable type %q", page.document.URI, page.document.Type)
 	}
 	summary, err := processSummary(page)
 	if err != nil {
@@ -268,7 +265,7 @@ func InvokeProcess(root, selector string) (ProcessInvocation, error) {
 	}
 	sections, missing, duplicates := parseProcessSections(page.document.Body)
 	if len(missing) > 0 || len(duplicates) > 0 {
-		return ProcessInvocation{}, fmt.Errorf("process %q has invalid sections", page.document.ID)
+		return ProcessInvocation{}, fmt.Errorf("process %q has invalid sections", page.document.URI)
 	}
 	return ProcessInvocation{
 		Process:  summary,
@@ -288,9 +285,9 @@ func TraceNeighbors(root, selector string, direction Direction, relations []stri
 	}
 	page, ok := selectPage(pages, selector)
 	if !ok {
-		return GraphNeighbors{}, fmt.Errorf("no document found with ID or URI %q", selector)
+		return GraphNeighbors{}, fmt.Errorf("no document found with URI %q", selector)
 	}
-	edges := graph.neighborEdges(page.document.ID, direction, relationSet(relations))
+	edges := graph.neighborEdges(page.document.URI, direction, relationSet(relations))
 	return GraphNeighbors{
 		Node:      page.document.Ref(),
 		Direction: direction,
@@ -334,14 +331,14 @@ func TracePath(root, fromSelector, toSelector string, direction Direction, relat
 	result.To = &toRef
 
 	filter := relationSet(relations)
-	nodes, edges, found := graph.findPath(fromPage.document.ID, toPage.document.ID, direction, filter, maxDepth)
+	nodes, edges, found := graph.findPath(fromPage.document.URI, toPage.document.URI, direction, filter, maxDepth)
 	if found {
 		result.Status = PathFound
 		result.Nodes = graph.refs(nodes)
 		result.Edges = edges
 		return result, nil
 	}
-	if _, _, reachable := graph.findPath(fromPage.document.ID, toPage.document.ID, direction, filter, -1); reachable {
+	if _, _, reachable := graph.findPath(fromPage.document.URI, toPage.document.URI, direction, filter, -1); reachable {
 		result.Status = PathDepthExceeded
 	}
 	return result, nil
@@ -358,20 +355,20 @@ func processSummary(page *searchPage) (ProcessSummary, error) {
 	}
 	_, missing, duplicates := parseProcessSections(page.document.Body)
 	if len(missing) > 0 {
-		return ProcessSummary{}, fmt.Errorf("process %q missing required section(s): %s", page.document.ID, strings.Join(missing, ", "))
+		return ProcessSummary{}, fmt.Errorf("process %q missing required section(s): %s", page.document.URI, strings.Join(missing, ", "))
 	}
 	if len(duplicates) > 0 {
-		return ProcessSummary{}, fmt.Errorf("process %q repeats section(s): %s", page.document.ID, strings.Join(duplicates, ", "))
+		return ProcessSummary{}, fmt.Errorf("process %q repeats section(s): %s", page.document.URI, strings.Join(duplicates, ", "))
 	}
 	if strings.TrimSpace(page.document.Description) == "" {
-		return ProcessSummary{}, fmt.Errorf("process %q missing non-empty description frontmatter", page.document.ID)
+		return ProcessSummary{}, fmt.Errorf("process %q missing non-empty description frontmatter", page.document.URI)
 	}
 	useWhen, valid := fields.scalars("use_when")
 	if !valid {
-		return ProcessSummary{}, fmt.Errorf("process %q frontmatter %q must be a scalar or sequence of scalars", page.document.ID, "use_when")
+		return ProcessSummary{}, fmt.Errorf("process %q frontmatter %q must be a scalar or sequence of scalars", page.document.URI, "use_when")
 	}
 	if len(useWhen) == 0 {
-		return ProcessSummary{}, fmt.Errorf("process %q must declare at least one non-empty %q frontmatter value", page.document.ID, "use_when")
+		return ProcessSummary{}, fmt.Errorf("process %q must declare at least one non-empty %q frontmatter value", page.document.URI, "use_when")
 	}
 	invocation, _ := fields.scalar("invocation")
 	invocation = strings.TrimSpace(invocation)
@@ -379,7 +376,7 @@ func processSummary(page *searchPage) (ProcessSummary, error) {
 		invocation = "model"
 	}
 	if !validProcessInvocation(invocation) {
-		return ProcessSummary{}, fmt.Errorf("process %q has unsupported invocation %q", page.document.ID, invocation)
+		return ProcessSummary{}, fmt.Errorf("process %q has unsupported invocation %q", page.document.URI, invocation)
 	}
 	return ProcessSummary{
 		DocumentRef: page.document.Ref(),
@@ -391,7 +388,6 @@ func processSummary(page *searchPage) (ProcessSummary, error) {
 
 func procedureSummary(process ProcessSummary) ProcedureSummary {
 	return ProcedureSummary{
-		ID:          process.ID,
 		URI:         process.URI,
 		Type:        process.Type,
 		Title:       process.Title,
@@ -496,14 +492,14 @@ func selectPage(pages []*searchPage, selector string) (*searchPage, bool) {
 	selector = strings.TrimSpace(selector)
 	canonical, hasCanonicalURI := canonicalGnosisURI(selector)
 	for _, page := range pages {
-		if page.document.ID == selector || page.document.URI == selector || (hasCanonicalURI && page.document.URI == canonical) {
+		if (hasCanonicalURI && page.document.URI == canonical) || page.document.URI == selector {
 			return page, true
 		}
 	}
 	return nil, false
 }
 
-func documentURI(vaultName, id string) string {
+func documentURI(vaultName, pagePath string) string {
 	vaultName = strings.TrimSpace(vaultName)
 	if vaultName == "" {
 		vaultName = "default"
@@ -511,7 +507,7 @@ func documentURI(vaultName, id string) string {
 	u := &url.URL{
 		Scheme: "gnosis",
 		Host:   vaultName,
-		Path:   path.Join("/", id),
+		Path:   path.Join("/", pagePath),
 	}
 	return u.String()
 }
@@ -524,11 +520,11 @@ func canonicalGnosisURI(raw string) (string, bool) {
 	}
 
 	vaultName := u.Host
-	id := strings.TrimPrefix(u.Path, "/")
-	if strings.TrimSpace(id) == "" {
+	pagePath := strings.TrimPrefix(u.Path, "/")
+	if strings.TrimSpace(pagePath) == "" {
 		return "", false
 	}
-	return documentURI(vaultName, id), true
+	return documentURI(vaultName, pagePath), true
 }
 
 func documentRevision(data []byte) string {
@@ -562,7 +558,7 @@ func relationSet(relations []string) map[string]struct{} {
 }
 
 type agentGraph struct {
-	byID     map[string]Document
+	byURI    map[string]Document
 	outgoing map[string][]GraphEdge
 	incoming map[string][]GraphEdge
 }
@@ -581,16 +577,16 @@ func loadAgentGraph(root string) (*agentGraph, []*searchPage, error) {
 
 func newAgentGraph(pages []*searchPage) *agentGraph {
 	graph := &agentGraph{
-		byID:     make(map[string]Document, len(pages)),
+		byURI:    make(map[string]Document, len(pages)),
 		outgoing: make(map[string][]GraphEdge, len(pages)),
 		incoming: make(map[string][]GraphEdge, len(pages)),
 	}
 	for _, page := range pages {
-		graph.byID[page.document.ID] = page.document
+		graph.byURI[page.document.URI] = page.document
 	}
 	for _, page := range pages {
 		for _, edge := range page.document.Edges {
-			target, exists := graph.byID[edge.To]
+			target, exists := graph.byURI[edge.To]
 			if !exists {
 				continue
 			}
@@ -601,24 +597,24 @@ func newAgentGraph(pages []*searchPage) *agentGraph {
 				Raw:      edge.Raw,
 				Source:   edge.Source,
 			}
-			graph.outgoing[page.document.ID] = append(graph.outgoing[page.document.ID], resolved)
-			graph.incoming[target.ID] = append(graph.incoming[target.ID], resolved)
+			graph.outgoing[page.document.URI] = append(graph.outgoing[page.document.URI], resolved)
+			graph.incoming[target.URI] = append(graph.incoming[target.URI], resolved)
 		}
 	}
-	for id := range graph.byID {
-		sortGraphEdges(graph.outgoing[id])
-		sortGraphEdges(graph.incoming[id])
+	for uri := range graph.byURI {
+		sortGraphEdges(graph.outgoing[uri])
+		sortGraphEdges(graph.incoming[uri])
 	}
 	return graph
 }
 
 func sortGraphEdges(edges []GraphEdge) {
 	sort.Slice(edges, func(i, j int) bool {
-		if edges[i].From.ID != edges[j].From.ID {
-			return edges[i].From.ID < edges[j].From.ID
+		if edges[i].From.URI != edges[j].From.URI {
+			return edges[i].From.URI < edges[j].From.URI
 		}
-		if edges[i].To.ID != edges[j].To.ID {
-			return edges[i].To.ID < edges[j].To.ID
+		if edges[i].To.URI != edges[j].To.URI {
+			return edges[i].To.URI < edges[j].To.URI
 		}
 		if edges[i].Relation != edges[j].Relation {
 			return edges[i].Relation < edges[j].Relation
@@ -627,7 +623,7 @@ func sortGraphEdges(edges []GraphEdge) {
 	})
 }
 
-func (g *agentGraph) neighborEdges(id string, direction Direction, relations map[string]struct{}) []GraphEdge {
+func (g *agentGraph) neighborEdges(uri string, direction Direction, relations map[string]struct{}) []GraphEdge {
 	result := []GraphEdge{}
 	seen := make(map[string]struct{})
 	add := func(edges []GraphEdge) {
@@ -635,7 +631,7 @@ func (g *agentGraph) neighborEdges(id string, direction Direction, relations map
 			if !matchesRelation(edge.Relation, relations) {
 				continue
 			}
-			key := edge.From.ID + "\x00" + edge.To.ID + "\x00" + edge.Relation
+			key := edge.From.URI + "\x00" + edge.To.URI + "\x00" + edge.Relation
 			if _, exists := seen[key]; exists {
 				continue
 			}
@@ -644,10 +640,10 @@ func (g *agentGraph) neighborEdges(id string, direction Direction, relations map
 		}
 	}
 	if direction == DirectionOut || direction == DirectionBoth {
-		add(g.outgoing[id])
+		add(g.outgoing[uri])
 	}
 	if direction == DirectionIn || direction == DirectionBoth {
-		add(g.incoming[id])
+		add(g.incoming[uri])
 	}
 	sortGraphEdges(result)
 	return result
@@ -663,19 +659,19 @@ type graphPredecessor struct {
 	edge GraphEdge
 }
 
-func (g *agentGraph) arcs(id string, direction Direction, relations map[string]struct{}) []graphArc {
+func (g *agentGraph) arcs(uri string, direction Direction, relations map[string]struct{}) []graphArc {
 	result := []graphArc{}
 	if direction == DirectionOut || direction == DirectionBoth {
-		for _, edge := range g.outgoing[id] {
+		for _, edge := range g.outgoing[uri] {
 			if matchesRelation(edge.Relation, relations) {
-				result = append(result, graphArc{next: edge.To.ID, edge: edge})
+				result = append(result, graphArc{next: edge.To.URI, edge: edge})
 			}
 		}
 	}
 	if direction == DirectionIn || direction == DirectionBoth {
-		for _, edge := range g.incoming[id] {
+		for _, edge := range g.incoming[uri] {
 			if matchesRelation(edge.Relation, relations) {
-				result = append(result, graphArc{next: edge.From.ID, edge: edge})
+				result = append(result, graphArc{next: edge.From.URI, edge: edge})
 			}
 		}
 	}
@@ -697,20 +693,20 @@ func matchesRelation(relation string, allowed map[string]struct{}) bool {
 }
 
 func (g *agentGraph) findPath(source, target string, direction Direction, relations map[string]struct{}, maxDepth int) ([]string, []GraphEdge, bool) {
-	if _, exists := g.byID[source]; !exists {
+	if _, exists := g.byURI[source]; !exists {
 		return nil, nil, false
 	}
-	if _, exists := g.byID[target]; !exists {
+	if _, exists := g.byURI[target]; !exists {
 		return nil, nil, false
 	}
 	if source == target {
 		return []string{source}, []GraphEdge{}, true
 	}
 	type queueItem struct {
-		id    string
+		uri   string
 		depth int
 	}
-	queue := []queueItem{{id: source}}
+	queue := []queueItem{{uri: source}}
 	visited := map[string]struct{}{source: {}}
 	previous := make(map[string]graphPredecessor)
 	for len(queue) > 0 {
@@ -719,16 +715,16 @@ func (g *agentGraph) findPath(source, target string, direction Direction, relati
 		if maxDepth >= 0 && current.depth >= maxDepth {
 			continue
 		}
-		for _, arc := range g.arcs(current.id, direction, relations) {
+		for _, arc := range g.arcs(current.uri, direction, relations) {
 			if _, exists := visited[arc.next]; exists {
 				continue
 			}
 			visited[arc.next] = struct{}{}
-			previous[arc.next] = graphPredecessor{from: current.id, edge: arc.edge}
+			previous[arc.next] = graphPredecessor{from: current.uri, edge: arc.edge}
 			if arc.next == target {
 				return reconstructGraphPath(source, target, previous)
 			}
-			queue = append(queue, queueItem{id: arc.next, depth: current.depth + 1})
+			queue = append(queue, queueItem{uri: arc.next, depth: current.depth + 1})
 		}
 	}
 	return nil, nil, false
@@ -756,10 +752,10 @@ func reconstructGraphPath(source, target string, previous map[string]graphPredec
 	return nodes, edges, true
 }
 
-func (g *agentGraph) refs(ids []string) []DocumentRef {
-	result := make([]DocumentRef, 0, len(ids))
-	for _, id := range ids {
-		if document, exists := g.byID[id]; exists {
+func (g *agentGraph) refs(uris []string) []DocumentRef {
+	result := make([]DocumentRef, 0, len(uris))
+	for _, uri := range uris {
+		if document, exists := g.byURI[uri]; exists {
 			result = append(result, document.Ref())
 		}
 	}

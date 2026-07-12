@@ -9,11 +9,11 @@ description: Establish one stable document-link grammar for gnosis pages.
 Define the canonical document-link grammar as:
 
 ```text
-gnosis://<vault-name>/<vault-relative-page-id>
+gnosis://<vault-name>/<vault-relative-page-path>
 ```
 
 `gnosis` is the scheme, the authority is the vault name, and the path is the
-effective page's vault-relative Markdown ID. `core` is the authority for
+effective page's vault-relative Markdown path. `core` is the authority for
 bundled knowledge. Query strings and fragments may accompany a rendered link
 to preserve its destination within the page.
 
@@ -21,7 +21,7 @@ to preserve its destination within the page.
 
 Document links need one portable, parseable shape across CLI output, rendered
 Markdown and composed vaults. Using the URI authority for the
-vault and the path for the page ID follows standard URI structure, keeps the
+vault and the page path follows standard URI structure, keeps the
 link independent of local filesystem layout, and lets `core` identify bundled
 knowledge without conflating it with a workspace's local vault.
 
@@ -29,8 +29,8 @@ knowledge without conflating it with a workspace's local vault.
 
 - Newly emitted page identities and resolved rendered links use this grammar.
 - Selectors recognize this grammar only; `gnosis://vault/<vault-name>/<path>` is not a gnosis document link.
-- The path is an effective vault-relative page ID, not a local filesystem path.
-- Plain effective page IDs remain accepted where the command already supports IDs.
+- The path is an effective vault-relative page path, not a local filesystem path.
+- A canonical gnosis URI is the sole document identifier accepted by commands.
 
 # Rejected alternatives
 

@@ -63,7 +63,7 @@ func (s *SearchSource) Documents() ([]Document, error) {
 		documents = append(documents, page.document)
 	}
 	sort.Slice(documents, func(i, j int) bool {
-		return documents[i].ID < documents[j].ID
+		return documents[i].URI < documents[j].URI
 	})
 	return documents, nil
 }
@@ -108,7 +108,7 @@ func Read(root, conceptType, title string) ([]byte, error) {
 	default:
 		paths := make([]string, 0, len(matches))
 		for _, page := range matches {
-			paths = append(paths, page.document.ID)
+			paths = append(paths, page.document.URI)
 		}
 		sort.Strings(paths)
 		return nil, fmt.Errorf("multiple documents found with type %q and title %q: %s", conceptType, title, strings.Join(paths, ", "))
@@ -118,7 +118,7 @@ func Read(root, conceptType, title string) ([]byte, error) {
 func (s *SearchSource) pages() ([]*searchPage, error) {
 	pages := []*searchPage{}
 	seenPaths := make(map[string]struct{})
-	seenIDs := make(map[string]struct{})
+	seenRelativePaths := make(map[string]struct{})
 
 	for precedence, source := range s.resolution.Sources {
 		err := filepath.WalkDir(source.Path, func(path string, entry os.DirEntry, walkErr error) error {
@@ -139,12 +139,12 @@ func (s *SearchSource) pages() ([]*searchPage, error) {
 				return nil
 			}
 
-			id, err := filepath.Rel(source.Path, path)
+			relativePath, err := filepath.Rel(source.Path, path)
 			if err != nil {
 				return err
 			}
-			id = filepath.ToSlash(id)
-			if _, exists := seenIDs[id]; exists {
+			relativePath = filepath.ToSlash(relativePath)
+			if _, exists := seenRelativePaths[relativePath]; exists {
 				return nil
 			}
 
@@ -163,7 +163,7 @@ func (s *SearchSource) pages() ([]*searchPage, error) {
 				return err
 			}
 			seenPaths[path] = struct{}{}
-			seenIDs[id] = struct{}{}
+			seenRelativePaths[relativePath] = struct{}{}
 			pages = append(pages, page)
 			return nil
 		})
@@ -171,13 +171,13 @@ func (s *SearchSource) pages() ([]*searchPage, error) {
 			return nil, err
 		}
 	}
-	if err := s.appendBundledPages(&pages, seenPaths, seenIDs); err != nil {
+	if err := s.appendBundledPages(&pages, seenPaths, seenRelativePaths); err != nil {
 		return nil, err
 	}
 	return pages, nil
 }
 
-func (s *SearchSource) appendBundledPages(pages *[]*searchPage, seenPaths, seenIDs map[string]struct{}) error {
+func (s *SearchSource) appendBundledPages(pages *[]*searchPage, seenPaths, seenRelativePaths map[string]struct{}) error {
 	documents, err := bundledDocuments()
 	if err != nil {
 		return err
@@ -185,8 +185,8 @@ func (s *SearchSource) appendBundledPages(pages *[]*searchPage, seenPaths, seenI
 
 	const bundleRoot = ".gnosis-bundle"
 	for _, document := range documents {
-		id := filepath.ToSlash(filepath.Clean(document.Path))
-		if _, exists := seenIDs[id]; exists {
+		relativePath := filepath.ToSlash(filepath.Clean(document.Path))
+		if _, exists := seenRelativePaths[relativePath]; exists {
 			continue
 		}
 		path := filepath.Join(bundleRoot, filepath.FromSlash(document.Path))
@@ -203,7 +203,7 @@ func (s *SearchSource) appendBundledPages(pages *[]*searchPage, seenPaths, seenI
 			return err
 		}
 		seenPaths[path] = struct{}{}
-		seenIDs[id] = struct{}{}
+		seenRelativePaths[relativePath] = struct{}{}
 		*pages = append(*pages, page)
 	}
 	return nil
@@ -266,7 +266,7 @@ func readSearchData(root, path string, data []byte, origin Origin) (*searchPage,
 		path: filepath.Clean(path),
 		data: data,
 		document: Document{
-			ID:          filepath.ToSlash(relative),
+			Path:        filepath.ToSlash(relative),
 			URI:         documentURI(origin.Vault, filepath.ToSlash(relative)),
 			Title:       strings.TrimSpace(title),
 			Description: strings.TrimSpace(description),
@@ -283,13 +283,11 @@ func readSearchData(root, path string, data []byte, origin Origin) (*searchPage,
 }
 
 func resolveDocumentEdges(pages []*searchPage) error {
-	pathIDs := make(map[string]string, len(pages))
-	idPages := make(map[string]*searchPage, len(pages))
-	uriIDs := make(map[string]string, len(pages))
+	pathURIs := make(map[string]string, len(pages))
+	uriPages := make(map[string]*searchPage, len(pages))
 	for _, page := range pages {
-		pathIDs[page.path] = page.document.ID
-		idPages[page.document.ID] = page
-		uriIDs[page.document.URI] = page.document.ID
+		pathURIs[page.path] = page.document.URI
+		uriPages[page.document.URI] = page
 		page.document.Links = []string{}
 		page.document.Edges = []Edge{}
 	}
@@ -307,7 +305,7 @@ func resolveDocumentEdges(pages []*searchPage) error {
 		seenEdges := make(map[string]struct{})
 		explicitTargets := make(map[string]struct{})
 		addEdge := func(target, relation, raw, source string) {
-			if target == "" || target == page.document.ID {
+			if target == "" || target == page.document.URI {
 				return
 			}
 			key := relation + "\x00" + target
@@ -329,7 +327,7 @@ func resolveDocumentEdges(pages []*searchPage) error {
 			if relation == "" || targetRaw == "" {
 				continue
 			}
-			target := resolveDocumentTarget(page, targetRaw, pathIDs, idPages, uriIDs)
+			target := resolveDocumentTarget(page, targetRaw, pathURIs, uriPages)
 			if target == "" {
 				continue
 			}
@@ -342,7 +340,7 @@ func resolveDocumentEdges(pages []*searchPage) error {
 			return fmt.Errorf("parse links in %s: %w", page.path, err)
 		}
 		for _, link := range links {
-			target := resolveDocumentTarget(page, link.Raw, pathIDs, idPages, uriIDs)
+			target := resolveDocumentTarget(page, link.Raw, pathURIs, uriPages)
 			if target == "" {
 				continue
 			}
@@ -370,14 +368,14 @@ func resolveDocumentEdges(pages []*searchPage) error {
 	return nil
 }
 
-func resolveDocumentTarget(page *searchPage, raw string, pathIDs map[string]string, idPages map[string]*searchPage, uriIDs map[string]string) string {
+func resolveDocumentTarget(page *searchPage, raw string, pathURIs map[string]string, uriPages map[string]*searchPage) string {
 	raw = strings.TrimSpace(raw)
-	if id, exists := uriIDs[raw]; exists {
-		return id
+	if _, exists := uriPages[raw]; exists {
+		return raw
 	}
 	if canonical, ok := canonicalGnosisURI(raw); ok {
-		if id, exists := uriIDs[canonical]; exists {
-			return id
+		if _, exists := uriPages[canonical]; exists {
+			return canonical
 		}
 	}
 	link, include, err := parseLinkDestination(raw)
@@ -396,26 +394,28 @@ func resolveDocumentTarget(page *searchPage, raw string, pathIDs map[string]stri
 			candidates = append(candidates, target+".md")
 		}
 		for _, candidate := range candidates {
-			if id, exists := pathIDs[filepath.Clean(candidate)]; exists {
-				return id
+			if uri, exists := pathURIs[filepath.Clean(candidate)]; exists {
+				return uri
 			}
 		}
 	}
 
-	for _, candidate := range logicalDocumentCandidates(page.document.ID, link) {
-		if _, exists := idPages[candidate]; exists {
-			return candidate
+	for _, candidate := range logicalDocumentCandidates(page.document.Path, link) {
+		for uri, target := range uriPages {
+			if target.document.Path == candidate {
+				return uri
+			}
 		}
 	}
 	return ""
 }
 
-func logicalDocumentCandidates(sourceID string, link Link) []string {
+func logicalDocumentCandidates(sourcePath string, link Link) []string {
 	logical := filepath.ToSlash(link.Path)
 	if link.Absolute {
 		logical = strings.TrimPrefix(logical, "/")
 	} else {
-		logical = pathpkg.Join(pathpkg.Dir(sourceID), logical)
+		logical = pathpkg.Join(pathpkg.Dir(sourcePath), logical)
 	}
 	logical = pathpkg.Clean(logical)
 	if logical == ".." || strings.HasPrefix(logical, "../") {
