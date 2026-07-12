@@ -6,42 +6,22 @@ import (
 	"testing"
 )
 
-func TestDiscoverAndInvokeProcessRoundTrip(t *testing.T) {
+func TestReadAndInvokeProcessRoundTrip(t *testing.T) {
 	root := agentTestVault(t)
 
-	discovery, err := DiscoverProcesses(root, "answer a question from recorded vault knowledge", []string{"Gnosis Process"}, 3)
+	processURI := "gnosis://agent-test/processes/query-vault.md"
+	invocation, err := InvokeProcess(root, processURI)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var process ProcessSummary
-	for _, candidate := range discovery.Processes {
-		if candidate.ID == "processes/query-vault.md" {
-			process = candidate
-			break
-		}
-	}
-	if process.ID == "" {
-		t.Fatalf("processes = %+v", discovery.Processes)
-	}
-	if process.ID != "processes/query-vault.md" || process.URI == "" || process.Type != "Gnosis Process" {
-		t.Fatalf("process = %+v", process)
-	}
-	if process.Origin.Kind != OriginLocal || process.Origin.Vault != "agent-test" {
-		t.Fatalf("origin = %+v", process.Origin)
-	}
-	if process.Revision == "" || process.Invocation != "model" || strings.Join(process.Effects, ",") != "read" {
-		t.Fatalf("process metadata = %+v", process)
-	}
-	if len(process.UseWhen) != 1 || process.UseWhen[0] != "Answering a question from a vault." {
-		t.Fatalf("use_when = %v", process.UseWhen)
-	}
-
-	invocation, err := InvokeProcess(root, process.URI)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if invocation.Process.URI != process.URI {
+	if invocation.Process.ID != "processes/query-vault.md" || invocation.Process.URI != processURI || invocation.Process.Type != "Gnosis Process" {
 		t.Fatalf("invoked process = %+v", invocation.Process)
+	}
+	if invocation.Process.Origin.Kind != OriginLocal || invocation.Process.Origin.Vault != "agent-test" || invocation.Process.Revision == "" {
+		t.Fatalf("process origin = %+v", invocation.Process)
+	}
+	if invocation.Process.Invocation != "model" || strings.Join(invocation.Process.Effects, ",") != "read" || len(invocation.Process.UseWhen) != 1 || invocation.Process.UseWhen[0] != "Answering a question from a vault." {
+		t.Fatalf("process metadata = %+v", invocation.Process)
 	}
 	if !strings.Contains(invocation.Sections.Process, "Read only the selected pages") {
 		t.Fatalf("process section = %q", invocation.Sections.Process)
@@ -53,18 +33,18 @@ func TestDiscoverAndInvokeProcessRoundTrip(t *testing.T) {
 		t.Fatalf("relationships = %+v", invocation.Relationships)
 	}
 
-	page, err := ReadPage(root, process.URI)
+	page, err := ReadPage(root, processURI)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if page.Document.ID != process.ID || !strings.Contains(page.Markdown, "# query-vault") {
+	if page.Document.ID != invocation.Process.ID || !strings.Contains(page.Markdown, "# query-vault") {
 		t.Fatalf("page = %+v", page)
 	}
-	byID, err := ReadPage(root, process.ID)
+	byID, err := ReadPage(root, invocation.Process.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if byID.Document.URI != process.URI || byID.Markdown != page.Markdown {
+	if byID.Document.URI != processURI || byID.Markdown != page.Markdown {
 		t.Fatalf("by ID = %+v", byID)
 	}
 }
@@ -83,39 +63,6 @@ func TestReadPageAcceptsOnlyCanonicalGnosisURIs(t *testing.T) {
 
 	if _, err := ReadPage(root, "gnosis://vault/agent-test/processes/query-vault.md"); err == nil {
 		t.Fatal("ReadPage accepted the retired vault-path URI")
-	}
-}
-
-func TestProcessDiscoveryFiltersNonProcesses(t *testing.T) {
-	root := agentTestVault(t)
-	write(t, root, "docs/references/noisy.md", `---
-type: Reference
-title: Recorded Vault Knowledge
-description: Answer a question from recorded vault knowledge.
----
-
-# Recorded Vault Knowledge
-`)
-
-	discovery, err := DiscoverProcesses(root, "recorded vault knowledge", nil, 5)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(discovery.Processes) == 0 {
-		t.Fatalf("processes = %+v", discovery.Processes)
-	}
-	if len(discovery.Types) != 1 || discovery.Types[0] != GnosisProcessType {
-		t.Fatalf("types = %v, want only %q", discovery.Types, GnosisProcessType)
-	}
-	for _, process := range discovery.Processes {
-		if process.Type != GnosisProcessType {
-			t.Fatalf("processes = %+v", discovery.Processes)
-		}
-	}
-	for _, legacy := range []string{"Vault Process", "Repository Process"} {
-		if _, err := DiscoverProcesses(root, "recorded vault knowledge", []string{legacy}, 5); err == nil {
-			t.Fatalf("legacy process type %q is still executable", legacy)
-		}
 	}
 }
 
@@ -338,12 +285,9 @@ relationships:
 			t.Fatalf("errors = %v, want %q", result.Errors, want)
 		}
 	}
-	if _, err := DiscoverProcesses(root, "invalid", nil, 3); err == nil {
-		t.Fatal("DiscoverProcesses accepted an invalid executable contract")
-	}
 }
 
-func TestProcessDiscoveryRequiresSelectionMetadata(t *testing.T) {
+func TestValidateRequiresProcessSelectionMetadata(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]
 vault_name = "missing-selection-metadata"
@@ -384,9 +328,6 @@ The work is complete.
 		if !strings.Contains(joined, want) {
 			t.Fatalf("errors = %v, want %q", result.Errors, want)
 		}
-	}
-	if _, err := DiscoverProcesses(root, "work", nil, 3); err == nil {
-		t.Fatal("DiscoverProcesses accepted a process without selection metadata")
 	}
 }
 

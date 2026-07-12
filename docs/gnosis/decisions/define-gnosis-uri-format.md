@@ -20,7 +20,7 @@ to preserve its destination within the page.
 # Why
 
 Document links need one portable, parseable shape across CLI output, rendered
-Markdown, MCP resources, and composed vaults. Using the URI authority for the
+Markdown and composed vaults. Using the URI authority for the
 vault and the path for the page ID follows standard URI structure, keeps the
 link independent of local filesystem layout, and lets `core` identify bundled
 knowledge without conflating it with a workspace's local vault.

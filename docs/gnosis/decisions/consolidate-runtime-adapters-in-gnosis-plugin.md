@@ -10,7 +10,7 @@ Keep repeatable vault and repository workflows as canonical process records in t
 
 - `using-gnosis` delegates selection of [Gnosis Process](../../concepts/gnosis-process.md) records to a fresh read-only subagent, then follows the selected records in the controlling agent.
 
-The gateway prefers the gnosis MCP contract to discover and invoke processes, with `gnosis process discover` and `gnosis process invoke` as equivalent CLI fallbacks. Discovery exposes compact selection metadata; invocation loads one exact process revision. A process record, rather than plugin packaging or a copied prompt, is the source of truth for its selection conditions, knowledge inputs, ordered work, and completion gate.
+The gateway lists exact `Gnosis Process` records with `gnosis concepts -type 'Gnosis Process'`. A fresh selector chooses the smallest applicable chain from that list, reads each selected exact URI with `gnosis read '<gnosis URI>'`, and returns the complete ordered commands to the controlling agent. A process record, rather than plugin packaging or a copied prompt, is the source of truth for its selection conditions, knowledge inputs, ordered work, and completion gate.
 
 # Why
 
@@ -27,7 +27,7 @@ Rejected alternatives:
 # Constraints
 
 - Marketplaces and local skill links expose only the `gnosis` plugin and its `using-gnosis` gateway skill.
-- The gateway retrieves process records through the MCP or CLI agent contract; it does not copy process instructions.
-- A fresh read-only subagent selects the smallest applicable process chain for every task. The controlling agent invokes and executes the selected exact revisions.
+- The gateway retrieves process records through the CLI; it does not copy process instructions.
+- A fresh read-only subagent selects the smallest applicable process chain for every task, reads each selected exact URI, and returns a clearly headed full ordered process list. The controlling agent reads and executes the selected exact revisions.
 - Process records retain their identities, invocation modes, possible effects, selection conditions, and completion gates. Runtime gateways respect effective-page precedence across the configured vault and expose every selected record's origin and revision.
 - Only exact `Gnosis Process` records are invocable. Other knowledge remains readable and queryable but cannot become executable merely through wording or tags.

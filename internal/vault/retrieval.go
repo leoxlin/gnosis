@@ -77,7 +77,7 @@ type Candidate struct {
 	Score       float64 `json:"score"`
 }
 
-// QueryResult is the stable response shared by CLI and MCP knowledge queries.
+// QueryResult is the stable response for CLI knowledge queries.
 type QueryResult struct {
 	AnswerType AnswerType  `json:"answer_type"`
 	Candidates []Candidate `json:"candidates"`

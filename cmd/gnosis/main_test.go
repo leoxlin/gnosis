@@ -45,9 +45,8 @@ func TestRunSubcommandHelpIsSuccessful(t *testing.T) {
 		usage string
 	}{
 		{args: []string{"validate", "--help"}, usage: "gnosis validate"},
-		{args: []string{"process", "discover", "--help"}, usage: "gnosis process discover"},
+		{args: []string{"process", "invoke", "--help"}, usage: "gnosis process invoke"},
 		{args: []string{"graph", "path", "--help"}, usage: "gnosis graph path"},
-		{args: []string{"mcp", "serve", "--help"}, usage: "gnosis mcp serve"},
 	} {
 		t.Run(strings.Join(test.args[:len(test.args)-1], "_"), func(t *testing.T) {
 			var stdout bytes.Buffer
@@ -358,44 +357,11 @@ title: Source
 	}
 }
 
-func TestRunProcessDiscoverAndInvoke(t *testing.T) {
+func TestRunProcessInvokeWithoutDiscovery(t *testing.T) {
 	root := processCommandTestVault(t)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"process", "discover", "--vault", root, "--type", "Gnosis Process", "--pretty", "answer from recorded knowledge"}, &stdout, &stderr); err != nil {
-		t.Fatal(err)
-	}
-	var discovery struct {
-		Processes []struct {
-			ID         string   `json:"id"`
-			URI        string   `json:"uri"`
-			UseWhen    []string `json:"use_when"`
-			Invocation string   `json:"invocation"`
-			Effects    []string `json:"effects"`
-		} `json:"processes"`
-	}
-	if err := json.Unmarshal(stdout.Bytes(), &discovery); err != nil {
-		t.Fatal(err)
-	}
-	var selected struct {
-		ID         string   `json:"id"`
-		URI        string   `json:"uri"`
-		UseWhen    []string `json:"use_when"`
-		Invocation string   `json:"invocation"`
-		Effects    []string `json:"effects"`
-	}
-	for _, process := range discovery.Processes {
-		if process.ID == "processes/query-vault.md" {
-			selected = process
-			break
-		}
-	}
-	if selected.URI == "" || selected.Invocation != "model" {
-		t.Fatalf("discovery = %+v", discovery)
-	}
-
-	stdout.Reset()
-	if err := run([]string{"process", "invoke", "--vault", root, "--id", selected.URI, "--pretty"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"process", "invoke", "--vault", root, "--id", "gnosis://Process%20Test/processes/query-vault.md", "--pretty"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	var invocation struct {
@@ -414,6 +380,44 @@ func TestRunProcessDiscoverAndInvoke(t *testing.T) {
 	}
 	if invocation.Process.ID != "processes/query-vault.md" || invocation.Sections.Completion == "" || len(invocation.Relationships) != 1 {
 		t.Fatalf("invocation = %+v", invocation)
+	}
+}
+
+func TestRunConceptsListsGnosisProcessesForSelection(t *testing.T) {
+	root := processCommandTestVault(t)
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	if err := run([]string{"concepts", "--vault", root, "--type", "Gnosis Process"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"Title: query-vault",
+		"Description: Use when answering a question from recorded vault knowledge.",
+		"Link: gnosis://Process%20Test/processes/query-vault.md",
+	} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Fatalf("stdout missing %q: %q", want, stdout.String())
+		}
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestRunDoesNotExposeRemovedCommands(t *testing.T) {
+	for _, test := range []struct {
+		args []string
+		want string
+	}{
+		{args: []string{"process", "discover", "request"}, want: "unexpected argument"},
+		{args: []string{"mcp", "serve"}, want: "unknown command"},
+	} {
+		var stdout bytes.Buffer
+		var stderr bytes.Buffer
+		err := run(test.args, &stdout, &stderr)
+		if err == nil || !strings.Contains(err.Error(), test.want) {
+			t.Fatalf("args = %v error = %v, want %q", test.args, err, test.want)
+		}
 	}
 }
 

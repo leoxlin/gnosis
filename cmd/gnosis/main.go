@@ -11,7 +11,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"gnosis/internal/mcpserver"
 	"gnosis/internal/vault"
 )
 
@@ -48,7 +47,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	}
 	command.SetOut(stdout)
 	command.SetErr(stderr)
-	command.AddCommand(newScaffoldCommand(stdout), newSetupCommand(stdout), newIndexCommand(stdout), newReadCommand(stdout), newWriteCommand(os.Stdin, stdout), newValidateCommand(stdout, stderr), newQueryCommand(stdout), newConceptsCommand(stdout), newProcessCommand(stdout), newGraphCommand(stdout), newMCPCommand())
+	command.AddCommand(newScaffoldCommand(stdout), newSetupCommand(stdout), newIndexCommand(stdout), newReadCommand(stdout), newWriteCommand(os.Stdin, stdout), newValidateCommand(stdout, stderr), newQueryCommand(stdout), newConceptsCommand(stdout), newProcessCommand(stdout), newGraphCommand(stdout))
 	command.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "Print the gnosis version",
@@ -211,38 +210,13 @@ func newQueryCommand(stdout io.Writer) *cobra.Command {
 func newProcessCommand(stdout io.Writer) *cobra.Command {
 	command := &cobra.Command{
 		Use:   "process",
-		Short: "Discover and invoke executable vault processes",
+		Short: "Load an exact executable vault process",
 		Args:  noArgs("process"),
-	}
-	command.AddCommand(newProcessDiscoverCommand(stdout), newProcessInvokeCommand(stdout))
-	return command
-}
-
-func newProcessDiscoverCommand(stdout io.Writer) *cobra.Command {
-	var vaultPath string
-	var processTypes []string
-	var top int
-	var pretty bool
-	command := &cobra.Command{
-		Use:   "discover [flags] <request>",
-		Short: "Rank executable processes for an agent request",
-		Args:  questionArgs("process discover"),
-		RunE: func(_ *cobra.Command, args []string) error {
-			if top <= 0 {
-				return errors.New("process discover: --top must be greater than zero")
-			}
-			result, err := vault.DiscoverProcesses(vaultPath, args[0], processTypes, top)
-			if err != nil {
-				return fmt.Errorf("process discover: %w", err)
-			}
-			return writeJSON(stdout, result, pretty)
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return errors.New("process: missing subcommand")
 		},
 	}
-	flags := command.Flags()
-	flags.StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
-	flags.StringSliceVar(&processTypes, "type", nil, "executable process type (Gnosis Process)")
-	flags.IntVar(&top, "top", 5, "number of process candidates to return")
-	flags.BoolVar(&pretty, "pretty", false, "pretty-print JSON output")
+	command.AddCommand(newProcessInvokeCommand(stdout))
 	return command
 }
 
@@ -347,33 +321,6 @@ func newGraphPathCommand(stdout io.Writer) *cobra.Command {
 	flags.StringSliceVar(&relations, "relation", nil, "relationship type filter")
 	flags.IntVar(&depth, "depth", 3, "maximum traversal depth")
 	flags.BoolVar(&pretty, "pretty", false, "pretty-print JSON output")
-	return command
-}
-
-func newMCPCommand() *cobra.Command {
-	command := &cobra.Command{
-		Use:   "mcp",
-		Short: "Serve the gnosis agent contract over MCP",
-		Args:  noArgs("mcp"),
-	}
-	command.AddCommand(newMCPServeCommand())
-	return command
-}
-
-func newMCPServeCommand() *cobra.Command {
-	var vaultPath string
-	command := &cobra.Command{
-		Use:   "serve [flags]",
-		Short: "Run the MCP server over standard input and output",
-		Args:  noArgs("mcp serve"),
-		RunE: func(command *cobra.Command, _ []string) error {
-			if err := mcpserver.Serve(command.Context(), vaultPath); err != nil {
-				return fmt.Errorf("mcp serve: %w", err)
-			}
-			return nil
-		},
-	}
-	command.Flags().StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
 	return command
 }
 

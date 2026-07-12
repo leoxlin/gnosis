@@ -33,7 +33,7 @@ Writing skills applies red-green-refactor to agent behavior. Gnosis Process page
    - Put a repeatable repository-owned workflow in one Gnosis Process page.
    - Package a skill when runtime invocation, tool integration, or a portable cross-repository procedure is required.
    - Implement a deterministic check in code when judgment is unnecessary.
-2. Define concrete usage examples and the behavior that currently fails. For an existing process, read its durable record with `gnosis read --id '<process URI>'` before changing the adapter.
+2. Define concrete usage examples and the behavior that currently fails. For an existing process, read its durable record with `gnosis read '<process URI>'` before changing the adapter.
 3. **Red:** Run realistic fresh-context scenarios without the new guidance and capture the observed failure or rationalization. If the baseline does not fail, do not add guidance for that hypothetical problem.
 4. **Green:** Write the smallest instruction change that corrects the observed behavior. Keep ordered runtime steps in the skill and detailed repository workflow knowledge in the process record, with one explicit context pointer from the skill. Persist a complete changed process with `gnosis write --type 'Gnosis Process' --title '<title>' <draft-file>`.
 5. Make invocation deliberate. User-invoked skills declare that policy and keep human-facing metadata concise; model-invoked skills describe concrete trigger conditions without summarizing a shortcut version of the workflow.

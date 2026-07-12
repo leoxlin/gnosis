@@ -75,20 +75,12 @@ type ProcessSections struct {
 	Completion      string `json:"completion"`
 }
 
-// ProcessSummary is the progressively disclosed process descriptor.
+// ProcessSummary is the exact process descriptor returned with an invocation.
 type ProcessSummary struct {
 	DocumentRef
 	UseWhen    []string `json:"use_when"`
 	Invocation string   `json:"invocation"`
 	Effects    []string `json:"effects"`
-	Score      float64  `json:"score"`
-}
-
-// ProcessDiscovery contains ranked process-only results.
-type ProcessDiscovery struct {
-	Query     string           `json:"query"`
-	Types     []string         `json:"types"`
-	Processes []ProcessSummary `json:"processes"`
 }
 
 // GraphEdge is a resolved, directed edge with exact endpoint identities.
@@ -150,7 +142,7 @@ type relationshipSpec struct {
 	Target string `yaml:"target"`
 }
 
-// QueryKnowledge performs the bounded live retrieval shared by CLI and MCP.
+// QueryKnowledge performs bounded live retrieval for the CLI.
 func QueryKnowledge(root, question string, options QueryOptions) (QueryResult, error) {
 	if strings.TrimSpace(question) == "" {
 		return QueryResult{}, fmt.Errorf("question must not be empty")
@@ -204,66 +196,6 @@ func ReadPage(root, selector string) (Page, error) {
 	return Page{Document: page.document.Ref(), Markdown: markdown}, nil
 }
 
-// DiscoverProcesses ranks only executable process records for a request.
-func DiscoverProcesses(root, query string, processTypes []string, limit int) (ProcessDiscovery, error) {
-	if limit <= 0 {
-		limit = defaultTop
-	}
-	processTypes, allowed, err := normalizeProcessTypes(processTypes)
-	if err != nil {
-		return ProcessDiscovery{}, err
-	}
-
-	source, err := NewSearchSource(root)
-	if err != nil {
-		return ProcessDiscovery{}, err
-	}
-	pages, err := source.resolvedPages()
-	if err != nil {
-		return ProcessDiscovery{}, err
-	}
-	byID := make(map[string]*searchPage, len(pages))
-	documents := make([]Document, 0)
-	for _, page := range pages {
-		byID[page.document.ID] = page
-		if _, ok := allowed[page.document.Type]; ok {
-			documents = append(documents, page.document)
-		}
-	}
-
-	var hits []Hit
-	if strings.TrimSpace(query) == "" {
-		sort.Slice(documents, func(i, j int) bool {
-			if documents[i].Title == documents[j].Title {
-				return documents[i].ID < documents[j].ID
-			}
-			return documents[i].Title < documents[j].Title
-		})
-		if len(documents) > limit {
-			documents = documents[:limit]
-		}
-		for _, document := range documents {
-			hits = append(hits, Hit{Document: document})
-		}
-	} else {
-		hits = New(documents).Search(query, limit)
-	}
-
-	result := ProcessDiscovery{
-		Query:     strings.TrimSpace(query),
-		Types:     processTypes,
-		Processes: []ProcessSummary{},
-	}
-	for _, hit := range hits {
-		summary, err := processSummary(byID[hit.Document.ID], hit.Score)
-		if err != nil {
-			return ProcessDiscovery{}, err
-		}
-		result.Processes = append(result.Processes, summary)
-	}
-	return result, nil
-}
-
 // InvokeProcess loads one exact process as an execution contract. It is read-only.
 func InvokeProcess(root, selector string) (ProcessInvocation, error) {
 	source, err := NewSearchSource(root)
@@ -281,7 +213,7 @@ func InvokeProcess(root, selector string) (ProcessInvocation, error) {
 	if !isProcessType(page.document.Type) {
 		return ProcessInvocation{}, fmt.Errorf("document %q has non-executable type %q", page.document.ID, page.document.Type)
 	}
-	summary, err := processSummary(page, 0)
+	summary, err := processSummary(page)
 	if err != nil {
 		return ProcessInvocation{}, err
 	}
@@ -372,32 +304,11 @@ func TracePath(root, fromSelector, toSelector string, direction Direction, relat
 	return result, nil
 }
 
-func normalizeProcessTypes(values []string) ([]string, map[string]struct{}, error) {
-	if len(values) == 0 {
-		values = []string{GnosisProcessType}
-	}
-	result := make([]string, 0, len(values))
-	allowed := make(map[string]struct{}, len(values))
-	for _, value := range values {
-		value = strings.TrimSpace(value)
-		if !isProcessType(value) {
-			return nil, nil, fmt.Errorf("unsupported process type %q", value)
-		}
-		if _, exists := allowed[value]; exists {
-			continue
-		}
-		allowed[value] = struct{}{}
-		result = append(result, value)
-	}
-	sort.Strings(result)
-	return result, allowed, nil
-}
-
 func isProcessType(value string) bool {
 	return value == GnosisProcessType
 }
 
-func processSummary(page *searchPage, score float64) (ProcessSummary, error) {
+func processSummary(page *searchPage) (ProcessSummary, error) {
 	fields, _, err := parseFrontmatter(string(page.data))
 	if err != nil {
 		return ProcessSummary{}, err
@@ -441,7 +352,6 @@ func processSummary(page *searchPage, score float64) (ProcessSummary, error) {
 		UseWhen:     useWhen,
 		Invocation:  invocation,
 		Effects:     effects,
-		Score:       roundScore(score),
 	}, nil
 }
 
