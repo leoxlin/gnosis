@@ -53,20 +53,20 @@ title: Test
 func TestValidateRejectsConceptTypeTitleOutsideTypeNameConvention(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, "[vault]\nvault_index = false\nvault_log = false\n")
-	write(t, root, "concepts/gnosis-process.md", `---
+	write(t, root, "concepts/procedure.md", `---
 type: ConceptType
-title: Gnosis Process
+title: procedure
 description: A reusable process record.
 ---
 
-# Gnosis Process
+# procedure
 `)
 
 	result, err := Validate(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(strings.Join(result.Errors, "\n"), "\"Gnosis Process\" must use the TypeName convention") {
+	if !strings.Contains(strings.Join(result.Errors, "\n"), "\"procedure\" must use the TypeName convention") {
 		t.Fatalf("errors = %v, want TypeName title validation error", result.Errors)
 	}
 }
@@ -74,13 +74,13 @@ description: A reusable process record.
 func TestValidateAcceptsConceptTypeTitleUsingTypeNameConvention(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, "[vault]\nvault_index = false\nvault_log = false\n")
-	write(t, root, "concepts/gnosis-process.md", `---
+	write(t, root, "concepts/procedure.md", `---
 type: ConceptType
-title: GnosisProcess
+title: Procedure
 description: A reusable process record.
 ---
 
-# GnosisProcess
+# Procedure
 `)
 
 	result, err := Validate(root)

@@ -1,6 +1,6 @@
 ---
 name: using-gnosis
-description: Select and apply canonical Gnosis Process records for work in a gnosis vault or repository.
+description: Select and apply canonical Procedure records for work in a gnosis vault or repository.
 ---
 
 # Using gnosis
@@ -18,7 +18,7 @@ Use this skill as the process gateway. Process records are the source of workflo
    Applicable agent instructions: [agent instructions]
 
    - Run `gnosis process discovery` exactly once.
-   - From that output, select the smallest applicable dependency-ordered `Gnosis Process` using `description` and `use_when`.
+   - From that output, select the smallest applicable dependency-ordered `Procedure` using `description` and `use_when`.
    - The command lists only model-invocable processes; do not select another concept type.
 
    Return the heading `FULL ORDERED PROCESS LIST TO EXECUTE`. Under it, return every selected process in dependency order, with each command on its own line and exactly formatted as `gnosis read 'gnosis://....'`. After each command, include its revision, origin, effects, and concise selection rationale. If no process applies, say so under that heading.

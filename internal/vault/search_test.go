@@ -132,13 +132,13 @@ func TestSearchSourceIncludesBundledDocumentsWithVaultPrecedence(t *testing.T) {
 vault_name = "Workspace"
 vault_root = "."
 `)
-	write(t, root, "concepts/gnosis-process.md", `---
+	write(t, root, "concepts/procedure.md", `---
 type: ConceptType
-title: LocalGnosisProcess
+title: LocalProcedure
 ---
 `)
-	write(t, root, "gnosis/processes/using-gnosis.md", `---
-type: GnosisProcess
+	write(t, root, "procedures/using-gnosis.md", `---
+type: Procedure
 title: Local using-gnosis
 ---
 `)
@@ -155,19 +155,19 @@ title: Local using-gnosis
 	for _, document := range documents {
 		byID[document.ID] = document
 	}
-	if got := byID["concepts/gnosis-process.md"].Title; got != "LocalGnosisProcess" {
+	if got := byID["concepts/procedure.md"].Title; got != "LocalProcedure" {
 		t.Fatalf("vault-process title = %q", got)
 	}
-	if got := byID["gnosis/processes/using-gnosis.md"].Title; got != "Local using-gnosis" {
+	if got := byID["procedures/using-gnosis.md"].Title; got != "Local using-gnosis" {
 		t.Fatalf("using-gnosis title = %q", got)
 	}
 	if _, exists := byID["documentation/basic-usage.md"]; exists {
 		t.Fatalf("documents include removed bundled documentation: %+v", documents)
 	}
-	if _, exists := byID["concepts/gnosis-purpose.md"]; !exists {
+	if _, exists := byID["concepts/purpose.md"]; !exists {
 		t.Fatalf("documents missing bundled gnosis concepts: %+v", documents)
 	}
-	data, err := Read(root, "GnosisProcess", "query-vault")
+	data, err := Read(root, "Procedure", "query-vault")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,8 +192,8 @@ vault_root = "."
 		t.Fatal(err)
 	}
 	for _, document := range documents {
-		if document.ID == "concepts/gnosis-process.md" {
-			if document.Origin.Vault != "core" || document.URI != "gnosis://core/concepts/gnosis-process.md" {
+		if document.ID == "concepts/procedure.md" {
+			if document.Origin.Vault != "core" || document.URI != "gnosis://core/concepts/procedure.md" {
 				t.Fatalf("bundled document = %+v", document)
 			}
 			return
@@ -216,8 +216,8 @@ vault_root = "imported"
 vault_name = "Imported"
 vault_root = "."
 `)
-	write(t, imported, "gnosis/processes/query-vault.md", `---
-type: GnosisProcess
+	write(t, imported, "procedures/query-vault.md", `---
+type: Procedure
 title: Imported query-vault
 ---
 `)
@@ -231,7 +231,7 @@ title: Imported query-vault
 		t.Fatal(err)
 	}
 	for _, document := range documents {
-		if document.ID != "gnosis/processes/query-vault.md" {
+		if document.ID != "procedures/query-vault.md" {
 			continue
 		}
 		if document.Title != "Imported query-vault" {
@@ -264,12 +264,12 @@ vault_root = "."
 	for _, document := range documents {
 		byID[document.ID] = struct{}{}
 	}
-	for _, id := range []string{"concepts/gnosis-process.md", "concepts/gnosis-decision.md", "concepts/gnosis-directive.md", "concepts/gnosis-purpose.md", "gnosis/processes/execution/execute-directive.md", "gnosis/processes/vault/query-vault.md", "gnosis/processes/execution/verification-before-completion.md"} {
+	for _, id := range []string{"concepts/procedure.md", "concepts/decision.md", "concepts/directive.md", "concepts/purpose.md", "procedures/execution/execute-directive.md", "procedures/vault/query-vault.md", "procedures/execution/verification-before-completion.md"} {
 		if _, exists := byID[id]; !exists {
 			t.Fatalf("documents missing %s: %+v", id, documents)
 		}
 	}
-	for _, id := range []string{"gnosis/processes/executing-plans.md", "gnosis/processes/ingest-concept.md", "gnosis/processes/receiving-code-review.md", "gnosis/processes/requesting-code-review.md", "gnosis/processes/review/code-review.md", "gnosis/processes/subagent-driven-development.md", "gnosis/processes/using-gnosis-forge.md", "gnosis/processes/skills/writing-skills.md"} {
+	for _, id := range []string{"procedures/executing-plans.md", "procedures/ingest-concept.md", "procedures/receiving-code-review.md", "procedures/requesting-code-review.md", "procedures/review/code-review.md", "procedures/subagent-driven-development.md", "procedures/using-gnosis-forge.md", "procedures/skills/writing-skills.md"} {
 		if _, exists := byID[id]; exists {
 			t.Fatalf("documents include retired process %s: %+v", id, documents)
 		}

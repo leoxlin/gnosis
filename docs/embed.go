@@ -6,7 +6,7 @@ import (
 	"io/fs"
 )
 
-//go:embed concepts/*.md gnosis/processes/*/*.md
+//go:embed concepts/*.md procedures/*/*.md
 var content embed.FS
 
 // Content returns the documentation included in the gnosis binary.

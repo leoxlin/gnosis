@@ -376,11 +376,11 @@ func TestRunProcessInvokeWithoutDiscovery(t *testing.T) {
 	}
 }
 
-func TestRunConceptsListsGnosisProcessesForSelection(t *testing.T) {
+func TestRunConceptsListsProceduresForSelection(t *testing.T) {
 	root := processCommandTestVault(t)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"concepts", "--vault", root, "--type", "GnosisProcess"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"concepts", "--vault", root, "--type", "Procedure"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
@@ -597,7 +597,7 @@ description: Decouples an interface from its implementation.
 	if err := run([]string{"concepts", "-vault", root}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(stdout.String(), "Type: Concept\nDescription: A reusable knowledge record.\n") || !strings.Contains(stdout.String(), "Type: Pattern\nDescription: Pattern\n") || !strings.Contains(stdout.String(), "Type: GnosisProcess") {
+	if !strings.Contains(stdout.String(), "Type: Concept\nDescription: A reusable knowledge record.\n") || !strings.Contains(stdout.String(), "Type: Pattern\nDescription: Pattern\n") || !strings.Contains(stdout.String(), "Type: Procedure") {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
 	if strings.Contains(stdout.String(), "Type: Vault Process") || strings.Contains(stdout.String(), "Type: Repository Process") {
@@ -733,7 +733,7 @@ description: Source identity and history.
 # Provenance
 `)
 	writeTestFile(t, root, "processes/query-vault.md", `---
-type: GnosisProcess
+type: Procedure
 title: query-vault
 description: Use when answering a question from recorded vault knowledge.
 tags: [gnosis-vault]
@@ -761,7 +761,7 @@ relationships:
 The answer is grounded.
 `)
 	writeTestFile(t, root, "processes/internal-review.md", `---
-type: GnosisProcess
+type: Procedure
 title: internal-review
 description: Used by another process only.
 tags: [gnosis-vault]
@@ -885,10 +885,10 @@ func TestRunScaffoldWithConceptsIndexesThem(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, rel := range []string{
-		"concepts/gnosis-purpose.md",
-		"concepts/gnosis-decision.md",
-		"concepts/gnosis-directive.md",
-		"concepts/gnosis-process.md",
+		"concepts/purpose.md",
+		"concepts/decision.md",
+		"concepts/directive.md",
+		"concepts/procedure.md",
 	} {
 		if _, err := os.Stat(filepath.Join(root, rel)); err != nil {
 			t.Fatalf("expected %s to exist: %v", rel, err)
@@ -899,8 +899,8 @@ func TestRunScaffoldWithConceptsIndexesThem(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(conceptsIndex), "GnosisPurpose") ||
-		!strings.Contains(string(conceptsIndex), "GnosisProcess") {
+	if !strings.Contains(string(conceptsIndex), "Purpose") ||
+		!strings.Contains(string(conceptsIndex), "Procedure") {
 		t.Fatalf("concepts index should list the concept definitions:\n%s", conceptsIndex)
 	}
 }
@@ -908,14 +908,14 @@ func TestRunScaffoldWithConceptsIndexesThem(t *testing.T) {
 func TestRunScaffoldWithConceptsPreservesExistingFilesUnlessForced(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "vault")
 	custom := "---\ntype: ConceptType\ntitle: Custom Purpose\ndescription: Local custom concept.\n---\n\n# Custom Purpose\n"
-	writeTestFile(t, root, "concepts/gnosis-purpose.md", custom)
+	writeTestFile(t, root, "concepts/purpose.md", custom)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
 	if err := run([]string{"scaffold", "-vault", root, "-concepts"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
-	purposePath := filepath.Join(root, "concepts", "gnosis-purpose.md")
+	purposePath := filepath.Join(root, "concepts", "purpose.md")
 	preserved, err := os.ReadFile(purposePath)
 	if err != nil {
 		t.Fatal(err)

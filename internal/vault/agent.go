@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-const GnosisProcessType = "GnosisProcess"
+const ProcedureType = "Procedure"
 
 // OriginKind identifies where an effective document came from.
 type OriginKind string
@@ -343,7 +343,7 @@ func TracePath(root, fromSelector, toSelector string, direction Direction, relat
 }
 
 func isProcessType(value string) bool {
-	return value == GnosisProcessType
+	return value == ProcedureType
 }
 
 func processSummary(page *searchPage) (ProcessSummary, error) {
