@@ -14,6 +14,7 @@ relationships:
 ## Use when
 
 - The author requests a plan or directive from any prompt, issue, or bug report.
+- The author requests a functional project change, including source-code or non-CI configuration changes.
 
 ## Knowledge inputs
 
