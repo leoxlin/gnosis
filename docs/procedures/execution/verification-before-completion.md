@@ -4,15 +4,11 @@ title: verification-before-completion
 description: Use immediately before claiming work is correct, complete, fixed, passing, or ready for delivery.
 tags: [gnosis-execution]
 invocation: model
-effects: [read]
 use_when:
   - Reporting a task, fix, directive, build, or test suite complete.
   - Committing, opening a pull request, merging, or moving to another task.
   - Accepting work returned by an agent or automation.
   - Changing a directive to done.
-relationships:
-  - type: instance_of
-    target: gnosis://core/concepts/procedure.md
 ---
 
 # verification-before-completion

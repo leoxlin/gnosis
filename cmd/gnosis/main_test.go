@@ -45,8 +45,8 @@ func TestRunSubcommandHelpIsSuccessful(t *testing.T) {
 		usage string
 	}{
 		{args: []string{"validate", "--help"}, usage: "gnosis validate"},
-		{args: []string{"process", "discovery", "--help"}, usage: "gnosis process discovery"},
-		{args: []string{"process", "invoke", "--help"}, usage: "gnosis process invoke"},
+		{args: []string{"procedure", "discovery", "--help"}, usage: "gnosis procedure discovery"},
+		{args: []string{"procedure", "invoke", "--help"}, usage: "gnosis procedure invoke"},
 		{args: []string{"graph", "path", "--help"}, usage: "gnosis graph path"},
 	} {
 		t.Run(strings.Join(test.args[:len(test.args)-1], "_"), func(t *testing.T) {
@@ -354,7 +354,7 @@ func TestRunProcessInvokeWithoutDiscovery(t *testing.T) {
 	root := processCommandTestVault(t)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"process", "invoke", "--vault", root, "--id", "gnosis://Process%20Test/processes/query-vault.md", "--pretty"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"procedure", "invoke", "--vault", root, "--id", "gnosis://Process%20Test/processes/query-vault.md", "--pretty"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	var invocation struct {
@@ -364,14 +364,11 @@ func TestRunProcessInvokeWithoutDiscovery(t *testing.T) {
 		Sections struct {
 			Completion string `json:"completion"`
 		} `json:"sections"`
-		Relationships []struct {
-			Relation string `json:"relation"`
-		} `json:"relationships"`
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &invocation); err != nil {
 		t.Fatal(err)
 	}
-	if invocation.Process.ID != "processes/query-vault.md" || invocation.Sections.Completion == "" || len(invocation.Relationships) != 1 {
+	if invocation.Process.ID != "processes/query-vault.md" || invocation.Sections.Completion == "" {
 		t.Fatalf("invocation = %+v", invocation)
 	}
 }
@@ -401,34 +398,30 @@ func TestRunProcessDiscoveryReturnsSelectableModelProcesses(t *testing.T) {
 	root := processCommandTestVault(t)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"process", "discovery", "--vault", root}, &stdout, &stderr); err != nil {
+	if err := run([]string{"procedure", "discovery", "--vault", root}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(stdout.String(), "\n  \"processes\":") {
+	if !strings.Contains(stdout.String(), "\n  \"procedures\":") {
 		t.Fatalf("discovery must emit pretty JSON by default: %q", stdout.String())
 	}
 	var discovery struct {
-		Processes []struct {
-			ID       string   `json:"id"`
-			URI      string   `json:"uri"`
-			UseWhen  []string `json:"use_when"`
-			Effects  []string `json:"effects"`
-			Tags     []string `json:"tags"`
-			Revision string   `json:"revision"`
-		} `json:"processes"`
+		Procedures []struct {
+			ID      string   `json:"id"`
+			URI     string   `json:"uri"`
+			UseWhen []string `json:"use_when"`
+			Tags    []string `json:"tags"`
+		} `json:"procedures"`
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &discovery); err != nil {
 		t.Fatal(err)
 	}
 	var process struct {
-		ID       string   `json:"id"`
-		URI      string   `json:"uri"`
-		UseWhen  []string `json:"use_when"`
-		Effects  []string `json:"effects"`
-		Tags     []string `json:"tags"`
-		Revision string   `json:"revision"`
+		ID      string   `json:"id"`
+		URI     string   `json:"uri"`
+		UseWhen []string `json:"use_when"`
+		Tags    []string `json:"tags"`
 	}
-	for _, candidate := range discovery.Processes {
+	for _, candidate := range discovery.Procedures {
 		if candidate.ID == "processes/query-vault.md" {
 			process = candidate
 		}
@@ -436,11 +429,16 @@ func TestRunProcessDiscoveryReturnsSelectableModelProcesses(t *testing.T) {
 			t.Fatalf("discovery must hide explicit process: %+v", candidate)
 		}
 	}
-	if process.ID != "processes/query-vault.md" || process.URI == "" || process.Revision == "" || strings.Join(process.Tags, ",") != "gnosis-vault" || strings.Join(process.UseWhen, ",") != "Answering a question from a vault." || strings.Join(process.Effects, ",") != "read" {
+	if process.ID != "processes/query-vault.md" || process.URI == "" || strings.Join(process.Tags, ",") != "gnosis-vault" || strings.Join(process.UseWhen, ",") != "Answering a question from a vault." {
 		t.Fatalf("process = %+v", process)
 	}
 	if strings.Contains(stdout.String(), `"invocation": "explicit"`) {
 		t.Fatalf("discovery must hide explicit processes: %s", stdout.String())
+	}
+	for _, field := range []string{"origin", "revision", "effects"} {
+		if strings.Contains(stdout.String(), `"`+field+`"`) {
+			t.Fatalf("discovery must not expose %q: %s", field, stdout.String())
+		}
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q", stderr.String())
@@ -449,8 +447,8 @@ func TestRunProcessDiscoveryReturnsSelectableModelProcesses(t *testing.T) {
 
 func TestRunProcessDiscoveryDoesNotAcceptSearchRequest(t *testing.T) {
 	for _, args := range [][]string{
-		{"process", "discovery", "answer from recorded knowledge"},
-		{"process", "discovery", "--pretty"},
+		{"procedure", "discovery", "answer from recorded knowledge"},
+		{"procedure", "discovery", "--pretty"},
 	} {
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
@@ -474,7 +472,7 @@ func TestRunGraphNeighborsAndPath(t *testing.T) {
 	root := processCommandTestVault(t)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"graph", "neighbors", "--vault", root, "--id", "processes/query-vault.md", "--direction", "out", "--relation", "uses", "--pretty"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"graph", "neighbors", "--vault", root, "--id", "processes/query-vault.md", "--direction", "out", "--relation", "links_to", "--pretty"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	var neighbors struct {
@@ -488,7 +486,7 @@ func TestRunGraphNeighborsAndPath(t *testing.T) {
 	if err := json.Unmarshal(stdout.Bytes(), &neighbors); err != nil {
 		t.Fatal(err)
 	}
-	if len(neighbors.Edges) != 1 || neighbors.Edges[0].Relation != "uses" || neighbors.Edges[0].To.ID != "concepts/provenance.md" {
+	if len(neighbors.Edges) != 1 || neighbors.Edges[0].Relation != "links_to" || neighbors.Edges[0].To.ID != "concepts/provenance.md" {
 		t.Fatalf("neighbors = %+v", neighbors)
 	}
 
@@ -738,12 +736,8 @@ title: query-vault
 description: Use when answering a question from recorded vault knowledge.
 tags: [gnosis-vault]
 invocation: model
-effects: [read]
 use_when:
   - Answering a question from a vault.
-relationships:
-  - type: uses
-    target: ../concepts/provenance.md
 ---
 
 # query-vault
@@ -766,7 +760,6 @@ title: internal-review
 description: Used by another process only.
 tags: [gnosis-vault]
 invocation: explicit
-effects: [read]
 use_when:
   - Reviewing an exact draft.
 ---

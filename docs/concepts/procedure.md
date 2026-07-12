@@ -21,7 +21,7 @@ Do not use it for one-off knowledge, settled choices, implementation handoffs, o
 - A `tags` frontmatter value identifying its process family. Discovery returns only records whose tags intersect `[gnosis].processes`.
 - Unique, non-empty `## Knowledge inputs`, `## Process`, and `## Completion` sections.
 - Self-contained instructions. Links and hard-coded knowledge URIs may target other `Procedure` records or gnosis concept records; copy required rules inline and name dynamic runtime inputs without linking them.
-- Optional `invocation`, `effects`, and typed `relationships` frontmatter. An `explicit` invocation is omitted from discovery and is invoked only by another active process.
+- Optional `invocation` frontmatter. An `explicit` invocation is omitted from discovery and is invoked only by another active procedure.
 
 ## Schema
 
@@ -32,7 +32,6 @@ title: <name>
 description: <selection condition>
 tags: [<process-family>]
 invocation: <model | explicit>
-effects: [<read | vault-write | workspace-write | external>]
 use_when:
   - <selection condition>
 ---

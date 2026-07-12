@@ -198,14 +198,9 @@ func validateProcessRecord(path string, fields Frontmatter, body string, result 
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: frontmatter %q must be a scalar", path, "invocation"))
 	}
 
-	effects, valid := fields.scalars("effects")
-	if !valid {
-		result.Errors = append(result.Errors, fmt.Sprintf("%s: frontmatter %q must be a scalar or sequence of scalars", path, "effects"))
-	} else {
-		for _, effect := range effects {
-			if !validProcessEffect(effect) {
-				result.Errors = append(result.Errors, fmt.Sprintf("%s: unsupported process effect %q", path, effect))
-			}
+	for _, field := range []string{"effects", "relationships"} {
+		if _, exists := fields[field]; exists {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: procedure frontmatter must not contain %q", path, field))
 		}
 	}
 }

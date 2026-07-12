@@ -4,15 +4,11 @@ title: test-driven-development
 description: Use when implementing a feature, bug fix, refactor, or behavior change before changing production code.
 tags: [gnosis-execution]
 invocation: model
-effects: [workspace-write]
 use_when:
   - Adding or changing observable behavior.
   - Fixing a bug or preventing a regression.
   - Refactoring code whose behavior must remain stable.
   - Throwaway prototypes, generated code, and configuration-only changes require the author's explicit approval to bypass the cycle.
-relationships:
-  - type: instance_of
-    target: gnosis://core/concepts/procedure.md
 ---
 
 # test-driven-development

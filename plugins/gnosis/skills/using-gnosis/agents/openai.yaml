@@ -1,6 +1,6 @@
 interface:
   display_name: "Using gnosis"
-  short_description: "Select canonical gnosis processes"
+  short_description: "Select canonical gnosis procedures"
   default_prompt: "Use $using-gnosis to select and apply the right canonical processes."
 
 policy:

@@ -4,15 +4,11 @@ title: dispatching-parallel-agents
 description: Use when two or more problem domains can be investigated or changed without shared state, overlapping files, or sequential dependencies.
 tags: [gnosis-execution]
 invocation: model
-effects: [vault-write, workspace-write]
 use_when:
   - Failures belong to distinct tests or subsystems with unrelated root causes.
   - Several investigations can reach conclusions without consuming one another's output.
   - Agents have separate workspaces or read-only scopes that prevent interference.
   - Related failures, exploratory diagnosis, shared-state changes, and sequential dependencies remain under one coordinating process.
-relationships:
-  - type: instance_of
-    target: gnosis://core/concepts/procedure.md
 ---
 
 # dispatching-parallel-agents
@@ -29,7 +25,7 @@ Parallel dispatch assigns one independent problem domain to each agent with isol
 ## Process
 
 1. Partition work by causal and ownership boundaries. For each candidate pair, verify that neither needs the other's result and that their edits or resources cannot conflict.
-2. Create one focused, self-contained brief per domain. Include the exact goal, scope, evidence, constraints, relevant knowledge paths, allowed files or resources, required verification, report contract, and every governing process's exact URI for invocation with `gnosis process invoke --id '<process URI>' --pretty`.
+2. Create one focused, self-contained brief per domain. Include the exact goal, scope, evidence, constraints, relevant knowledge paths, allowed files or resources, required verification, report contract, and every governing procedure's exact URI for invocation with `gnosis procedure invoke --id '<procedure URI>' --pretty`.
 3. Dispatch all independent briefs concurrently. Use separate workspaces for modifying agents; read-only investigations may share a checkout.
 4. Require each agent to report root cause or implementation, files changed, commands and results, unresolved concerns, and the evidence supporting its conclusion.
 5. Review every returned artifact and diff independently. Check for overlap or incompatible assumptions before integrating.

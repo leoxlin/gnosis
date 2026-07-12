@@ -20,7 +20,7 @@ func TestReadAndInvokeProcessRoundTrip(t *testing.T) {
 	if invocation.Process.Origin.Kind != OriginLocal || invocation.Process.Origin.Vault != "agent-test" || invocation.Process.Revision == "" {
 		t.Fatalf("process origin = %+v", invocation.Process)
 	}
-	if invocation.Process.Invocation != "model" || strings.Join(invocation.Process.Effects, ",") != "read" || strings.Join(invocation.Process.Tags, ",") != "test-vault" || len(invocation.Process.UseWhen) != 1 || invocation.Process.UseWhen[0] != "Answering a question from a vault." {
+	if invocation.Process.Invocation != "model" || strings.Join(invocation.Process.Tags, ",") != "test-vault" || len(invocation.Process.UseWhen) != 1 || invocation.Process.UseWhen[0] != "Answering a question from a vault." {
 		t.Fatalf("process metadata = %+v", invocation.Process)
 	}
 	if !strings.Contains(invocation.Sections.Process, "Read only the selected pages") {
@@ -28,9 +28,6 @@ func TestReadAndInvokeProcessRoundTrip(t *testing.T) {
 	}
 	if !strings.Contains(invocation.Sections.Completion, "grounded answer") {
 		t.Fatalf("completion section = %q", invocation.Sections.Completion)
-	}
-	if len(invocation.Relationships) != 1 || invocation.Relationships[0].Relation != "uses" {
-		t.Fatalf("relationships = %+v", invocation.Relationships)
 	}
 
 	page, err := ReadPage(root, processURI)
@@ -88,8 +85,8 @@ The plan is complete.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(discovery.Processes) != 1 || discovery.Processes[0].ID != "processes/query-vault.md" || strings.Join(discovery.Processes[0].Tags, ",") != "test-vault" {
-		t.Fatalf("processes = %+v", discovery.Processes)
+	if len(discovery.Procedures) != 1 || discovery.Procedures[0].ID != "processes/query-vault.md" || strings.Join(discovery.Procedures[0].Tags, ",") != "test-vault" {
+		t.Fatalf("procedures = %+v", discovery.Procedures)
 	}
 }
 
@@ -113,7 +110,7 @@ func TestReadPageAcceptsOnlyCanonicalGnosisURIs(t *testing.T) {
 func TestTraceLinksReturnsDirectedTypedEdges(t *testing.T) {
 	root := agentTestVault(t)
 
-	neighbors, err := TraceNeighbors(root, "processes/query-vault.md", DirectionOut, []string{"uses"})
+	neighbors, err := TraceNeighbors(root, "processes/query-vault.md", DirectionOut, []string{"links_to"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,11 +118,11 @@ func TestTraceLinksReturnsDirectedTypedEdges(t *testing.T) {
 		t.Fatalf("edges = %+v", neighbors.Edges)
 	}
 	edge := neighbors.Edges[0]
-	if edge.From.ID != "processes/query-vault.md" || edge.To.ID != "concepts/provenance.md" || edge.Relation != "uses" {
+	if edge.From.ID != "processes/query-vault.md" || edge.To.ID != "concepts/provenance.md" || edge.Relation != "links_to" {
 		t.Fatalf("edge = %+v", edge)
 	}
 
-	path, err := TracePath(root, "processes/query-vault.md", "concepts/provenance.md", DirectionOut, []string{"uses"}, 2)
+	path, err := TracePath(root, "processes/query-vault.md", "concepts/provenance.md", DirectionOut, []string{"links_to"}, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +130,7 @@ func TestTraceLinksReturnsDirectedTypedEdges(t *testing.T) {
 		t.Fatalf("path = %+v", path)
 	}
 
-	reverse, err := TracePath(root, "concepts/provenance.md", "processes/query-vault.md", DirectionOut, []string{"uses"}, 2)
+	reverse, err := TracePath(root, "concepts/provenance.md", "processes/query-vault.md", DirectionOut, []string{"links_to"}, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +138,7 @@ func TestTraceLinksReturnsDirectedTypedEdges(t *testing.T) {
 		t.Fatalf("reverse path = %+v", reverse)
 	}
 
-	incoming, err := TracePath(root, "concepts/provenance.md", "processes/query-vault.md", DirectionIn, []string{"uses"}, 2)
+	incoming, err := TracePath(root, "concepts/provenance.md", "processes/query-vault.md", DirectionIn, []string{"links_to"}, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,9 +172,6 @@ title: start
 description: Start with shared knowledge.
 use_when:
   - Starting.
-relationships:
-  - type: uses
-    target: ../shared/end.md
 ---
 
 # start
@@ -203,7 +197,7 @@ description: Imported shared knowledge.
 # Shared End
 `)
 
-	path, err := TracePath(workspace, "processes/start.md", "shared/end.md", DirectionOut, []string{"uses"}, 2)
+	path, err := TracePath(workspace, "processes/start.md", "shared/end.md", DirectionOut, []string{"links_to"}, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,11 +295,8 @@ type: Procedure
 title: invalid
 description: Invalid process.
 invocation: surprise
-effects: [read, teleport]
 use_when:
   - Testing invalid records.
-relationships:
-  - type: uses
 ---
 
 # invalid
@@ -320,7 +311,7 @@ relationships:
 		t.Fatal(err)
 	}
 	joined := strings.Join(result.Errors, "\n")
-	for _, want := range []string{"missing required section \"Knowledge inputs\"", "missing required section \"Completion\"", "invocation", "teleport", "target"} {
+	for _, want := range []string{"missing required section \"Knowledge inputs\"", "missing required section \"Completion\"", "invocation"} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("errors = %v, want %q", result.Errors, want)
 		}
@@ -419,12 +410,8 @@ title: query-vault
 description: Use when answering a question from recorded vault knowledge.
 tags: [test-vault]
 invocation: model
-effects: [read]
 use_when:
   - Answering a question from a vault.
-relationships:
-  - type: uses
-    target: ../concepts/provenance.md
 ---
 
 # query-vault

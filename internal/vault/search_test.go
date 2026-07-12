@@ -199,7 +199,7 @@ vault_root = "."
 			return
 		}
 	}
-	t.Fatal("missing bundled gnosis process concept")
+		t.Fatal("missing bundled gnosis procedure concept")
 }
 
 func TestSearchSourceLetsImportsOverrideBundledDocuments(t *testing.T) {

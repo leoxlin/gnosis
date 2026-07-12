@@ -4,14 +4,10 @@ title: finishing-a-development-branch
 description: Use after implementation and review are complete to verify delivery readiness and let the author choose integration or cleanup.
 tags: [gnosis-execution]
 invocation: model
-effects: [vault-write, workspace-write, external]
 use_when:
   - All implementation tasks and blocking reviews are complete.
   - The work needs to be merged, proposed as a pull request, retained, or discarded.
   - A directive is ready for its final delivery and status decision.
-relationships:
-  - type: instance_of
-    target: gnosis://core/concepts/procedure.md
 ---
 
 # finishing-a-development-branch
@@ -27,7 +23,7 @@ Finishing a branch verifies the completed work, detects who owns the workspace, 
 
 ## Process
 
-1. Invoke `gnosis process invoke --id 'gnosis://core/procedures/execution/verification-before-completion.md' --pretty` across the full suite, build, documentation checks, and every directive acceptance criterion. Stop on failure.
+1. Invoke `gnosis procedure invoke --id 'gnosis://core/procedures/execution/verification-before-completion.md' --pretty` across the full suite, build, documentation checks, and every directive acceptance criterion. Stop on failure.
 2. Detect normal checkout, named-branch worktree, or detached harness-managed workspace. Determine the likely base branch and ask when it is ambiguous.
 3. For a named branch, present four concise choices: merge locally, push and create a pull request, keep the branch, or discard. For detached HEAD, omit local merge and offer push as a new branch, keep, or discard.
 4. Execute only the selected choice:

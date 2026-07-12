@@ -4,13 +4,9 @@ title: refining-requirements
 description: Use when requested planning must turn a prompt, issue, or bug report into directive-ready requirements.
 tags: [gnosis-planning]
 invocation: model
-effects: [read, vault-write, workspace-write, external]
 use_when:
   - The author requests a plan or directive from any prompt, issue, or bug report.
   - The author requests a functional project change, including source-code or non-CI configuration changes.
-relationships:
-  - type: instance_of
-    target: gnosis://core/concepts/procedure.md
 ---
 
 # refining-requirements

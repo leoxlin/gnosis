@@ -4,14 +4,10 @@ title: query-vault
 description: Use when answering a question from recorded vault knowledge.
 tags: [gnosis-vault]
 invocation: model
-effects: [read]
 use_when:
   - Answering a question from a vault.
   - Tracing linked concepts or comparing recorded claims.
   - Identifying a gap in the knowledge currently recorded.
-relationships:
-  - type: instance_of
-    target: gnosis://core/concepts/procedure.md
 ---
 
 # query-vault

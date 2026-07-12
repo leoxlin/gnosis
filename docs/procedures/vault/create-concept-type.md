@@ -4,14 +4,10 @@ title: create-concept-type
 description: Use when a vault needs a new or refined ontological category.
 tags: [gnosis-vault]
 invocation: model
-effects: [vault-write]
 use_when:
   - Creating a Concept Type record for a new category of vault knowledge.
   - Refining an existing category whose boundary or required record shape is unclear.
   - An ingestion process finds no existing type that fits a concept.
-relationships:
-  - type: instance_of
-    target: gnosis://core/concepts/procedure.md
 ---
 
 # create-concept-type

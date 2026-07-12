@@ -23,7 +23,7 @@ Create `docs/procedures/records/manage-decisions.md` and `docs/procedures/record
 
 1. Apply the exact process-record additions and migration below.
 2. Run `gnosis validate --vault .`; expect a successful validation summary covering the configured `docs` vault with no errors.
-3. Run `go run ./cmd/gnosis process discovery`; expect `manage-decisions` and `manage-purpose` at their `records/` URIs and no `refine-purpose` entry from the current source tree.
+3. Run `go run ./cmd/gnosis procedure discovery`; expect `manage-decisions` and `manage-purpose` at their `records/` URIs and no `refine-purpose` entry from the current source tree.
 4. Run `go test ./...`; expect every package to pass.
 
 # Exact patch

@@ -74,18 +74,30 @@ type ProcessSections struct {
 	Completion      string `json:"completion"`
 }
 
-// ProcessSummary is a process descriptor for selection or invocation.
+// ProcessSummary is a procedure descriptor for invocation.
 type ProcessSummary struct {
 	DocumentRef
 	UseWhen    []string `json:"use_when"`
 	Invocation string   `json:"invocation"`
-	Effects    []string `json:"effects"`
 	Tags       []string `json:"tags"`
 }
 
-// ProcessDiscovery contains all model-invocable process candidates.
+// ProcedureSummary is the compact metadata used to select a procedure.
+// It deliberately excludes source-specific and execution-effect metadata.
+type ProcedureSummary struct {
+	ID          string   `json:"id"`
+	URI         string   `json:"uri"`
+	Type        string   `json:"type"`
+	Title       string   `json:"title"`
+	Description string   `json:"description,omitempty"`
+	UseWhen     []string `json:"use_when"`
+	Invocation  string   `json:"invocation"`
+	Tags        []string `json:"tags"`
+}
+
+// ProcessDiscovery contains all model-invocable procedure candidates.
 type ProcessDiscovery struct {
-	Processes []ProcessSummary `json:"processes"`
+	Procedures []ProcedureSummary `json:"procedures"`
 }
 
 // GraphEdge is a resolved, directed edge with exact endpoint identities.
@@ -97,11 +109,10 @@ type GraphEdge struct {
 	Source   string      `json:"source,omitempty"`
 }
 
-// ProcessInvocation binds one exact process revision for an agent to execute.
+// ProcessInvocation binds one exact procedure revision for an agent to execute.
 type ProcessInvocation struct {
-	Process       ProcessSummary  `json:"process"`
-	Sections      ProcessSections `json:"sections"`
-	Relationships []GraphEdge     `json:"relationships"`
+	Process  ProcessSummary  `json:"process"`
+	Sections ProcessSections `json:"sections"`
 }
 
 // Direction controls graph traversal without discarding edge direction.
@@ -213,7 +224,7 @@ func DiscoverProcesses(root string) (ProcessDiscovery, error) {
 	if err != nil {
 		return ProcessDiscovery{}, err
 	}
-	processes := make([]ProcessSummary, 0, len(pages))
+	procedures := make([]ProcedureSummary, 0, len(pages))
 	for _, page := range pages {
 		if !isProcessType(page.document.Type) {
 			continue
@@ -228,10 +239,10 @@ func DiscoverProcesses(root string) (ProcessDiscovery, error) {
 		if summary.Invocation == "explicit" {
 			continue
 		}
-		processes = append(processes, summary)
+		procedures = append(procedures, procedureSummary(summary))
 	}
-	sort.Slice(processes, func(i, j int) bool { return processes[i].ID < processes[j].ID })
-	return ProcessDiscovery{Processes: processes}, nil
+	sort.Slice(procedures, func(i, j int) bool { return procedures[i].ID < procedures[j].ID })
+	return ProcessDiscovery{Procedures: procedures}, nil
 }
 
 // InvokeProcess loads one exact process as an execution contract. It is read-only.
@@ -259,15 +270,9 @@ func InvokeProcess(root, selector string) (ProcessInvocation, error) {
 	if len(missing) > 0 || len(duplicates) > 0 {
 		return ProcessInvocation{}, fmt.Errorf("process %q has invalid sections", page.document.ID)
 	}
-	graph := newAgentGraph(pages)
-	relationships := graph.outgoing[page.document.ID]
-	if relationships == nil {
-		relationships = []GraphEdge{}
-	}
 	return ProcessInvocation{
-		Process:       summary,
-		Sections:      sections,
-		Relationships: append([]GraphEdge(nil), relationships...),
+		Process:  summary,
+		Sections: sections,
 	}, nil
 }
 
@@ -376,25 +381,25 @@ func processSummary(page *searchPage) (ProcessSummary, error) {
 	if !validProcessInvocation(invocation) {
 		return ProcessSummary{}, fmt.Errorf("process %q has unsupported invocation %q", page.document.ID, invocation)
 	}
-	effects, valid := fields.scalars("effects")
-	if !valid {
-		return ProcessSummary{}, fmt.Errorf("process %q frontmatter %q must be a scalar or sequence of scalars", page.document.ID, "effects")
-	}
-	if effects == nil {
-		effects = []string{}
-	}
-	for _, effect := range effects {
-		if !validProcessEffect(effect) {
-			return ProcessSummary{}, fmt.Errorf("process %q has unsupported effect %q", page.document.ID, effect)
-		}
-	}
 	return ProcessSummary{
 		DocumentRef: page.document.Ref(),
 		UseWhen:     useWhen,
 		Invocation:  invocation,
-		Effects:     effects,
 		Tags:        append([]string(nil), page.document.Tags...),
 	}, nil
+}
+
+func procedureSummary(process ProcessSummary) ProcedureSummary {
+	return ProcedureSummary{
+		ID:          process.ID,
+		URI:         process.URI,
+		Type:        process.Type,
+		Title:       process.Title,
+		Description: process.Description,
+		UseWhen:     append([]string(nil), process.UseWhen...),
+		Invocation:  process.Invocation,
+		Tags:        append([]string(nil), process.Tags...),
+	}
 }
 
 func parseProcessSections(body string) (ProcessSections, []string, []string) {
@@ -485,15 +490,6 @@ func relationshipSpecs(fields Frontmatter) ([]relationshipSpec, error) {
 
 func validProcessInvocation(value string) bool {
 	return value == "model" || value == "explicit"
-}
-
-func validProcessEffect(value string) bool {
-	switch value {
-	case "read", "vault-write", "workspace-write", "external":
-		return true
-	default:
-		return false
-	}
 }
 
 func selectPage(pages []*searchPage, selector string) (*searchPage, bool) {

@@ -47,7 +47,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	}
 	command.SetOut(stdout)
 	command.SetErr(stderr)
-	command.AddCommand(newScaffoldCommand(stdout), newSetupCommand(stdout), newIndexCommand(stdout), newReadCommand(stdout), newWriteCommand(os.Stdin, stdout), newValidateCommand(stdout, stderr), newQueryCommand(stdout), newConceptsCommand(stdout), newProcessCommand(stdout), newGraphCommand(stdout))
+	command.AddCommand(newScaffoldCommand(stdout), newSetupCommand(stdout), newIndexCommand(stdout), newReadCommand(stdout), newWriteCommand(os.Stdin, stdout), newValidateCommand(stdout, stderr), newQueryCommand(stdout), newConceptsCommand(stdout), newProcedureCommand(stdout), newGraphCommand(stdout))
 	command.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "Print the gnosis version",
@@ -167,29 +167,29 @@ func newQueryCommand(stdout io.Writer) *cobra.Command {
 	return command
 }
 
-func newProcessCommand(stdout io.Writer) *cobra.Command {
+func newProcedureCommand(stdout io.Writer) *cobra.Command {
 	command := &cobra.Command{
-		Use:   "process",
-		Short: "Discover and load executable vault processes",
-		Args:  noArgs("process"),
+		Use:   "procedure",
+		Short: "Discover and load executable vault procedures",
+		Args:  noArgs("procedure"),
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return errors.New("process: missing subcommand")
+			return errors.New("procedure: missing subcommand")
 		},
 	}
-	command.AddCommand(newProcessDiscoveryCommand(stdout), newProcessInvokeCommand(stdout))
+	command.AddCommand(newProcedureDiscoveryCommand(stdout), newProcedureInvokeCommand(stdout))
 	return command
 }
 
-func newProcessDiscoveryCommand(stdout io.Writer) *cobra.Command {
+func newProcedureDiscoveryCommand(stdout io.Writer) *cobra.Command {
 	var vaultPath string
 	command := &cobra.Command{
 		Use:   "discovery [flags]",
 		Short: "List all model-invocable processes for agent selection",
-		Args:  noArgs("process discovery"),
+		Args:  noArgs("procedure discovery"),
 		RunE: func(_ *cobra.Command, _ []string) error {
 			result, err := vault.DiscoverProcesses(vaultPath)
 			if err != nil {
-				return fmt.Errorf("process discovery: %w", err)
+				return fmt.Errorf("procedure discovery: %w", err)
 			}
 			return writeJSON(stdout, result, true)
 		},
@@ -199,21 +199,21 @@ func newProcessDiscoveryCommand(stdout io.Writer) *cobra.Command {
 	return command
 }
 
-func newProcessInvokeCommand(stdout io.Writer) *cobra.Command {
+func newProcedureInvokeCommand(stdout io.Writer) *cobra.Command {
 	var vaultPath, id string
 	var pretty bool
 	command := &cobra.Command{
 		Use:   "invoke [flags]",
-		Short: "Load one exact process execution contract",
-		Args:  noArgs("process invoke"),
+		Short: "Load one exact procedure execution contract",
+		Args:  noArgs("procedure invoke"),
 		RunE: func(_ *cobra.Command, _ []string) error {
 			id = strings.TrimSpace(id)
 			if id == "" {
-				return errors.New("process invoke: --id must not be empty")
+				return errors.New("procedure invoke: --id must not be empty")
 			}
 			result, err := vault.InvokeProcess(vaultPath, id)
 			if err != nil {
-				return fmt.Errorf("process invoke: %w", err)
+				return fmt.Errorf("procedure invoke: %w", err)
 			}
 			return writeJSON(stdout, result, pretty)
 		},
