@@ -27,7 +27,7 @@ relationships:
    >
    > Read-only: no writes, mutating commands, sub-agents, or scope invention. Return `Reviewed: <bindings>`, `Verdict: APPROVE|NEEDS_FIXES`, then `F<n> | Critical|Important|Minor | section | evidence | failure | minimum correction | knowledge change`. Critical is unsafe, contradictory, or impossible; Important is likely failure or material ambiguity; Minor is nonblocking. `NEEDS_FIXES` iff Critical or Important exists.
 
-2. Preserve the report verbatim. Verify each finding and record `F<n> → ACCEPT|REJECT|AUTHOR` with evidence. A reviewer cannot settle intent: ask the author about choices absent from approved requirements. Invoke [refine-purpose](../vault/refine-purpose.md) for accepted purpose changes. Persist semantic decision changes as new superseding Decisions; edit in place only for non-semantic corrections.
+2. Preserve the report verbatim. Verify each finding and record `F<n> → ACCEPT|REJECT|AUTHOR` with evidence. A reviewer cannot settle intent: ask the author about choices absent from approved requirements. Invoke the **Create or update** branch of [manage-purpose](../records/manage-purpose.md) for accepted purpose changes. Persist semantic decision changes as new superseding Decisions; edit in place only for non-semantic corrections.
 3. Add `# Purpose/Decision Changes` only for persisted changes, listing old→new URI/revisions and effects. Persist the revised `draft` with `gnosis write '<directive URI>' --filename <draft-file>`, read it back with `gnosis read '<directive URI>' --json`, and return its current revision with the report, dispositions, and changed knowledge revisions.
 
 ## Completion
