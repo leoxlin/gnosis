@@ -18,6 +18,7 @@ Do not use it for one-off knowledge, settled choices, implementation handoffs, o
 ## Minimum record
 
 - A selection-focused `description` and at least one `use_when` frontmatter value.
+- A `tags` frontmatter value identifying its process family. Discovery returns only records whose tags intersect `[gnosis].processes`.
 - Unique, non-empty `## Knowledge inputs`, `## Process`, and `## Completion` sections.
 - Self-contained instructions. Links and hard-coded knowledge URIs may target other `Gnosis Process` records or gnosis concept records; copy required rules inline and name dynamic runtime inputs without linking them.
 - Optional `invocation`, `effects`, and typed `relationships` frontmatter. An `explicit` invocation is omitted from discovery and is invoked only by another active process.
@@ -29,6 +30,7 @@ Do not use it for one-off knowledge, settled choices, implementation handoffs, o
 type: Gnosis Process
 title: <name>
 description: <selection condition>
+tags: [<process-family>]
 invocation: <model | explicit>
 effects: [<read | vault-write | workspace-write | external>]
 use_when:

@@ -2,6 +2,7 @@
 type: Gnosis Process
 title: query-vault
 description: Use when answering a question from recorded vault knowledge.
+tags: [gnosis-vault]
 invocation: model
 effects: [read]
 use_when:

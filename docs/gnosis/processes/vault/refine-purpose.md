@@ -2,6 +2,7 @@
 type: Gnosis Process
 title: refine-purpose
 description: Use when the repository purpose must be created or changed through author-confirmed understanding.
+tags: [gnosis-vault]
 invocation: model
 effects: [vault-write]
 use_when:

@@ -2,6 +2,7 @@
 type: Gnosis Process
 title: systematic-debugging
 description: Use for diagnosing or fixing any bug, failing test, build failure, performance problem, or unexpected technical behavior.
+tags: [gnosis-debugging]
 invocation: model
 effects: [vault-write, workspace-write]
 use_when:

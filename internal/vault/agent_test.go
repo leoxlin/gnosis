@@ -20,7 +20,7 @@ func TestReadAndInvokeProcessRoundTrip(t *testing.T) {
 	if invocation.Process.Origin.Kind != OriginLocal || invocation.Process.Origin.Vault != "agent-test" || invocation.Process.Revision == "" {
 		t.Fatalf("process origin = %+v", invocation.Process)
 	}
-	if invocation.Process.Invocation != "model" || strings.Join(invocation.Process.Effects, ",") != "read" || len(invocation.Process.UseWhen) != 1 || invocation.Process.UseWhen[0] != "Answering a question from a vault." {
+	if invocation.Process.Invocation != "model" || strings.Join(invocation.Process.Effects, ",") != "read" || strings.Join(invocation.Process.Tags, ",") != "test-vault" || len(invocation.Process.UseWhen) != 1 || invocation.Process.UseWhen[0] != "Answering a question from a vault." {
 		t.Fatalf("process metadata = %+v", invocation.Process)
 	}
 	if !strings.Contains(invocation.Sections.Process, "Read only the selected pages") {
@@ -46,6 +46,50 @@ func TestReadAndInvokeProcessRoundTrip(t *testing.T) {
 	}
 	if byID.Document.URI != processURI || byID.Markdown != page.Markdown {
 		t.Fatalf("by ID = %+v", byID)
+	}
+}
+
+func TestDiscoverProcessesFiltersConfiguredTags(t *testing.T) {
+	root := agentTestVault(t)
+	writeConfig(t, root, `[vault]
+vault_name = "agent-test"
+vault_root = "docs"
+vault_index = false
+vault_log = false
+
+[gnosis]
+processes = ["test-vault"]
+`)
+	write(t, root, "docs/processes/planning.md", `---
+type: Gnosis Process
+title: planning
+description: A planning-only process.
+tags: [test-planning]
+use_when:
+  - Planning.
+---
+
+# planning
+
+## Knowledge inputs
+
+- Requirements.
+
+## Process
+
+1. Plan.
+
+## Completion
+
+The plan is complete.
+`)
+
+	discovery, err := DiscoverProcesses(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(discovery.Processes) != 1 || discovery.Processes[0].ID != "processes/query-vault.md" || strings.Join(discovery.Processes[0].Tags, ",") != "test-vault" {
+		t.Fatalf("processes = %+v", discovery.Processes)
 	}
 }
 
@@ -373,6 +417,7 @@ description: Source identity and history.
 type: Gnosis Process
 title: query-vault
 description: Use when answering a question from recorded vault knowledge.
+tags: [test-vault]
 invocation: model
 effects: [read]
 use_when:

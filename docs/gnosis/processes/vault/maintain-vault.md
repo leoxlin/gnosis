@@ -2,6 +2,7 @@
 type: Gnosis Process
 title: maintain-vault
 description: Use when auditing or repairing the integrity of a vault.
+tags: [gnosis-vault]
 invocation: model
 effects: [vault-write]
 use_when:

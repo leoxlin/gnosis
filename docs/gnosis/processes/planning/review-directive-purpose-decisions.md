@@ -2,6 +2,7 @@
 type: Gnosis Process
 title: review-directive-purpose-decisions
 description: Use only when a persisted complex draft needs independent review against repository purpose and decisions.
+tags: [gnosis-planning]
 invocation: explicit
 effects: [read, vault-write]
 use_when:

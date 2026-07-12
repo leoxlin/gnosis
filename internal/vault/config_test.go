@@ -27,6 +27,31 @@ func TestResolveConfigUsesDefaultsWithoutConfiguration(t *testing.T) {
 	}
 }
 
+func TestDefaultConfigEnablesVaultProcesses(t *testing.T) {
+	if got, want := DefaultConfig().Gnosis.Processes, []string{"gnosis-vault"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("processes = %v, want %v", got, want)
+	}
+}
+
+func TestResolveConfigLoadsProcessTags(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, `[vault]
+vault_name = "Local"
+vault_root = "."
+
+[gnosis]
+processes = ["gnosis-vault", "gnosis-planning"]
+`)
+
+	resolution, err := ResolveConfig(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := resolution.Config.Gnosis.Processes, []string{"gnosis-vault", "gnosis-planning"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("processes = %v, want %v", got, want)
+	}
+}
+
 func TestResolveConfigWithEmptyFileHasNoSources(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	root := t.TempDir()

@@ -2,6 +2,7 @@
 type: Gnosis Process
 title: test-driven-development
 description: Use when implementing a feature, bug fix, refactor, or behavior change before changing production code.
+tags: [gnosis-execution]
 invocation: model
 effects: [workspace-write]
 use_when:

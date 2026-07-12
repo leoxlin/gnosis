@@ -2,6 +2,7 @@
 type: Gnosis Process
 title: create-concept-type
 description: Use when a vault needs a new or refined ontological category.
+tags: [gnosis-vault]
 invocation: model
 effects: [vault-write]
 use_when:

@@ -421,6 +421,7 @@ func TestRunProcessDiscoveryReturnsSelectableModelProcesses(t *testing.T) {
 			URI      string   `json:"uri"`
 			UseWhen  []string `json:"use_when"`
 			Effects  []string `json:"effects"`
+			Tags     []string `json:"tags"`
 			Revision string   `json:"revision"`
 		} `json:"processes"`
 	}
@@ -432,6 +433,7 @@ func TestRunProcessDiscoveryReturnsSelectableModelProcesses(t *testing.T) {
 		URI      string   `json:"uri"`
 		UseWhen  []string `json:"use_when"`
 		Effects  []string `json:"effects"`
+		Tags     []string `json:"tags"`
 		Revision string   `json:"revision"`
 	}
 	for _, candidate := range discovery.Processes {
@@ -442,7 +444,7 @@ func TestRunProcessDiscoveryReturnsSelectableModelProcesses(t *testing.T) {
 			t.Fatalf("discovery must hide explicit process: %+v", candidate)
 		}
 	}
-	if process.ID != "processes/query-vault.md" || process.URI == "" || process.Revision == "" || strings.Join(process.UseWhen, ",") != "Answering a question from a vault." || strings.Join(process.Effects, ",") != "read" {
+	if process.ID != "processes/query-vault.md" || process.URI == "" || process.Revision == "" || strings.Join(process.Tags, ",") != "gnosis-vault" || strings.Join(process.UseWhen, ",") != "Answering a question from a vault." || strings.Join(process.Effects, ",") != "read" {
 		t.Fatalf("process = %+v", process)
 	}
 	if strings.Contains(stdout.String(), `"invocation": "explicit"`) {
@@ -742,6 +744,7 @@ description: Source identity and history.
 type: Gnosis Process
 title: query-vault
 description: Use when answering a question from recorded vault knowledge.
+tags: [gnosis-vault]
 invocation: model
 effects: [read]
 use_when:
@@ -769,6 +772,7 @@ The answer is grounded.
 type: Gnosis Process
 title: internal-review
 description: Used by another process only.
+tags: [gnosis-vault]
 invocation: explicit
 effects: [read]
 use_when:

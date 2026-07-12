@@ -2,6 +2,7 @@
 type: Gnosis Process
 title: execute-directive
 description: Use when an open directive with an implementation plan must be executed directly or through sequential delegated tasks.
+tags: [gnosis-execution]
 invocation: model
 effects: [vault-write, workspace-write, external]
 use_when:

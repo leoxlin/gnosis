@@ -2,6 +2,7 @@
 type: Gnosis Process
 title: ingest-knowledge
 description: Use when supplied evidence should create or update one or more concept pages.
+tags: [gnosis-vault]
 invocation: model
 effects: [vault-write]
 use_when:

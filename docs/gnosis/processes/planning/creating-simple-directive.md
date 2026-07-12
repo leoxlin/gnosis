@@ -2,6 +2,7 @@
 type: Gnosis Process
 title: creating-simple-directive
 description: Use only after requirements refinement routes one bounded delivery with no material design or dependency work.
+tags: [gnosis-planning]
 invocation: explicit
 effects: [read, vault-write]
 use_when:

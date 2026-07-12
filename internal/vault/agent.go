@@ -80,6 +80,7 @@ type ProcessSummary struct {
 	UseWhen    []string `json:"use_when"`
 	Invocation string   `json:"invocation"`
 	Effects    []string `json:"effects"`
+	Tags       []string `json:"tags"`
 }
 
 // ProcessDiscovery contains all model-invocable process candidates.
@@ -215,6 +216,9 @@ func DiscoverProcesses(root string) (ProcessDiscovery, error) {
 	processes := make([]ProcessSummary, 0, len(pages))
 	for _, page := range pages {
 		if !isProcessType(page.document.Type) {
+			continue
+		}
+		if !source.resolution.Config.ProcessEnabled(page.document.Tags) {
 			continue
 		}
 		summary, err := processSummary(page)
@@ -389,6 +393,7 @@ func processSummary(page *searchPage) (ProcessSummary, error) {
 		UseWhen:     useWhen,
 		Invocation:  invocation,
 		Effects:     effects,
+		Tags:        append([]string(nil), page.document.Tags...),
 	}, nil
 }
 

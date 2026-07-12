@@ -2,6 +2,7 @@
 type: Gnosis Process
 title: dispatching-parallel-agents
 description: Use when two or more problem domains can be investigated or changed without shared state, overlapping files, or sequential dependencies.
+tags: [gnosis-execution]
 invocation: model
 effects: [vault-write, workspace-write]
 use_when:

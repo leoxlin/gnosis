@@ -2,6 +2,7 @@
 type: Gnosis Process
 title: finishing-a-development-branch
 description: Use after implementation and review are complete to verify delivery readiness and let the author choose integration or cleanup.
+tags: [gnosis-execution]
 invocation: model
 effects: [vault-write, workspace-write, external]
 use_when:
