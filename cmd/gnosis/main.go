@@ -11,7 +11,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"gnosis/internal/bundle"
 	"gnosis/internal/mcpserver"
 	"gnosis/internal/vault"
 )
@@ -649,7 +648,7 @@ func runScaffold(vaultPath, vaultName string, force, includeConcepts bool, stdou
 }
 
 func writeConcepts(root string, force bool) ([]string, error) {
-	documents, err := bundle.Concepts()
+	documents, err := vault.BundledConcepts()
 	if err != nil {
 		return nil, err
 	}

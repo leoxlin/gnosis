@@ -1,36 +1,7 @@
 [tools]
 go = "1.25"
 
-[tasks.setup-build]
-description = "Stage documentation embedded in the gnosis CLI"
-run = '''
-#!/bin/sh
-
-set -eu
-
-target="internal/bundle/content"
-rm -rf "$target"
-
-for source in \
-  docs/concepts/*.md \
-  docs/gnosis/processes/*/*.md
-do
-  case "$source" in
-    *'*')
-      printf 'no documentation matched: %s\n' "$source" >&2
-      exit 1
-      ;;
-  esac
-
-  relative=${source#docs/}
-  destination="$target/$relative"
-  mkdir -p "$(dirname -- "$destination")"
-  cp "$source" "$destination"
-done
-'''
-
 [tasks.build]
-depends = ["setup-build"]
 run = [
   "mkdir -p dist",
   "go build -o ./dist/gnosis ./cmd/gnosis",
@@ -39,7 +10,6 @@ description = "Build the gnosis binary into dist/"
 
 [tasks.localbin]
 description = "Install gnosis to ~/.local/bin/gnosis"
-depends = ["setup-build"]
 run = [
   "mkdir -p ~/.local/bin",
   "go build -o ~/.local/bin/gnosis ./cmd/gnosis",
@@ -91,12 +61,10 @@ done
 
 [tasks.test]
 description = "Run all Go tests"
-depends = ["setup-build"]
 run = "go test ./..."
 
 [tasks.checks]
 description = "Run formatting, vet, tests, build, and documentation validation"
-depends = ["setup-build"]
 run = '''
 #!/bin/sh
 

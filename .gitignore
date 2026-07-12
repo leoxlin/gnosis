@@ -1,6 +1,5 @@
 .DS_Store
 /bin/
 /dist/
-/internal/bundle/content/
 *.test
 coverage.out

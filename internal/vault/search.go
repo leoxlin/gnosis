@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"gnosis/internal/bundle"
 )
 
 // SearchSource reads configured gnosis vault roots into search documents.
@@ -180,7 +178,7 @@ func (s *SearchSource) pages() ([]*searchPage, error) {
 }
 
 func (s *SearchSource) appendBundledPages(pages *[]*searchPage, seenPaths, seenIDs map[string]struct{}) error {
-	documents, err := bundle.Documents()
+	documents, err := bundledDocuments()
 	if err != nil {
 		return err
 	}
