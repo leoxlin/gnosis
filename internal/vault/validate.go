@@ -1,13 +1,88 @@
 package vault
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"unicode"
+
+	"github.com/adrg/frontmatter"
+	"go.yaml.in/yaml/v4"
 )
+
+type frontmatterFields map[string]any
+
+var yamlFrontmatter = frontmatter.NewFormat("---", "---", yaml.Unmarshal)
+
+func frontmatterError(err error) error {
+	if errors.Is(err, frontmatter.ErrNotFound) {
+		return fmt.Errorf("missing YAML frontmatter")
+	}
+	if err != nil {
+		return fmt.Errorf("invalid YAML frontmatter: %w", err)
+	}
+	return nil
+}
+
+func frontmatterScalar(fields frontmatterFields, key string) (string, bool) {
+	value, exists := fields[key]
+	if !exists {
+		return "", false
+	}
+	valueString, scalar := value.(string)
+	return valueString, scalar
+}
+
+func frontmatterScalars(fields frontmatterFields, key string) ([]string, bool) {
+	value, exists := fields[key]
+	if !exists {
+		return nil, true
+	}
+	if value == nil {
+		return nil, true
+	}
+	switch value := value.(type) {
+	case string:
+		if strings.TrimSpace(value) == "" {
+			return nil, true
+		}
+		return []string{strings.TrimSpace(value)}, true
+	case []any:
+		values := make([]string, 0, len(value))
+		for _, item := range value {
+			if item == nil {
+				continue
+			}
+			itemString, scalar := item.(string)
+			if !scalar {
+				return nil, false
+			}
+			if strings.TrimSpace(itemString) != "" {
+				values = append(values, strings.TrimSpace(itemString))
+			}
+		}
+		return values, true
+	default:
+		return nil, false
+	}
+}
+
+func frontmatterNonEmpty(fields frontmatterFields, key string) bool {
+	value := fields[key]
+	if value == nil {
+		return false
+	}
+	if valueString, scalar := value.(string); scalar {
+		return strings.TrimSpace(valueString) != ""
+	}
+	if values, sequence := value.([]any); sequence {
+		return len(values) > 0
+	}
+	return true
+}
 
 // Result is the aggregate output of a vault validation run.
 type Result struct {
@@ -96,22 +171,24 @@ func validateFile(root, path string, config Config, effectiveDocumentPaths map[s
 	text := string(bytes)
 
 	isReserved := filepath.Base(path) == "index.md" || filepath.Base(path) == "log.md"
-	var fields Frontmatter
+	var fields frontmatterFields
 	var body string
 	if isReserved && !strings.HasPrefix(text, "---\n") {
-		fields = Frontmatter{}
+		fields = frontmatterFields{}
 		body = text
 	} else {
-		fields, body, err = parseFrontmatter(text)
+		var bodyBytes []byte
+		bodyBytes, err = frontmatter.MustParse(strings.NewReader(text), &fields, yamlFrontmatter)
+		body = string(bodyBytes)
 		if err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, frontmatterError(err)))
 			return
 		}
 	}
 
 	if !isReserved {
-		if value, scalar := fields.scalar("type"); !scalar {
-			if fields.nonEmpty("type") {
+		if value, scalar := frontmatterScalar(fields, "type"); !scalar {
+			if frontmatterNonEmpty(fields, "type") {
 				result.Errors = append(result.Errors, fmt.Sprintf("%s: frontmatter %q must be a scalar", path, "type"))
 			} else {
 				result.Errors = append(result.Errors, fmt.Sprintf("%s: missing non-empty %q frontmatter", path, "type"))
@@ -120,8 +197,8 @@ func validateFile(root, path string, config Config, effectiveDocumentPaths map[s
 			result.Errors = append(result.Errors, fmt.Sprintf("%s: missing non-empty %q frontmatter", path, "type"))
 		}
 		for _, field := range []string{"title", "description"} {
-			value, scalar := fields.scalar(field)
-			if !scalar && fields.nonEmpty(field) {
+			value, scalar := frontmatterScalar(fields, field)
+			if !scalar && frontmatterNonEmpty(fields, field) {
 				result.Errors = append(result.Errors, fmt.Sprintf("%s: frontmatter %q must be a scalar", path, field))
 			} else if strings.TrimSpace(value) == "" {
 				result.Warnings = append(result.Warnings, fmt.Sprintf("%s: missing recommended %q frontmatter", path, field))
@@ -133,7 +210,7 @@ func validateFile(root, path string, config Config, effectiveDocumentPaths map[s
 		}
 		validateRelationships(root, path, fields, effectiveDocumentPaths, result)
 
-		if conceptType, scalar := fields.scalar("type"); scalar {
+		if conceptType, scalar := frontmatterScalar(fields, "type"); scalar {
 			conceptType = strings.TrimSpace(conceptType)
 			if conceptType == "ConceptType" {
 				validateConceptTypeName(path, fields, result)
@@ -148,8 +225,8 @@ func validateFile(root, path string, config Config, effectiveDocumentPaths map[s
 	validateLinks(root, path, text, config, effectiveDocumentPaths, result)
 }
 
-func validateConceptTypeName(path string, fields Frontmatter, result *Result) {
-	title, scalar := fields.scalar("title")
+func validateConceptTypeName(path string, fields frontmatterFields, result *Result) {
+	title, scalar := frontmatterScalar(fields, "title")
 	title = strings.TrimSpace(title)
 	if !scalar || title == "" || isTypeName(title) {
 		return
@@ -172,7 +249,7 @@ func isTypeName(value string) bool {
 	return value != ""
 }
 
-func validateProcessRecord(path string, fields Frontmatter, body string, result *Result) {
+func validateProcessRecord(path string, fields frontmatterFields, body string, result *Result) {
 	_, missing, duplicates := parseProcessSections(body)
 	for _, section := range missing {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: missing required section %q", path, section))
@@ -180,17 +257,17 @@ func validateProcessRecord(path string, fields Frontmatter, body string, result 
 	for _, section := range duplicates {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: duplicate process section %q", path, section))
 	}
-	useWhen, valid := fields.scalars("use_when")
+	useWhen, valid := frontmatterScalars(fields, "use_when")
 	if !valid {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: frontmatter %q must be a scalar or sequence of scalars", path, "use_when"))
 	} else if len(useWhen) == 0 {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: process requires at least one non-empty %q frontmatter value", path, "use_when"))
 	}
-	if description, scalar := fields.scalar("description"); !scalar || strings.TrimSpace(description) == "" {
+	if description, scalar := frontmatterScalar(fields, "description"); !scalar || strings.TrimSpace(description) == "" {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: process requires non-empty %q frontmatter", path, "description"))
 	}
 
-	if invocation, scalar := fields.scalar("invocation"); scalar {
+	if invocation, scalar := frontmatterScalar(fields, "invocation"); scalar {
 		invocation = strings.TrimSpace(invocation)
 		if invocation != "" && !validProcessInvocation(invocation) {
 			result.Errors = append(result.Errors, fmt.Sprintf("%s: frontmatter %q must be %q or %q", path, "invocation", "model", "explicit"))
@@ -206,7 +283,7 @@ func validateProcessRecord(path string, fields Frontmatter, body string, result 
 	}
 }
 
-func validateRelationships(root, path string, fields Frontmatter, effectiveDocumentPaths map[string]struct{}, result *Result) {
+func validateRelationships(root, path string, fields frontmatterFields, effectiveDocumentPaths map[string]struct{}, result *Result) {
 	specs, err := relationshipSpecs(fields)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))

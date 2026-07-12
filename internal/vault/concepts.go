@@ -5,6 +5,8 @@ import (
 	"io"
 	"sort"
 	"strings"
+
+	"github.com/adrg/frontmatter"
 )
 
 // ConceptTypeSummary is compact metadata for one available concept type.
@@ -42,17 +44,14 @@ func ConceptRecords(root, conceptType string) (ConceptRecordCatalog, error) {
 		if page.document.Type != conceptType {
 			continue
 		}
-		fields, _, err := parseFrontmatter(string(page.data))
+		fields := frontmatterFields{}
+		_, err := frontmatter.MustParse(strings.NewReader(string(page.data)), &fields, yamlFrontmatter)
 		if err != nil {
-			return nil, fmt.Errorf("concepts: %s: %w", page.document.URI, err)
+			return nil, fmt.Errorf("concepts: %s: %w", page.document.URI, frontmatterError(err))
 		}
 		record := make(map[string]any, len(fields)+1)
 		record["uri"] = page.document.URI
-		for key, node := range fields {
-			var value any
-			if err := node.Decode(&value); err != nil {
-				return nil, fmt.Errorf("concepts: %s: decode frontmatter %q: %w", page.document.URI, key, err)
-			}
+		for key, value := range fields {
 			record[key] = value
 		}
 		records = append(records, record)

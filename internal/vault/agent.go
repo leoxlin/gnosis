@@ -7,6 +7,9 @@ import (
 	"path"
 	"sort"
 	"strings"
+
+	"github.com/adrg/frontmatter"
+	"go.yaml.in/yaml/v4"
 )
 
 const ProcedureType = "Procedure"
@@ -309,9 +312,10 @@ func isProcessType(value string) bool {
 }
 
 func processSummary(page *searchPage) (ProcessSummary, error) {
-	fields, _, err := parseFrontmatter(string(page.data))
+	fields := frontmatterFields{}
+	_, err := frontmatter.MustParse(strings.NewReader(string(page.data)), &fields, yamlFrontmatter)
 	if err != nil {
-		return ProcessSummary{}, err
+		return ProcessSummary{}, frontmatterError(err)
 	}
 	_, missing, duplicates := parseProcessSections(page.document.Body)
 	if len(missing) > 0 {
@@ -323,14 +327,14 @@ func processSummary(page *searchPage) (ProcessSummary, error) {
 	if strings.TrimSpace(page.document.Description) == "" {
 		return ProcessSummary{}, fmt.Errorf("process %q missing non-empty description frontmatter", page.document.URI)
 	}
-	useWhen, valid := fields.scalars("use_when")
+	useWhen, valid := frontmatterScalars(fields, "use_when")
 	if !valid {
 		return ProcessSummary{}, fmt.Errorf("process %q frontmatter %q must be a scalar or sequence of scalars", page.document.URI, "use_when")
 	}
 	if len(useWhen) == 0 {
 		return ProcessSummary{}, fmt.Errorf("process %q must declare at least one non-empty %q frontmatter value", page.document.URI, "use_when")
 	}
-	invocation, _ := fields.scalar("invocation")
+	invocation, _ := frontmatterScalar(fields, "invocation")
 	invocation = strings.TrimSpace(invocation)
 	if invocation == "" {
 		invocation = "model"
@@ -408,17 +412,17 @@ func markdownSections(markdown string) (map[string]string, []string) {
 	return sections, duplicates
 }
 
-func relationshipSpecs(fields Frontmatter) ([]relationshipSpec, error) {
-	node, exists := fields["relationships"]
-	if !exists || node == nil {
-		return nil, nil
-	}
-	node = resolveAlias(node)
-	if node == nil {
+func relationshipSpecs(fields frontmatterFields) ([]relationshipSpec, error) {
+	value, exists := fields["relationships"]
+	if !exists || value == nil {
 		return nil, nil
 	}
 	var specs []relationshipSpec
-	if err := node.Decode(&specs); err != nil {
+	encoded, err := yaml.Marshal(value)
+	if err != nil {
+		return nil, fmt.Errorf("frontmatter %q must be a sequence of type and target mappings: %w", "relationships", err)
+	}
+	if err := yaml.Unmarshal(encoded, &specs); err != nil {
 		return nil, fmt.Errorf("frontmatter %q must be a sequence of type and target mappings: %w", "relationships", err)
 	}
 	for index, spec := range specs {

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/adrg/frontmatter"
 )
 
 // SearchSource reads configured gnosis vault roots into search documents.
@@ -218,9 +220,11 @@ func (s *SearchSource) readSearchPage(source VaultSource, path string, origin Or
 }
 
 func readSearchData(root, path string, data []byte, origin Origin) (*searchPage, error) {
-	fields, body, err := parseFrontmatter(string(data))
+	fields := frontmatterFields{}
+	bodyBytes, err := frontmatter.MustParse(strings.NewReader(string(data)), &fields, yamlFrontmatter)
+	body := string(bodyBytes)
 	if err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
+		return nil, fmt.Errorf("parse %s: %w", path, frontmatterError(err))
 	}
 
 	conceptType, err := requiredSearchScalar(fields, "type")
@@ -241,11 +245,11 @@ func readSearchData(root, path string, data []byte, origin Origin) (*searchPage,
 			return nil, fmt.Errorf("%s: %w", path, err)
 		}
 	}
-	tags, valid := fields.scalars("tags")
+	tags, valid := frontmatterScalars(fields, "tags")
 	if !valid {
 		return nil, fmt.Errorf("%s: frontmatter %q must be a scalar or sequence of scalars", path, "tags")
 	}
-	aliases, valid := fields.scalars("aliases")
+	aliases, valid := frontmatterScalars(fields, "aliases")
 	if !valid {
 		return nil, fmt.Errorf("%s: frontmatter %q must be a scalar or sequence of scalars", path, "aliases")
 	}
@@ -293,9 +297,10 @@ func resolveDocumentEdges(pages []*searchPage) error {
 	}
 
 	for _, page := range pages {
-		fields, _, err := parseFrontmatter(string(page.data))
+		fields := frontmatterFields{}
+		_, err := frontmatter.MustParse(strings.NewReader(string(page.data)), &fields, yamlFrontmatter)
 		if err != nil {
-			return fmt.Errorf("parse %s: %w", page.path, err)
+			return fmt.Errorf("parse %s: %w", page.path, frontmatterError(err))
 		}
 		specs, err := relationshipSpecs(fields)
 		if err != nil {
@@ -428,8 +433,8 @@ func logicalDocumentCandidates(sourcePath string, link Link) []string {
 	return candidates
 }
 
-func requiredSearchScalar(fields Frontmatter, key string) (string, error) {
-	value, scalar := fields.scalar(key)
+func requiredSearchScalar(fields frontmatterFields, key string) (string, error) {
+	value, scalar := frontmatterScalar(fields, key)
 	if !scalar {
 		if _, exists := fields[key]; exists {
 			return "", fmt.Errorf("frontmatter %q must be a scalar", key)
@@ -443,8 +448,8 @@ func requiredSearchScalar(fields Frontmatter, key string) (string, error) {
 	return value, nil
 }
 
-func optionalSearchScalar(fields Frontmatter, key string) (string, error) {
-	value, scalar := fields.scalar(key)
+func optionalSearchScalar(fields frontmatterFields, key string) (string, error) {
+	value, scalar := frontmatterScalar(fields, key)
 	if scalar {
 		return strings.TrimSpace(value), nil
 	}

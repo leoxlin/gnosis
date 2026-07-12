@@ -8,14 +8,17 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/adrg/frontmatter"
 )
 
 // WriteDocument writes content into the local vault configured directly under
 // root. The target URI must identify a page in that local vault.
 func WriteDocument(root, uri string, content []byte, update bool) (string, error) {
-	fields, _, err := parseFrontmatter(string(content))
+	fields := frontmatterFields{}
+	_, err := frontmatter.MustParse(strings.NewReader(string(content)), &fields, yamlFrontmatter)
 	if err != nil {
-		return "", fmt.Errorf("write: parse input: %w", err)
+		return "", fmt.Errorf("write: parse input: %w", frontmatterError(err))
 	}
 	inputType, err := requiredSearchScalar(fields, "type")
 	if err != nil {
@@ -54,9 +57,10 @@ func WriteDocument(root, uri string, content []byte, update bool) (string, error
 	if err != nil {
 		return "", err
 	}
-	conceptFields, _, err := parseFrontmatter(string(conceptPage.data))
+	conceptFields := frontmatterFields{}
+	_, err = frontmatter.MustParse(strings.NewReader(string(conceptPage.data)), &conceptFields, yamlFrontmatter)
 	if err != nil {
-		return "", fmt.Errorf("write: parse Concept Type %q: %w", inputType, err)
+		return "", fmt.Errorf("write: parse Concept Type %q: %w", inputType, frontmatterError(err))
 	}
 	directory, err := requiredSearchScalar(conceptFields, "path")
 	if err != nil {

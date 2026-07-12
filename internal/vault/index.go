@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/adrg/frontmatter"
 )
 
 // IndexOptions controls how generated index files are written.
@@ -225,14 +227,16 @@ func markdownTitleAndDescription(path string) (string, string) {
 	}
 	text := string(data)
 	if strings.HasPrefix(text, "---\n") || strings.HasPrefix(text, "---\r\n") {
-		fields, body, err := parseFrontmatter(text)
+		fields := frontmatterFields{}
+		bodyBytes, err := frontmatter.MustParse(strings.NewReader(text), &fields, yamlFrontmatter)
+		body := string(bodyBytes)
 		if err == nil {
-			title, _ := fields.scalar("title")
+			title, _ := frontmatterScalar(fields, "title")
 			title = strings.TrimSpace(title)
 			if title == "" {
 				title = firstHeading(body)
 			}
-			description, _ := fields.scalar("description")
+			description, _ := frontmatterScalar(fields, "description")
 			return title, strings.TrimSpace(description)
 		}
 	}
