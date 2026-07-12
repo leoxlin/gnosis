@@ -6,7 +6,7 @@ description: Use OKF as the portable foundation for `gnosis` knowledge and layer
 
 # Decision
 
-Bootstrap `gnosis` as a **knowledge-first** project: establish the [Open Knowledge Format (OKF) v0.1](../../references/okf-v-0-1.md) as the foundational knowledge format, layer extraction and LLM-wiki strategies on top, and define an SDLC ontology using that foundation.
+Bootstrap `gnosis` as a **knowledge-first** project: establish the [Open Knowledge Format (OKF) v0.1](../references/okf-v-0-1.md) as the foundational knowledge format, layer extraction and LLM-wiki strategies on top, and define an SDLC ontology using that foundation.
 
 # Why
 
@@ -26,15 +26,15 @@ Trade-offs:
 # Constraints
 
 * The `docs/` directory is an OKF v0.1 bundle with frontmatter-typed markdown concepts. Optional indexes and logs are controlled by `gnosis.toml`.
-* The [`gnosis` purpose](../purpose.md) and repository ontology ([Purpose](../../concepts/purpose.md), [Decision](../../concepts/decision.md), [Directive](../../concepts/directive.md), [Procedure](../../concepts/procedure.md)) are defined as OKF concepts.
-* Extraction strategies ([LangExtract](../../references/langextract.md), [OntoGPT/SPIRES](../../references/ontogpt-spires.md)) and LLM-wiki patterns ([Karpathy LLM Wiki](../../references/karpathy-llm-wiki.md)) are documented as references and treated as layers above the OKF foundation.
-* [Obsidian](../../references/obsidian-wiki.md) is adopted as the first wiki backend, but the bundle remains backend-independent.
+* The [`gnosis` purpose](../purpose.md) and repository ontology ([Purpose](../concepts/purpose.md), [Decision](../concepts/decision.md), [Directive](../concepts/directive.md), [Procedure](../concepts/procedure.md)) are defined as OKF concepts.
+* Extraction strategies ([LangExtract](../references/langextract.md), [OntoGPT/SPIRES](../references/ontogpt-spires.md)) and LLM-wiki patterns ([Karpathy LLM Wiki](../references/karpathy-llm-wiki.md)) are documented as references and treated as layers above the OKF foundation.
+* [Obsidian](../references/obsidian-wiki.md) is adopted as the first wiki backend, but the bundle remains backend-independent.
 
 # Related decisions
 
 * [`gnosis` purpose](../purpose.md)
-* [Purpose](../../concepts/purpose.md)
-* [Decision](../../concepts/decision.md)
-* [Directive](../../concepts/directive.md)
-* [Procedure](../../concepts/procedure.md)
+* [Purpose](../concepts/purpose.md)
+* [Decision](../concepts/decision.md)
+* [Directive](../concepts/directive.md)
+* [Procedure](../concepts/procedure.md)
 * [Consolidate runtime adapters in the `gnosis` plugin](consolidate-runtime-adapters-in-gnosis-plugin.md)

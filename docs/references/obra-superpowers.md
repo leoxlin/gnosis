@@ -104,7 +104,7 @@ The repository separates deterministic plugin tests from behavior evaluations. S
 
 ## Relevance to `gnosis`
 
-Superpowers is a useful complement and comparison point for [`gnosis`](../gnosis/purpose.md):
+Superpowers is a useful complement and comparison point for [`gnosis`](../purpose.md):
 
 - `gnosis` grounds durable purpose, concepts, sources, and decisions; Superpowers coordinates action from a request to delivered code.
 - Both use human-readable skills as a portable interface for agents and keep canonical instructions independent of a particular model or harness.

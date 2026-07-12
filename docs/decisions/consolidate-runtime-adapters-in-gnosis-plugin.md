@@ -8,7 +8,7 @@ description: Keep workflows as canonical vault knowledge and expose them through
 
 Keep repeatable vault and repository workflows as canonical process records in the configured vault. Publish one `gnosis` plugin with one runtime gateway:
 
-- `using-gnosis` delegates selection of [Procedure](../../concepts/procedure.md) records to a fresh read-only subagent, then follows the selected records in the controlling agent.
+- `using-gnosis` delegates selection of [Procedure](../concepts/procedure.md) records to a fresh read-only subagent, then follows the selected records in the controlling agent.
 
 The gateway lists exact `Procedure` records with `gnosis concepts -type 'Procedure'`. A fresh selector chooses the smallest applicable chain from that list, reads each selected exact URI with `gnosis read '<gnosis URI>'`, and returns the complete ordered commands to the controlling agent. A process record, rather than plugin packaging or a copied prompt, is the source of truth for its selection conditions, knowledge inputs, ordered work, and completion gate.
 
