@@ -4,10 +4,6 @@ title: maintain-vault
 description: Use when auditing or repairing the integrity of a vault.
 tags: [gnosis-vault]
 invocation: model
-use_when:
-  - Auditing a vault for validation failures, stale navigation, or broken links.
-  - Repairing orphaned, duplicate, or inconsistent concept records.
-  - Reviewing frontmatter, summaries, and source-backed claims for vault quality.
 ---
 
 # maintain-vault

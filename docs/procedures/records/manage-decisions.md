@@ -4,11 +4,6 @@ title: manage-decisions
 description: Use when a Decision record must be created, read, corrected, superseded, or deleted.
 tags: [gnosis-vault]
 invocation: model
-use_when:
-  - Creating a durable decision from an author-confirmed choice.
-  - Reading decisions to recover their choices, rationale, constraints, or history.
-  - Correcting or semantically changing an existing decision.
-  - Deleting a duplicate or invalid decision after its knowledge impact is resolved.
 ---
 
 # manage-decisions

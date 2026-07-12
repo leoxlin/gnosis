@@ -20,7 +20,7 @@ func TestReadAndInvokeProcessRoundTrip(t *testing.T) {
 	if invocation.Process.Origin.Kind != OriginLocal || invocation.Process.Origin.Vault != "agent-test" || invocation.Process.Revision == "" {
 		t.Fatalf("process origin = %+v", invocation.Process)
 	}
-	if invocation.Process.Invocation != "model" || strings.Join(invocation.Process.Tags, ",") != "test-vault" || len(invocation.Process.UseWhen) != 1 || invocation.Process.UseWhen[0] != "Answering a question from a vault." {
+	if invocation.Process.Invocation != "model" || strings.Join(invocation.Process.Tags, ",") != "test-vault" {
 		t.Fatalf("process metadata = %+v", invocation.Process)
 	}
 	if !strings.Contains(invocation.Sections.Process, "Read only the selected pages") {
@@ -58,8 +58,6 @@ type: Procedure
 title: planning
 description: A planning-only process.
 tags: [test-planning]
-use_when:
-  - Planning.
 ---
 
 # planning
@@ -177,8 +175,6 @@ vault_log = false
 type: Procedure
 title: start
 description: Start with shared knowledge.
-use_when:
-  - Starting.
 ---
 
 # start
@@ -302,8 +298,6 @@ type: Procedure
 title: invalid
 description: Invalid process.
 invocation: surprise
-use_when:
-  - Testing invalid records.
 ---
 
 # invalid
@@ -358,7 +352,7 @@ The work is complete.
 		t.Fatal(err)
 	}
 	joined := strings.Join(result.Errors, "\n")
-	for _, want := range []string{"description", "use_when"} {
+	for _, want := range []string{"description"} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("errors = %v, want %q", result.Errors, want)
 		}
@@ -417,8 +411,6 @@ title: query-vault
 description: Use when answering a question from recorded vault knowledge.
 tags: [test-vault]
 invocation: model
-use_when:
-  - Answering a question from a vault.
 ---
 
 # query-vault

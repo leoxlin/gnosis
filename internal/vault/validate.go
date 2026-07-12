@@ -257,12 +257,6 @@ func validateProcessRecord(path string, fields frontmatterFields, body string, r
 	for _, section := range duplicates {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: duplicate process section %q", path, section))
 	}
-	useWhen, valid := frontmatterScalars(fields, "use_when")
-	if !valid {
-		result.Errors = append(result.Errors, fmt.Sprintf("%s: frontmatter %q must be a scalar or sequence of scalars", path, "use_when"))
-	} else if len(useWhen) == 0 {
-		result.Errors = append(result.Errors, fmt.Sprintf("%s: process requires at least one non-empty %q frontmatter value", path, "use_when"))
-	}
 	if description, scalar := frontmatterScalar(fields, "description"); !scalar || strings.TrimSpace(description) == "" {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: process requires non-empty %q frontmatter", path, "description"))
 	}

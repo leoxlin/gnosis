@@ -4,12 +4,6 @@ title: systematic-debugging
 description: Use for diagnosing or fixing any bug, failing test, build failure, performance problem, or unexpected technical behavior.
 tags: [gnosis-debugging]
 invocation: model
-use_when:
-  - A test, build, integration, or production behavior fails.
-  - Behavior is intermittent, unexpectedly slow, or environment-dependent.
-  - An earlier fix failed or a seemingly obvious fix has not been demonstrated.
-  - Planning a fix requires evidence-backed requirements.
-  - Root-cause evidence is required before proposing a fix.
 ---
 
 # systematic-debugging

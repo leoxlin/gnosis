@@ -4,8 +4,6 @@ title: reviewing-directives
 description: Use only when the latest persisted complex draft needs purpose, decision, and engineering review.
 tags: [gnosis-planning]
 invocation: explicit
-use_when:
-  - A complex directive is drafted or materially restructured.
 ---
 
 # reviewing-directives

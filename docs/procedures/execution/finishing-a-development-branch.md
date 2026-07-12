@@ -4,10 +4,6 @@ title: finishing-a-development-branch
 description: Use after implementation and review are complete to verify delivery readiness and let the author choose integration or cleanup.
 tags: [gnosis-execution]
 invocation: model
-use_when:
-  - All implementation tasks and blocking reviews are complete.
-  - The work needs to be merged, proposed as a pull request, retained, or discarded.
-  - A directive is ready for its final delivery and status decision.
 ---
 
 # finishing-a-development-branch

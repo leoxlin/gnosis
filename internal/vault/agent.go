@@ -78,7 +78,6 @@ type ProcessSections struct {
 // ProcessSummary is a procedure descriptor for invocation.
 type ProcessSummary struct {
 	DocumentRef
-	UseWhen    []string `json:"use_when"`
 	Invocation string   `json:"invocation"`
 	Tags       []string `json:"tags"`
 }
@@ -327,13 +326,6 @@ func processSummary(page *searchPage) (ProcessSummary, error) {
 	if strings.TrimSpace(page.document.Description) == "" {
 		return ProcessSummary{}, fmt.Errorf("process %q missing non-empty description frontmatter", page.document.URI)
 	}
-	useWhen, valid := frontmatterScalars(fields, "use_when")
-	if !valid {
-		return ProcessSummary{}, fmt.Errorf("process %q frontmatter %q must be a scalar or sequence of scalars", page.document.URI, "use_when")
-	}
-	if len(useWhen) == 0 {
-		return ProcessSummary{}, fmt.Errorf("process %q must declare at least one non-empty %q frontmatter value", page.document.URI, "use_when")
-	}
 	invocation, _ := frontmatterScalar(fields, "invocation")
 	invocation = strings.TrimSpace(invocation)
 	if invocation == "" {
@@ -344,7 +336,6 @@ func processSummary(page *searchPage) (ProcessSummary, error) {
 	}
 	return ProcessSummary{
 		DocumentRef: page.document.Ref(),
-		UseWhen:     useWhen,
 		Invocation:  invocation,
 		Tags:        append([]string(nil), page.document.Tags...),
 	}, nil

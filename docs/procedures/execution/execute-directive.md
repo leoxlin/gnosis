@@ -4,10 +4,6 @@ title: execute-directive
 description: Use when an open directive with an implementation plan must be executed directly or through sequential delegated tasks.
 tags: [gnosis-execution]
 invocation: model
-use_when:
-  - An open directive contains an executable implementation plan.
-  - Work will execute directly, continue in another session, or use fresh agents for independently reviewable tasks.
-  - Use dispatching-parallel-agents only for genuinely independent problem domains; tasks sharing a branch remain sequential.
 ---
 
 # execute-directive

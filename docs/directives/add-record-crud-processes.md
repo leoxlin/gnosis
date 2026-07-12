@@ -38,11 +38,6 @@ description: Use when a Decision record must be created, read, corrected, supers
 tags: [gnosis-vault]
 invocation: model
 effects: [read, vault-write]
-use_when:
-  - Creating a durable decision from an author-confirmed choice.
-  - Reading decisions to recover their choices, rationale, constraints, or history.
-  - Correcting or semantically changing an existing decision.
-  - Deleting a duplicate or invalid decision after its knowledge impact is resolved.
 relationships:
   - type: instance_of
     target: gnosis://core/concepts/procedure.md
@@ -85,11 +80,6 @@ description: Use when the repository Purpose record must be created, read, refin
 tags: [gnosis-vault]
 invocation: model
 effects: [read, vault-write]
-use_when:
-  - Creating the repository purpose.
-  - Reading the purpose to understand its outcome, beneficiaries, sub-purposes, or boundaries.
-  - Changing or resolving ambiguity in author-owned repository intent.
-  - Deleting the purpose after its knowledge impact is resolved.
 relationships:
   - type: instance_of
     target: gnosis://core/concepts/procedure.md

@@ -4,10 +4,6 @@ title: using-git-worktrees
 description: Use when feature work needs isolation or before executing a directive in a separate workspace.
 tags: [gnosis-execution]
 invocation: model
-use_when:
-  - Starting feature work whose changes should be isolated from the current checkout.
-  - Executing a directive that calls for a separate workspace.
-  - Resuming work where the current checkout's ownership or branch state is unclear.
 ---
 
 # using-git-worktrees

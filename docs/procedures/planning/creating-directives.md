@@ -4,8 +4,6 @@ title: creating-directives
 description: Use after requirements refinement routes a directive-ready requirements packet for simple or complex planning.
 tags: [gnosis-planning]
 invocation: explicit
-use_when:
-  - Refined requirements are ready to become one or more execution directives.
 ---
 
 # creating-directives
