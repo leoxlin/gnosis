@@ -10,7 +10,7 @@ Keep repeatable vault and repository workflows as canonical process records in t
 
 - `using-gnosis` delegates selection of [Gnosis Process](../../concepts/gnosis-process.md) records to a fresh read-only subagent, then follows the selected records in the controlling agent.
 
-The gateway lists exact `Gnosis Process` records with `gnosis concepts -type 'Gnosis Process'`. A fresh selector chooses the smallest applicable chain from that list, reads each selected exact URI with `gnosis read '<gnosis URI>'`, and returns the complete ordered commands to the controlling agent. A process record, rather than plugin packaging or a copied prompt, is the source of truth for its selection conditions, knowledge inputs, ordered work, and completion gate.
+The gateway lists exact `GnosisProcess` records with `gnosis concepts -type 'GnosisProcess'`. A fresh selector chooses the smallest applicable chain from that list, reads each selected exact URI with `gnosis read '<gnosis URI>'`, and returns the complete ordered commands to the controlling agent. A process record, rather than plugin packaging or a copied prompt, is the source of truth for its selection conditions, knowledge inputs, ordered work, and completion gate.
 
 # Why
 

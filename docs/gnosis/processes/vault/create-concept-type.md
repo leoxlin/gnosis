@@ -27,7 +27,7 @@ relationships:
 
 ## Process
 
-1. Resolve the vault and read its configuration and agent rules. List existing types with `gnosis concepts --pretty` and inspect only relevant definitions with `gnosis read --id '<concept-type URI>'`.
+1. Resolve the vault and read its configuration and agent rules. List existing types with `gnosis concepts --pretty` and inspect only relevant definitions with `gnosis read '<concept-type URI>'`.
 2. Investigate discoverable facts before asking the author. Ask only for category boundaries, examples, and exclusions.
 3. Interview the author one question at a time until the category boundary is clear. If two independent boundaries remain, create two Concept Type records.
 4. Name the category only after its boundary is clear. Create `docs/concepts/<kebab-name>.md` with `type: ConceptType`, `title`, and `description`; add frontmatter only when a consumer uses it.

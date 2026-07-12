@@ -26,11 +26,11 @@ relationships:
 
 ## Process
 
-1. Read the current purpose with `gnosis read --id '<purpose URI>'` when it exists. Gather other discoverable facts and distinguish them from author-owned intent.
+1. Read the current purpose with `gnosis read '<purpose URI>'` when it exists. Gather other discoverable facts and distinguish them from author-owned intent.
 2. Ask exactly one author-owned question at a time. Recommend an answer with rationale, then wait for the response before asking a dependent question.
 3. Explore every material branch of the intended outcome, beneficiaries, sub-purposes, and boundaries until no unresolved author-owned choice remains.
 4. Summarize the proposed purpose and obtain explicit confirmation that the author and agent share the same understanding.
-5. Only after confirmation, build the single purpose record in the required shape and persist it with `gnosis write --type 'Gnosis Purpose' --title '<title>' <draft-file>`.
+5. Only after confirmation, build the single purpose record in the required shape and persist it with `gnosis write '<purpose URI>' --filename <draft-file>`.
 6. Run `gnosis validate --vault <root>`.
 
 ## Completion

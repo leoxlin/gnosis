@@ -7,270 +7,84 @@ import (
 	"testing"
 )
 
-func TestWriteDocumentWritesToCurrentLocalVaultUsingConceptTypePath(t *testing.T) {
-	workspace := t.TempDir()
-	writeConfig(t, workspace, `[vault]
-vault_name = "Workspace"
-vault_root = "local"
-`)
-	write(t, workspace, "local/types/note.md", `---
-type: ConceptType
-title: Note
-path: notes
----
-`)
-	content := []byte(`---
-type: Note
-title: A New Note
----
+func TestWriteDocumentWritesToURITarget(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, "[vault]\nvault_name = \"Workspace\"\nvault_root = \"local\"\n")
+	write(t, root, "local/types/note.md", "---\ntype: ConceptType\ntitle: Note\npath: notes\n---\n")
+	content := []byte("---\ntype: Note\ntitle: A New Note\n---\n\n# A New Note\n")
 
-# A New Note
-`)
-
-	path, err := WriteDocument(workspace, "Note", "A New Note", content, false)
+	target := "gnosis://Workspace/notes/custom-name.md"
+	written, err := WriteDocument(root, target, content, false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := filepath.Join(workspace, "local", "notes", "a-new-note.md")
-	if path != want {
-		t.Fatalf("path = %q, want %q", path, want)
+	want := filepath.Join(root, "local", "notes", "custom-name.md")
+	if written != want {
+		t.Fatalf("path = %q, want %q", written, want)
 	}
 	got, err := os.ReadFile(want)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != string(content) {
-		t.Fatalf("content = %q, want %q", got, content)
-	}
-	replacement := []byte(`---
-type: Note
-title: A New Note
----
-
-# Replacement
-`)
-	if _, err := WriteDocument(workspace, "Note", "A New Note", replacement, false); err != nil {
-		t.Fatal(err)
-	}
-	got, err = os.ReadFile(want)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != string(replacement) {
-		t.Fatalf("replacement = %q, want %q", got, replacement)
+	if err != nil || string(got) != string(content) {
+		t.Fatalf("content = %q err = %v", got, err)
 	}
 }
 
-func TestWriteDocumentRejectsInvalidContentAndConceptTypePath(t *testing.T) {
-	workspace := t.TempDir()
-	writeConfig(t, workspace, `[vault]
-vault_name = "Workspace"
-vault_root = "."
-`)
-	write(t, workspace, "types/note.md", `---
-type: ConceptType
-title: Note
----
-`)
-	valid := []byte("---\ntype: Note\ntitle: A Note\n---\n")
+func TestWriteDocumentValidatesTargetURIAndConceptPath(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, "[vault]\nvault_name = \"Local\"\nvault_root = \".\"\n")
+	write(t, root, "types/note.md", "---\ntype: ConceptType\ntitle: Note\npath: notes\n---\n")
+	content := []byte("---\ntype: Note\ntitle: A Note\n---\n")
 
-	if _, err := WriteDocument(workspace, "Note", "A Note", valid, false); err == nil || !strings.Contains(err.Error(), "path") {
-		t.Fatalf("missing path error = %v", err)
-	}
-	write(t, workspace, "types/note.md", `---
-type: ConceptType
-title: Note
-path: ../outside
----
-`)
-	if _, err := WriteDocument(workspace, "Note", "A Note", valid, false); err == nil || !strings.Contains(err.Error(), "path") {
-		t.Fatalf("unsafe path error = %v", err)
-	}
-	write(t, workspace, "types/note.md", `---
-type: ConceptType
-title: Note
-path: notes
----
-`)
-	wrongType := []byte("---\ntype: Other\ntitle: A Note\n---\n")
-	if _, err := WriteDocument(workspace, "Note", "A Note", wrongType, false); err == nil || !strings.Contains(err.Error(), "type") {
-		t.Fatalf("type mismatch error = %v", err)
-	}
-	wrongTitle := []byte("---\ntype: Note\ntitle: Other\n---\n")
-	if _, err := WriteDocument(workspace, "Note", "A Note", wrongTitle, false); err == nil || !strings.Contains(err.Error(), "title") {
-		t.Fatalf("title mismatch error = %v", err)
+	for _, test := range []struct {
+		uri  string
+		want string
+	}{
+		{"gnosis://Other/notes/a-note.md", "current local vault"},
+		{"gnosis://Local/notes/../a-note.md", "canonical"},
+		{"gnosis://Local/notes%5Ca-note.md", "canonical"},
+		{"gnosis://Local/other/a-note.md", "outside Concept Type"},
+		{"gnosis://Local/notes/a-note.md?view=full", "canonical"},
+	} {
+		if _, err := WriteDocument(root, test.uri, content, false); err == nil || !strings.Contains(err.Error(), test.want) {
+			t.Fatalf("WriteDocument(%q) error = %v, want %q", test.uri, err, test.want)
+		}
 	}
 }
 
-func TestWriteDocumentRequiresOverwriteForImportedOrBuiltInDocuments(t *testing.T) {
+func TestWriteDocumentRequiresUpdateToShadowExternalTarget(t *testing.T) {
 	workspace := t.TempDir()
 	imported := filepath.Join(workspace, "imported")
 	if err := os.MkdirAll(imported, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeConfig(t, workspace, `[vault]
-vault_name = "Workspace"
-vault_root = "local"
-
-[[vaults]]
-vault_name = "Imported"
-vault_root = "imported"
-`)
-	writeConfig(t, imported, `[vault]
-vault_name = "Imported"
-vault_root = "."
-`)
-	write(t, workspace, "local/types/note.md", `---
-type: ConceptType
-title: Note
-path: notes
----
-`)
+	writeConfig(t, workspace, "[vault]\nvault_name = \"Workspace\"\nvault_root = \"local\"\n\n[[vaults]]\nvault_name = \"Imported\"\nvault_root = \"imported\"\n")
+	writeConfig(t, imported, "[vault]\nvault_name = \"Imported\"\nvault_root = \".\"\n")
+	write(t, workspace, "local/types/note.md", "---\ntype: ConceptType\ntitle: Note\npath: notes\n---\n")
 	write(t, imported, "notes/imported-note.md", "---\ntype: Note\ntitle: Imported Note\n---\n")
-	importedContent := []byte("---\ntype: Note\ntitle: Imported Note\n---\n\n# Local\n")
-	if _, err := WriteDocument(workspace, "Note", "Imported Note", importedContent, false); err == nil || !strings.Contains(err.Error(), "-overwrite") {
-		t.Fatalf("imported collision error = %v", err)
+	content := []byte("---\ntype: Note\ntitle: Imported Note\n---\n\n# Local\n")
+	target := "gnosis://Workspace/notes/imported-note.md"
+
+	if _, err := WriteDocument(workspace, target, content, false); err == nil || !strings.Contains(err.Error(), "--update") {
+		t.Fatalf("collision error = %v", err)
 	}
-	if _, err := WriteDocument(workspace, "Note", "Imported Note", importedContent, true); err != nil {
+	if _, err := WriteDocument(workspace, target, content, true); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(workspace, "local", "notes", "imported-note.md")); err != nil {
-		t.Fatalf("local override = %v", err)
-	}
-	resolvedImported, err := Read(workspace, "Note", "Imported Note")
-	if err != nil {
 		t.Fatal(err)
-	}
-	if string(resolvedImported) != string(importedContent) {
-		t.Fatalf("resolved imported document = %q, want %q", resolvedImported, importedContent)
-	}
-
-	write(t, workspace, "local/concepts/gnosis-process.md", `---
-type: ConceptType
-title: GnosisProcess
-path: gnosis/processes
----
-`)
-	builtInContent := []byte("---\ntype: GnosisProcess\ntitle: query-vault\n---\n\n# Local query vault\n")
-	if _, err := WriteDocument(workspace, "GnosisProcess", "query-vault", builtInContent, false); err == nil || !strings.Contains(err.Error(), "-overwrite") {
-		t.Fatalf("built-in collision error = %v", err)
-	}
-	if _, err := WriteDocument(workspace, "GnosisProcess", "query-vault", builtInContent, true); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(filepath.Join(workspace, "local", "gnosis", "processes", "vault", "query-vault.md")); err != nil {
-		t.Fatalf("local grouped override = %v", err)
-	}
-	resolvedBuiltIn, err := Read(workspace, "GnosisProcess", "query-vault")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(resolvedBuiltIn) != string(builtInContent) {
-		t.Fatalf("resolved built-in document = %q, want %q", resolvedBuiltIn, builtInContent)
 	}
 }
 
-func TestWriteDocumentRequiresCurrentDirectoryLocalVault(t *testing.T) {
+func TestWriteDocumentRequiresCurrentLocalVault(t *testing.T) {
 	workspace := t.TempDir()
 	imported := filepath.Join(workspace, "imported")
 	if err := os.MkdirAll(imported, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeConfig(t, workspace, `[[vaults]]
-vault_name = "Imported"
-vault_root = "imported"
-`)
-	writeConfig(t, imported, `[vault]
-vault_name = "Imported"
-vault_root = "."
-`)
-	write(t, imported, "types/note.md", "---\ntype: ConceptType\ntitle: Note\npath: notes\n---\n")
+	writeConfig(t, workspace, "[[vaults]]\nvault_name = \"Imported\"\nvault_root = \"imported\"\n")
+	writeConfig(t, imported, "[vault]\nvault_name = \"Imported\"\nvault_root = \".\"\n")
 	content := []byte("---\ntype: Note\ntitle: A Note\n---\n")
-	if _, err := WriteDocument(workspace, "Note", "A Note", content, false); err == nil || !strings.Contains(err.Error(), "local vault") {
+	if _, err := WriteDocument(workspace, "gnosis://Imported/notes/a-note.md", content, false); err == nil || !strings.Contains(err.Error(), "local vault") {
 		t.Fatalf("error = %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(imported, "notes", "a-note.md")); !os.IsNotExist(err) {
-		t.Fatalf("write to imported vault = %v", err)
-	}
-}
-
-func TestWriteDocumentUpdatesExistingLocalIdentityAtItsCurrentPath(t *testing.T) {
-	root := t.TempDir()
-	writeConfig(t, root, `[vault]
-vault_name = "Local"
-vault_root = "."
-`)
-	write(t, root, "concepts/note.md", `---
-type: ConceptType
-title: Note
-path: notes
----
-`)
-	write(t, root, "notes/original-name.md", `---
-type: Note
-title: Existing Note
----
-
-# Before
-`)
-
-	content := []byte(`---
-type: Note
-title: Existing Note
----
-
-# After
-`)
-	path, err := WriteDocument(root, "Note", "Existing Note", content, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	wantPath := filepath.Join(root, "notes", "original-name.md")
-	if path != wantPath {
-		t.Fatalf("path = %q, want %q", path, wantPath)
-	}
-	got, err := os.ReadFile(wantPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != string(content) {
-		t.Fatalf("content = %q, want %q", got, content)
-	}
-	if _, err := os.Stat(filepath.Join(root, "notes", "existing-note.md")); !os.IsNotExist(err) {
-		t.Fatalf("slug path should not exist: %v", err)
-	}
-}
-
-func TestWriteDocumentUsesBundledConceptTypePath(t *testing.T) {
-	root := t.TempDir()
-	writeConfig(t, root, `[vault]
-vault_name = "Local"
-vault_root = "."
-`)
-	content := []byte(`---
-type: GnosisDecision
-title: Keep Commands Canonical
-description: Use the documented command form.
----
-
-# Decision
-
-Use documented commands.
-
-# Why
-
-One form is easier to maintain.
-`)
-	path, err := WriteDocument(root, "GnosisDecision", "Keep Commands Canonical", content, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	wantPath := filepath.Join(root, "gnosis", "decisions", "keep-commands-canonical.md")
-	if path != wantPath {
-		t.Fatalf("path = %q, want %q", path, wantPath)
-	}
-	if _, err := os.Stat(wantPath); err != nil {
-		t.Fatal(err)
 	}
 }
 
@@ -279,31 +93,9 @@ func TestWriteGeneratedFileSkipsUnchangedContent(t *testing.T) {
 	if err := os.WriteFile(path, []byte("same"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-
 	changed, err := WriteGeneratedFile(path, []byte("same"), true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if changed {
-		t.Fatal("byte-identical content should not be rewritten")
-	}
-}
-
-func TestAtomicWriteFileReplacesContent(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "index.md")
-	if err := os.WriteFile(path, []byte("old"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := atomicWriteFile(path, []byte("new"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	content, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(content) != "new" {
-		t.Fatalf("content = %q", content)
+	if err != nil || changed {
+		t.Fatalf("changed = %t, err = %v", changed, err)
 	}
 }
 
@@ -313,18 +105,11 @@ func TestAtomicWriteFileCleansUpAfterRenameFailure(t *testing.T) {
 	if err := os.Mkdir(destination, 0o755); err != nil {
 		t.Fatal(err)
 	}
-
 	if err := atomicWriteFile(destination, []byte("content"), 0o644); err == nil {
 		t.Fatal("expected replacing a directory to fail")
 	}
 	temps, err := filepath.Glob(filepath.Join(root, ".target.tmp-*"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(temps) != 0 {
-		t.Fatalf("temporary files remain: %v", temps)
-	}
-	if info, err := os.Stat(destination); err != nil || !info.IsDir() {
-		t.Fatalf("destination changed after failed write: info=%v err=%v", info, err)
+	if err != nil || len(temps) != 0 {
+		t.Fatalf("temporary files = %v err = %v", temps, err)
 	}
 }

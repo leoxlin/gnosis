@@ -27,9 +27,9 @@ Update page identity generation, URI selection, `read` argument handling, Markdo
 
 # Acceptance criteria
 
-- `gnosis read gnosis://<vault-name>/<path>` reads an exact effective page without `--id`.
+- `gnosis read gnosis://<vault-name>/<path>` reads an exact effective page.
 - The bundled documentation and concepts identify their source as `gnosis://core/<path>`.
 - Every resolved internal Markdown document link emitted by `gnosis read` uses its canonical `gnosis://` URI; external, unresolved, and asset links remain unchanged.
 - Both `gnosis concepts` and `gnosis concepts -type <type>` text output render links to their records as canonical `gnosis://` URIs.
-- Existing ID selectors continue to work.
+- Document selection uses only canonical `gnosis://` URIs.
 - Focused and full Go tests pass.

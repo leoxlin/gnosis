@@ -7,11 +7,11 @@ status: done
 
 # Goal
 
-Add `gnosis write -type <type> -title <title> [-overwrite] [filename]`.
+Add `gnosis write <gnosis-uri> [--filename <path>] [--update]`.
 
 # Scope
 
-Resolve the Concept Type and its required vault-relative `path` frontmatter from the composed knowledge view, but write only below the local vault configured in the current directory. Read content from stdin or one file, validate its `type` and `title` frontmatter against the flags, and derive the filename from the title. Preserve local-path precedence over imported and built-in documents. Do not add a vault-path flag or update generated documentation.
+Resolve the Concept Type and its required vault-relative `path` frontmatter from the composed knowledge view, but write only below the local vault configured in the current directory. Read content from stdin or one file, validate the target URI and document frontmatter, and write to the URI's path. Preserve local-path precedence over imported and built-in documents. Do not add a vault-path flag or update generated documentation.
 
 # Dependencies
 
@@ -29,6 +29,6 @@ Resolve the Concept Type and its required vault-relative `path` frontmatter from
 
 - The command accepts Markdown from stdin or one filename and writes it under the current directory's configured local vault only.
 - A Concept Type's required, safe `path` frontmatter determines the destination directory; the title determines the Markdown filename.
-- Input frontmatter `type` and `title` must exactly match the requested values.
-- The command creates a local page that shadows an identically pathed imported or built-in page; non-local existing documents require `-overwrite`.
+- Input frontmatter must contain `type` and `title`, and the URI target must lie under the type's configured path.
+- The command creates a local page that shadows an identically pathed imported or built-in page; non-local existing documents require `--update`.
 - Focused and full Go tests pass.

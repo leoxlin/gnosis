@@ -3,25 +3,16 @@ package vault
 import (
 	"bytes"
 	"fmt"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
-	"sort"
 	"strings"
-	"unicode"
 )
 
 // WriteDocument writes content into the local vault configured directly under
-// root. Its Concept Type determines the vault-relative destination directory.
-func WriteDocument(root, conceptType, title string, content []byte, overwrite bool) (string, error) {
-	conceptType = strings.TrimSpace(conceptType)
-	if conceptType == "" {
-		return "", fmt.Errorf("write: -type must not be empty")
-	}
-	title = strings.TrimSpace(title)
-	if title == "" {
-		return "", fmt.Errorf("write: -title must not be empty")
-	}
-
+// root. The target URI must identify a page in that local vault.
+func WriteDocument(root, uri string, content []byte, update bool) (string, error) {
 	fields, _, err := parseFrontmatter(string(content))
 	if err != nil {
 		return "", fmt.Errorf("write: parse input: %w", err)
@@ -30,15 +21,8 @@ func WriteDocument(root, conceptType, title string, content []byte, overwrite bo
 	if err != nil {
 		return "", fmt.Errorf("write: input %w", err)
 	}
-	if inputType != conceptType {
-		return "", fmt.Errorf("write: input frontmatter type %q does not match -type %q", inputType, conceptType)
-	}
-	inputTitle, err := requiredSearchScalar(fields, "title")
-	if err != nil {
+	if _, err := requiredSearchScalar(fields, "title"); err != nil {
 		return "", fmt.Errorf("write: input %w", err)
-	}
-	if inputTitle != title {
-		return "", fmt.Errorf("write: input frontmatter title %q does not match -title %q", inputTitle, title)
 	}
 
 	resolution, err := ResolveConfig(root)
@@ -52,6 +36,10 @@ func WriteDocument(root, conceptType, title string, content []byte, overwrite bo
 		return "", fmt.Errorf("write: current directory resolves multiple local vaults")
 	}
 	localRoot := filepath.Clean(resolution.LocalVaultRoots[0])
+	destination, destinationID, err := writeURIDestination(uri, resolution.Config.Vault.Name, localRoot)
+	if err != nil {
+		return "", fmt.Errorf("write: target URI: %w", err)
+	}
 
 	source, err := NewSearchSource(root)
 	if err != nil {
@@ -62,47 +50,31 @@ func WriteDocument(root, conceptType, title string, content []byte, overwrite bo
 		return "", fmt.Errorf("write: %w", err)
 	}
 
-	conceptPage, err := conceptTypePage(pages, conceptType)
+	conceptPage, err := conceptTypePage(pages, inputType)
 	if err != nil {
 		return "", err
 	}
 	conceptFields, _, err := parseFrontmatter(string(conceptPage.data))
 	if err != nil {
-		return "", fmt.Errorf("write: parse Concept Type %q: %w", conceptType, err)
+		return "", fmt.Errorf("write: parse Concept Type %q: %w", inputType, err)
 	}
 	directory, err := requiredSearchScalar(conceptFields, "path")
 	if err != nil {
-		return "", fmt.Errorf("write: Concept Type %q %w", conceptType, err)
+		return "", fmt.Errorf("write: Concept Type %q %w", inputType, err)
 	}
 	destinationDirectory, err := writeDestinationDirectory(localRoot, directory)
 	if err != nil {
-		return "", fmt.Errorf("write: Concept Type %q path: %w", conceptType, err)
+		return "", fmt.Errorf("write: Concept Type %q path: %w", inputType, err)
 	}
-	destination, err := localIdentityDestination(pages, localRoot, directory, conceptType, title)
+	relative, err := filepath.Rel(destinationDirectory, destination)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("write: determine target path: %w", err)
 	}
-	if destination == "" && overwrite {
-		destination, err = externalIdentityDestination(pages, localRoot, directory, conceptType, title)
-		if err != nil {
-			return "", err
-		}
+	if relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("write: target path is outside Concept Type %q path", inputType)
 	}
-	if destination == "" {
-		filename := slugify(title)
-		if filename == "" {
-			return "", fmt.Errorf("write: -title %q cannot produce a filename", title)
-		}
-		destination = filepath.Join(destinationDirectory, filename+".md")
-	}
-	destinationID, err := filepath.Rel(localRoot, destination)
-	if err != nil {
-		return "", fmt.Errorf("write: determine destination: %w", err)
-	}
-	destinationID = filepath.ToSlash(destinationID)
-
-	if !overwrite && hasExternalCollision(pages, localRoot, destinationID, conceptType, title) {
-		return "", fmt.Errorf("write: document already exists outside the current vault; rerun with -overwrite")
+	if !update && hasExternalCollision(pages, localRoot, destinationID) {
+		return "", fmt.Errorf("write: document already exists outside the current vault; rerun with --update")
 	}
 	if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
 		return "", err
@@ -113,50 +85,28 @@ func WriteDocument(root, conceptType, title string, content []byte, overwrite bo
 	return destination, nil
 }
 
-func externalIdentityDestination(pages []*searchPage, localRoot, directory, conceptType, title string) (string, error) {
-	matches := make([]string, 0, 1)
-	for _, page := range pages {
-		if page.root == localRoot || page.document.Type != conceptType || page.document.Title != title {
-			continue
-		}
-		relative, err := filepath.Rel(filepath.Clean(directory), filepath.FromSlash(page.document.ID))
-		if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-			continue
-		}
-		matches = append(matches, filepath.Join(localRoot, filepath.FromSlash(page.document.ID)))
+func writeURIDestination(rawURI, vaultName, localRoot string) (string, string, error) {
+	u, err := url.Parse(strings.TrimSpace(rawURI))
+	if err != nil || u.Scheme != "gnosis" || u.Host == "" || u.RawQuery != "" || u.Fragment != "" {
+		return "", "", fmt.Errorf("must be a canonical gnosis URI")
 	}
-	switch len(matches) {
-	case 0:
-		return "", nil
-	case 1:
-		return matches[0], nil
-	default:
-		sort.Strings(matches)
-		return "", fmt.Errorf("write: multiple external documents found with type %q and title %q: %s", conceptType, title, strings.Join(matches, ", "))
+	if u.Host != vaultName {
+		return "", "", fmt.Errorf("vault %q is not the current local vault %q", u.Host, vaultName)
 	}
-}
-
-func localIdentityDestination(pages []*searchPage, localRoot, directory, conceptType, title string) (string, error) {
-	matches := make([]string, 0, 1)
-	for _, page := range pages {
-		if page.root != localRoot || page.document.Type != conceptType || page.document.Title != title {
-			continue
-		}
-		relative, err := filepath.Rel(filepath.Clean(directory), filepath.FromSlash(page.document.ID))
-		if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-			continue
-		}
-		matches = append(matches, filepath.Join(localRoot, filepath.FromSlash(page.document.ID)))
+	id := strings.TrimPrefix(u.EscapedPath(), "/")
+	decodedID, err := url.PathUnescape(id)
+	if err != nil || decodedID == "" || strings.Contains(decodedID, "\\") || path.IsAbs(decodedID) || path.Clean(decodedID) != decodedID || strings.HasPrefix(decodedID, "../") {
+		return "", "", fmt.Errorf("path must be a canonical vault-relative document path")
 	}
-	switch len(matches) {
-	case 0:
-		return "", nil
-	case 1:
-		return matches[0], nil
-	default:
-		sort.Strings(matches)
-		return "", fmt.Errorf("write: multiple local documents found with type %q and title %q: %s", conceptType, title, strings.Join(matches, ", "))
+	if documentURI(vaultName, decodedID) != rawURI {
+		return "", "", fmt.Errorf("must be canonical")
 	}
+	destination := filepath.Clean(filepath.Join(localRoot, filepath.FromSlash(decodedID)))
+	relative, err := filepath.Rel(localRoot, destination)
+	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		return "", "", fmt.Errorf("path escapes the local vault")
+	}
+	return destination, filepath.ToSlash(relative), nil
 }
 
 func conceptTypePage(pages []*searchPage, title string) (*searchPage, error) {
@@ -191,35 +141,16 @@ func writeDestinationDirectory(localRoot, path string) (string, error) {
 	return destination, nil
 }
 
-func hasExternalCollision(pages []*searchPage, localRoot, destinationID, conceptType, title string) bool {
+func hasExternalCollision(pages []*searchPage, localRoot, destinationID string) bool {
 	for _, page := range pages {
 		if page.root == localRoot {
 			continue
 		}
-		if page.document.ID == destinationID || (page.document.Type == conceptType && page.document.Title == title) {
+		if page.document.ID == destinationID {
 			return true
 		}
 	}
 	return false
-}
-
-func slugify(value string) string {
-	var result strings.Builder
-	separator := false
-	for _, character := range strings.ToLower(strings.TrimSpace(value)) {
-		if unicode.IsLetter(character) || unicode.IsDigit(character) {
-			if separator && result.Len() > 0 {
-				result.WriteByte('-')
-			}
-			result.WriteRune(character)
-			separator = false
-			continue
-		}
-		if result.Len() > 0 {
-			separator = true
-		}
-	}
-	return result.String()
 }
 
 // WriteGeneratedFile writes content to path atomically, skipping the write when

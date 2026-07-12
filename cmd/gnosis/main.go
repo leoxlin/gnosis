@@ -86,95 +86,56 @@ func newConceptsCommand(stdout io.Writer) *cobra.Command {
 }
 
 func newReadCommand(stdout io.Writer) *cobra.Command {
-	var vaultPath, conceptType, title, id string
-	var jsonOutput, pretty bool
+	var vaultPath string
+	var jsonOutput bool
 	command := &cobra.Command{
 		Use:   "read [gnosis-uri] [flags]",
 		Short: "Print one exact vault document",
-		Args: func(_ *cobra.Command, args []string) error {
-			if len(args) <= 1 {
-				return nil
-			}
-			return fmt.Errorf("read: unexpected argument(s): %s", strings.Join(args[1:], " "))
-		},
+		Args:  exactArgs("read", 1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			if len(args) == 1 {
-				if strings.TrimSpace(id) != "" {
-					return errors.New("read: positional gnosis URI cannot be combined with --id")
-				}
-				if !strings.HasPrefix(strings.TrimSpace(args[0]), "gnosis://") {
-					return errors.New("read: positional argument must be a gnosis URI")
-				}
-				id = args[0]
+			uri := strings.TrimSpace(args[0])
+			if !strings.HasPrefix(uri, "gnosis://") {
+				return errors.New("read: argument must be a gnosis URI")
 			}
-			return runRead(vaultPath, id, conceptType, title, jsonOutput, pretty, stdout)
+			return runRead(vaultPath, uri, jsonOutput, stdout)
 		},
 	}
 	flags := command.Flags()
 	flags.StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
-	flags.StringVar(&id, "id", "", "exact effective page ID or gnosis URI")
-	flags.StringVar(&conceptType, "type", "", "exact document type")
-	flags.StringVar(&title, "title", "", "exact document title")
-	flags.BoolVar(&jsonOutput, "json", false, "emit machine-readable JSON (requires --id)")
-	flags.BoolVar(&pretty, "pretty", false, "pretty-print JSON output (implies --json)")
+	flags.BoolVar(&jsonOutput, "json", false, "emit indented machine-readable JSON")
 	return command
 }
 
-func runRead(vaultPath, id, conceptType, title string, jsonOutput, pretty bool, stdout io.Writer) error {
-	id = strings.TrimSpace(id)
-	conceptType = strings.TrimSpace(conceptType)
-	title = strings.TrimSpace(title)
-	if id != "" {
-		if conceptType != "" || title != "" {
-			return errors.New("read: --id cannot be combined with --type or --title")
-		}
-		page, err := vault.ReadPage(vaultPath, id)
-		if err != nil {
-			return fmt.Errorf("read: %w", err)
-		}
-		if jsonOutput || pretty {
-			return writeJSON(stdout, page, pretty)
-		}
-		_, err = io.WriteString(stdout, page.Markdown)
-		return err
-	}
-	if jsonOutput || pretty {
-		return errors.New("read: --json and --pretty require --id")
-	}
-	if conceptType == "" {
-		return errors.New("read: --type must not be empty when --id is not used")
-	}
-	if title == "" {
-		return errors.New("read: --title must not be empty when --id is not used")
-	}
-
-	document, err := vault.Read(vaultPath, conceptType, title)
+func runRead(vaultPath, uri string, jsonOutput bool, stdout io.Writer) error {
+	page, err := vault.ReadPage(vaultPath, uri)
 	if err != nil {
 		return fmt.Errorf("read: %w", err)
 	}
-	_, err = stdout.Write(document)
+	if jsonOutput {
+		return writeJSON(stdout, page, true)
+	}
+	_, err = io.WriteString(stdout, page.Markdown)
 	return err
 }
 
 func newWriteCommand(input io.Reader, stdout io.Writer) *cobra.Command {
-	var conceptType, title string
-	var overwrite bool
+	var filename string
+	var update bool
 	command := &cobra.Command{
-		Use:   "write [filename]",
+		Use:   "write <gnosis-uri>",
 		Short: "Write a typed Markdown document into the current vault",
-		Args: func(_ *cobra.Command, args []string) error {
-			if len(args) <= 1 {
-				return nil
-			}
-			return fmt.Errorf("write: unexpected argument(s): %s", strings.Join(args[1:], " "))
-		},
+		Args:  exactArgs("write", 1),
 		RunE: func(_ *cobra.Command, args []string) error {
+			uri := strings.TrimSpace(args[0])
+			if !strings.HasPrefix(uri, "gnosis://") {
+				return errors.New("write: argument must be a gnosis URI")
+			}
 			var content []byte
 			var err error
-			if len(args) == 1 {
-				content, err = os.ReadFile(args[0])
+			if filename != "" {
+				content, err = os.ReadFile(filename)
 				if err != nil {
-					return fmt.Errorf("write: read %s: %w", args[0], err)
+					return fmt.Errorf("write: read %s: %w", filename, err)
 				}
 			} else {
 				content, err = io.ReadAll(input)
@@ -182,7 +143,7 @@ func newWriteCommand(input io.Reader, stdout io.Writer) *cobra.Command {
 					return fmt.Errorf("write: read standard input: %w", err)
 				}
 			}
-			path, err := vault.WriteDocument(defaultVault, conceptType, title, content, overwrite)
+			path, err := vault.WriteDocument(defaultVault, uri, content, update)
 			if err != nil {
 				return err
 			}
@@ -191,9 +152,8 @@ func newWriteCommand(input io.Reader, stdout io.Writer) *cobra.Command {
 		},
 	}
 	flags := command.Flags()
-	flags.StringVar(&conceptType, "type", "", "exact concept type")
-	flags.StringVar(&title, "title", "", "exact document title")
-	flags.BoolVar(&overwrite, "overwrite", false, "allow overriding imported or built-in documents")
+	flags.StringVar(&filename, "filename", "", "read Markdown content from this file")
+	flags.BoolVar(&update, "update", false, "allow shadowing an imported or built-in document")
 	return command
 }
 
@@ -694,13 +654,25 @@ func noArgs(command string) cobra.PositionalArgs {
 	}
 }
 
+func exactArgs(command string, count int) cobra.PositionalArgs {
+	return func(_ *cobra.Command, args []string) error {
+		if len(args) == count {
+			return nil
+		}
+		if len(args) < count {
+			return fmt.Errorf("%s: missing argument", command)
+		}
+		return fmt.Errorf("%s: unexpected argument(s): %s", command, strings.Join(args[count:], " "))
+	}
+}
+
 // normalizeLegacyLongFlags keeps the single-dash long options accepted by the
 // previous flag-based CLI while Cobra uses its standard double-dash spelling.
 func normalizeLegacyLongFlags(args []string) []string {
 	longFlags := map[string]bool{
 		"vault": true, "top": true, "max-read": true, "depth": true,
 		"json": true, "pretty": true, "force": true, "concepts": true, "name": true, "import": true,
-		"type": true, "title": true, "id": true, "from": true, "to": true, "direction": true, "relation": true, "overwrite": true,
+		"type": true, "title": true, "from": true, "to": true, "direction": true, "relation": true, "filename": true, "update": true,
 	}
 	normalized := make([]string, 0, len(args))
 	for _, arg := range args {

@@ -224,7 +224,7 @@ func TestRunReadPrintsExactDocument(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"read", "-vault", root, "-type", "Concept", "-title", "Transformer Architecture"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"read", "-vault", root, "gnosis://Test/transformer.md"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	wantRendered := strings.ReplaceAll(string(want), "[Attention](attention.md)", "[Attention](gnosis://Test/attention.md)")
@@ -236,24 +236,16 @@ func TestRunReadPrintsExactDocument(t *testing.T) {
 	}
 }
 
-func TestRunReadRequiresUniqueTypeAndTitle(t *testing.T) {
+func TestRunReadRequiresOneCanonicalURI(t *testing.T) {
 	root := queryTestVault(t)
-	writeTestFile(t, root, "duplicate.md", `---
-type: Concept
-title: Transformer Architecture
----
-
-# Duplicate
-`)
-
 	for _, test := range []struct {
 		args []string
 		want string
 	}{
-		{args: []string{"read", "-vault", root, "-title", "Transformer Architecture"}, want: "-type"},
-		{args: []string{"read", "-vault", root, "-type", "Concept"}, want: "-title"},
-		{args: []string{"read", "-vault", root, "-type", "Missing", "-title", "Transformer Architecture"}, want: "no document found"},
-		{args: []string{"read", "-vault", root, "-type", "Concept", "-title", "Transformer Architecture"}, want: "multiple documents found"},
+		{args: []string{"read", "-vault", root}, want: "missing argument"},
+		{args: []string{"read", "-vault", root, "transformer.md"}, want: "gnosis URI"},
+		{args: []string{"read", "-vault", root, "gnosis://Test/transformer.md", "extra"}, want: "unexpected argument"},
+		{args: []string{"read", "-vault", root, "--id", "transformer.md"}, want: "unknown flag"},
 	} {
 		t.Run(strings.Join(test.args, "_"), func(t *testing.T) {
 			var stdout bytes.Buffer
@@ -266,7 +258,7 @@ title: Transformer Architecture
 	}
 }
 
-func TestRunReadByIDAsMarkdownAndJSON(t *testing.T) {
+func TestRunReadURIAsMarkdownAndPrettyJSON(t *testing.T) {
 	root := processCommandTestVault(t)
 	want, err := os.ReadFile(filepath.Join(root, "processes", "query-vault.md"))
 	if err != nil {
@@ -275,7 +267,8 @@ func TestRunReadByIDAsMarkdownAndJSON(t *testing.T) {
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"read", "--vault", root, "--id", "processes/query-vault.md"}, &stdout, &stderr); err != nil {
+	uri := "gnosis://Process%20Test/processes/query-vault.md"
+	if err := run([]string{"read", "--vault", root, uri}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	wantRendered := strings.ReplaceAll(string(want), "[Provenance](../concepts/provenance.md)", "[Provenance](gnosis://Process%20Test/concepts/provenance.md)")
@@ -284,7 +277,7 @@ func TestRunReadByIDAsMarkdownAndJSON(t *testing.T) {
 	}
 
 	stdout.Reset()
-	if err := run([]string{"read", "--vault", root, "--id", "processes/query-vault.md", "--pretty"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"read", "--vault", root, "--json", uri}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	var page struct {
@@ -300,9 +293,8 @@ func TestRunReadByIDAsMarkdownAndJSON(t *testing.T) {
 	if page.Document.ID != "processes/query-vault.md" || page.Document.URI == "" || page.Markdown != wantRendered {
 		t.Fatalf("page = %+v", page)
 	}
-
-	if err := run([]string{"read", "--vault", root, "--id", "processes/query-vault.md", "--type", "GnosisProcess", "--title", "query-vault"}, &stdout, &stderr); err == nil || !strings.Contains(err.Error(), "cannot be combined") {
-		t.Fatalf("error = %v", err)
+	if !strings.Contains(stdout.String(), "\n  \"document\"") {
+		t.Fatalf("JSON is not indented: %q", stdout.String())
 	}
 }
 
@@ -530,7 +522,7 @@ title: Standard Input
 `
 	var stdout bytes.Buffer
 	command := newWriteCommand(strings.NewReader(content), &stdout)
-	command.SetArgs([]string{"--type", "Note", "--title", "Standard Input"})
+	command.SetArgs([]string{"gnosis://Test/notes/standard-input.md"})
 	if err := command.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -563,7 +555,7 @@ title: File Input
 	}
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"write", "-type", "Note", "-title", "File Input", "input.md"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"write", "gnosis://Test/notes/file-input.md", "--filename", "input.md"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(root, "notes", "file-input.md")); err != nil {
