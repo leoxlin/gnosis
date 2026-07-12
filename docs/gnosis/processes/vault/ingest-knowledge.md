@@ -6,7 +6,7 @@ invocation: model
 effects: [vault-write]
 relationships:
   - type: instance_of
-    target: ../../../concepts/gnosis-process.md
+    target: gnosis://core/concepts/gnosis-process.md
 ---
 
 # ingest-knowledge

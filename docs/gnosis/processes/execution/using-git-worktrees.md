@@ -6,7 +6,7 @@ invocation: model
 effects: [workspace-write]
 relationships:
   - type: instance_of
-    target: ../../../concepts/gnosis-process.md
+    target: gnosis://core/concepts/gnosis-process.md
 ---
 
 # using-git-worktrees
@@ -41,5 +41,3 @@ If sandbox restrictions block worktree creation, report the constraint and use t
 ## Completion
 
 The agent is in an author-approved workspace with known ownership and branch state, project setup has completed, and fresh baseline verification is either clean or explicitly accepted as pre-existing.
-
-Adapted from `using-git-worktrees`, analyzed in [Superpowers (obra)](../../../references/obra-superpowers.md).

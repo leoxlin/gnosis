@@ -6,7 +6,7 @@ invocation: model
 effects: [vault-write, workspace-write, external]
 relationships:
   - type: instance_of
-    target: ../../../concepts/gnosis-process.md
+    target: gnosis://core/concepts/gnosis-process.md
 ---
 
 # finishing-a-development-branch
@@ -42,5 +42,3 @@ Finishing a branch verifies the completed work, detects who owns the workspace, 
 ## Completion
 
 The author-selected integration state exists, verification covers that state, cleanup respected workspace ownership, and the directive status accurately represents the preserved result.
-
-Adapted from `finishing-a-development-branch`, analyzed in [Superpowers (obra)](../../../references/obra-superpowers.md).

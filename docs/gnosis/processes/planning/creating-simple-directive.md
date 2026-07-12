@@ -6,7 +6,7 @@ invocation: explicit
 effects: [read, vault-write]
 relationships:
   - type: instance_of
-    target: ../../../concepts/gnosis-process.md
+    target: gnosis://core/concepts/gnosis-process.md
 ---
 
 # creating-simple-directive
@@ -19,7 +19,7 @@ relationships:
 
 - The exact requirements packet and its purpose/decision URI-revisions.
 - Exact affected code, tests, and repository rules.
-- The [Gnosis Directive](../../../concepts/gnosis-directive.md) definition.
+- Required directive contract: `draft` status, Goal, Scope, evidence-bearing Acceptance criteria, and an Implementation plan for multi-step work.
 
 ## Process
 

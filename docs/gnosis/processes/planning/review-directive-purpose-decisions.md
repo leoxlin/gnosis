@@ -6,7 +6,7 @@ invocation: explicit
 effects: [read, vault-write]
 relationships:
   - type: instance_of
-    target: ../../../concepts/gnosis-process.md
+    target: gnosis://core/concepts/gnosis-process.md
 ---
 
 # review-directive-purpose-decisions
@@ -17,8 +17,8 @@ relationships:
 
 ## Knowledge inputs
 
-- The exact draft URI/revision, frozen requirements contract, repository snapshot, [purpose](../../purpose.md), and supplied decision URI/revisions.
-- The [Purpose](../../../concepts/gnosis-purpose.md), [Decision](../../../concepts/gnosis-decision.md), and [Directive](../../../concepts/gnosis-directive.md) definitions.
+- The exact draft URI/revision, frozen requirements contract, repository snapshot, current purpose, and supplied decision URI/revisions.
+- Purpose holds enduring outcomes and boundaries. Decisions hold durable non-obvious choices and use `supersedes` for semantic replacement. Directives remain `draft` until finalization.
 
 ## Process
 

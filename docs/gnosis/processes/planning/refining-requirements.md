@@ -6,7 +6,7 @@ invocation: model
 effects: [read, vault-write, workspace-write, external]
 relationships:
   - type: instance_of
-    target: ../../../concepts/gnosis-process.md
+    target: gnosis://core/concepts/gnosis-process.md
 ---
 
 # refining-requirements
@@ -17,7 +17,7 @@ relationships:
 
 ## Knowledge inputs
 
-- The author's request, repository rules, and [purpose](../../purpose.md).
+- The author's request, repository rules, and current purpose.
 - Query-selected decisions, implementation, tests, issues, and authoritative sources.
 
 ## Process

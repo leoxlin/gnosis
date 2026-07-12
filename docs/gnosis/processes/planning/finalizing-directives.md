@@ -6,7 +6,7 @@ invocation: explicit
 effects: [read, vault-write]
 relationships:
   - type: instance_of
-    target: ../../../concepts/gnosis-process.md
+    target: gnosis://core/concepts/gnosis-process.md
 ---
 
 # finalizing-directives
@@ -19,7 +19,7 @@ relationships:
 ## Knowledge inputs
 
 - Exact draft URI/revisions or one unpersisted simple draft; frozen requirements; immutable review reports and dispositions; latest purpose/decision revisions.
-- The [Gnosis Directive](../../../concepts/gnosis-directive.md) definition.
+- Required directive contract: status, Goal, Scope, evidence-bearing Acceptance criteria, an Implementation plan for multi-step work, and linked revision-bound contracts for prerequisites.
 
 ## Process
 

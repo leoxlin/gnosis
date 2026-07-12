@@ -19,6 +19,7 @@ Do not use it for one-off knowledge, settled choices, implementation handoffs, o
 
 - A selection-focused `description` and at least one `## Use when` bullet.
 - Unique, non-empty `## Knowledge inputs`, `## Process`, and `## Completion` sections.
+- Self-contained instructions. Links and hard-coded knowledge URIs may target other `Gnosis Process` records or gnosis concept records; copy required rules inline and name dynamic runtime inputs without linking them.
 - Optional `invocation`, `effects`, and typed `relationships` frontmatter.
 
 ## Schema

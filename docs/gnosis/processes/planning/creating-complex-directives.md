@@ -6,7 +6,7 @@ invocation: explicit
 effects: [read, vault-write, external]
 relationships:
   - type: instance_of
-    target: ../../../concepts/gnosis-process.md
+    target: gnosis://core/concepts/gnosis-process.md
 ---
 
 # creating-complex-directives
@@ -18,8 +18,8 @@ relationships:
 
 ## Knowledge inputs
 
-- The exact requirements packet and its [purpose](../../purpose.md)/decision URI-revisions.
-- Requirement-linked or query-selected code, tests, docs, conventions, the [Directive definition](../../../concepts/gnosis-directive.md), and [planning guidance](../../../references/obra-superpowers.md).
+- The exact requirements packet and its purpose/decision URI-revisions.
+- Requirement-linked or query-selected code, tests, docs, conventions, dependencies, and existing directive records.
 
 ## Process
 
@@ -32,5 +32,3 @@ relationships:
 ## Completion
 
 Every PR-sized delivery has one reviewed `open` directive; dependencies are current, acyclic, and executable in order.
-
-Adapted from [`writing-plans`](https://github.com/obra/superpowers/blob/main/skills/writing-plans/SKILL.md).

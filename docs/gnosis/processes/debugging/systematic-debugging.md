@@ -6,7 +6,7 @@ invocation: model
 effects: [vault-write, workspace-write]
 relationships:
   - type: instance_of
-    target: ../../../concepts/gnosis-process.md
+    target: gnosis://core/concepts/gnosis-process.md
 ---
 
 # systematic-debugging
@@ -41,5 +41,3 @@ The hard gate is root-cause evidence before a proposed fix.
 ## Completion
 
 Diagnosis returns an evidence-backed root or bounded external cause and reproduction. An implemented fix also has a regression test observed failing first, focused and relevant passing checks, and keeps any governing directive accurate.
-
-Adapted from `systematic-debugging`, analyzed in [Superpowers (obra)](../../../references/obra-superpowers.md).

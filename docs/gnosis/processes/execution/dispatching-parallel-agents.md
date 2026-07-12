@@ -6,7 +6,7 @@ invocation: model
 effects: [vault-write, workspace-write]
 relationships:
   - type: instance_of
-    target: ../../../concepts/gnosis-process.md
+    target: gnosis://core/concepts/gnosis-process.md
 ---
 
 # dispatching-parallel-agents
@@ -40,5 +40,3 @@ Keep related failures, exploratory diagnosis, shared-state changes, and sequenti
 ## Completion
 
 Every domain has an evidence-backed result, concurrent work has no unresolved overlap, and fresh combined verification confirms the integrated state. The controller, not an individual parallel agent, updates the governing directive.
-
-Adapted from `dispatching-parallel-agents`, analyzed in [Superpowers (obra)](../../../references/obra-superpowers.md).
