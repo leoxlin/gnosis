@@ -80,23 +80,6 @@ type ProcessSummary struct {
 	Tags       []string `json:"tags"`
 }
 
-// ProcedureSummary is the compact metadata used to select a procedure.
-// It deliberately excludes source-specific and execution-effect metadata.
-type ProcedureSummary struct {
-	URI         string   `json:"uri"`
-	Type        string   `json:"type"`
-	Title       string   `json:"title"`
-	Description string   `json:"description,omitempty"`
-	UseWhen     []string `json:"use_when"`
-	Invocation  string   `json:"invocation"`
-	Tags        []string `json:"tags"`
-}
-
-// ProcessDiscovery contains all model-invocable procedure candidates.
-type ProcessDiscovery struct {
-	Procedures []ProcedureSummary `json:"procedures"`
-}
-
 // GraphEdge is a resolved, directed edge with exact endpoint identities.
 type GraphEdge struct {
 	From     DocumentRef `json:"from"`
@@ -209,37 +192,14 @@ func ReadPage(root, selector string) (Page, error) {
 	return Page{Document: page.document.Ref(), Markdown: markdown}, nil
 }
 
-// DiscoverProcesses lists model-invocable process records in stable order.
-// Explicit processes are intentionally excluded because a parent process must
-// invoke them as part of its own execution contract.
-func DiscoverProcesses(root string) (ProcessDiscovery, error) {
-	source, err := NewSearchSource(root)
+// DiscoverProcesses returns procedure records under the discovery API's
+// procedure-specific collection name.
+func DiscoverProcesses(root string) (ConceptRecordCatalog, error) {
+	catalog, err := ConceptRecords(root, ProcedureType)
 	if err != nil {
-		return ProcessDiscovery{}, err
+		return nil, err
 	}
-	pages, err := source.resolvedPages()
-	if err != nil {
-		return ProcessDiscovery{}, err
-	}
-	procedures := make([]ProcedureSummary, 0, len(pages))
-	for _, page := range pages {
-		if !isProcessType(page.document.Type) {
-			continue
-		}
-		if !source.resolution.Config.ProcessEnabled(page.document.Tags) {
-			continue
-		}
-		summary, err := processSummary(page)
-		if err != nil {
-			return ProcessDiscovery{}, err
-		}
-		if summary.Invocation == "explicit" {
-			continue
-		}
-		procedures = append(procedures, procedureSummary(summary))
-	}
-	sort.Slice(procedures, func(i, j int) bool { return procedures[i].URI < procedures[j].URI })
-	return ProcessDiscovery{Procedures: procedures}, nil
+	return ConceptRecordCatalog{"procedures": catalog["concepts"]}, nil
 }
 
 // InvokeProcess loads one exact process as an execution contract. It is read-only.
@@ -384,18 +344,6 @@ func processSummary(page *searchPage) (ProcessSummary, error) {
 		Invocation:  invocation,
 		Tags:        append([]string(nil), page.document.Tags...),
 	}, nil
-}
-
-func procedureSummary(process ProcessSummary) ProcedureSummary {
-	return ProcedureSummary{
-		URI:         process.URI,
-		Type:        process.Type,
-		Title:       process.Title,
-		Description: process.Description,
-		UseWhen:     append([]string(nil), process.UseWhen...),
-		Invocation:  process.Invocation,
-		Tags:        append([]string(nil), process.Tags...),
-	}
 }
 
 func parseProcessSections(body string) (ProcessSections, []string, []string) {

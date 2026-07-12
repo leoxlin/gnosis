@@ -1,6 +1,8 @@
 package vault
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -19,6 +21,87 @@ type ConceptCatalog struct {
 	Type         string               `json:"type,omitempty"`
 	ConceptTypes []ConceptTypeSummary `json:"concept_types,omitempty"`
 	Concepts     []DocumentRef        `json:"concepts,omitempty"`
+}
+
+// ConceptRecordCatalog is the machine-readable form of an exact-type concepts
+// query. Each record contains its canonical URI and complete frontmatter.
+type ConceptRecordCatalog map[string][]ConceptRecord
+
+// ConceptRecord keeps the canonical URI first while retaining dynamic
+// frontmatter fields.
+type ConceptRecord struct {
+	URI    string
+	Fields map[string]any
+}
+
+func (record ConceptRecord) MarshalJSON() ([]byte, error) {
+	var output bytes.Buffer
+	output.WriteString(`{"uri":`)
+	uri, err := json.Marshal(record.URI)
+	if err != nil {
+		return nil, err
+	}
+	output.Write(uri)
+	keys := make([]string, 0, len(record.Fields))
+	for key := range record.Fields {
+		if key != "uri" {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		encodedKey, err := json.Marshal(key)
+		if err != nil {
+			return nil, err
+		}
+		encodedValue, err := json.Marshal(record.Fields[key])
+		if err != nil {
+			return nil, err
+		}
+		output.WriteByte(',')
+		output.Write(encodedKey)
+		output.WriteByte(':')
+		output.Write(encodedValue)
+	}
+	output.WriteByte('}')
+	return output.Bytes(), nil
+}
+
+// ConceptRecords returns exact-type records with all authored frontmatter.
+func ConceptRecords(root, conceptType string) (ConceptRecordCatalog, error) {
+	conceptType = strings.TrimSpace(conceptType)
+	source, err := NewSearchSource(root)
+	if err != nil {
+		return nil, fmt.Errorf("concepts: %w", err)
+	}
+	pages, err := source.resolvedPages()
+	if err != nil {
+		return nil, fmt.Errorf("concepts: %w", err)
+	}
+
+	records := make([]ConceptRecord, 0)
+	for _, page := range pages {
+		if page.document.Type != conceptType {
+			continue
+		}
+		fields, _, err := parseFrontmatter(string(page.data))
+		if err != nil {
+			return nil, fmt.Errorf("concepts: %s: %w", page.document.URI, err)
+		}
+		record := ConceptRecord{URI: page.document.URI, Fields: make(map[string]any, len(fields))}
+		for key, node := range fields {
+			var value any
+			if err := node.Decode(&value); err != nil {
+				return nil, fmt.Errorf("concepts: %s: decode frontmatter %q: %w", page.document.URI, key, err)
+			}
+			record.Fields[key] = value
+		}
+		records = append(records, record)
+	}
+	sort.Slice(records, func(i, j int) bool {
+		return records[i].URI < records[j].URI
+	})
+	return ConceptRecordCatalog{"concepts": records}, nil
 }
 
 // Concepts returns concept type previews or exact-type document references.

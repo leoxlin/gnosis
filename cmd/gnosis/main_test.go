@@ -85,57 +85,49 @@ func TestRunRejectsUnexpectedArguments(t *testing.T) {
 	}
 }
 
-func TestRunGraphQueryEmitsCompactAndPrettyJSON(t *testing.T) {
+func TestRunGraphQueryEmitsPrettyJSON(t *testing.T) {
 	root := queryTestVault(t)
-	for _, test := range []struct {
-		name string
-		args []string
-	}{
-		{name: "compact", args: []string{"query", "graph", "-vault", root, "transformer"}},
-		{name: "pretty", args: []string{"query", "graph", "-vault", root, "-pretty", "transformer"}},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			var stdout bytes.Buffer
-			var stderr bytes.Buffer
-			if err := run(test.args, &stdout, &stderr); err != nil {
-				t.Fatal(err)
-			}
-			if stderr.Len() != 0 {
-				t.Fatalf("stderr = %q", stderr.String())
-			}
-			var result struct {
-				AnswerType string `json:"answer_type"`
-				Candidates []struct {
-					URI         string `json:"uri"`
-					Type        string `json:"type"`
-					Description string `json:"description"`
-				} `json:"candidates"`
-				ShouldRead []string `json:"should_read"`
-				IndexOnly  bool     `json:"index_only"`
-			}
-			if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
-				t.Fatalf("invalid JSON %q: %v", stdout.String(), err)
-			}
-			if result.AnswerType != "direct" || len(result.Candidates) == 0 {
-				t.Fatalf("result = %+v", result)
-			}
-			if result.Candidates[0].URI != "gnosis://Test/transformer.md" {
-				t.Fatalf("top candidate = %+v", result.Candidates[0])
-			}
-			if result.Candidates[0].URI == "" || result.Candidates[0].Type != "Concept" {
-				t.Fatalf("candidate identity = %+v", result.Candidates[0])
-			}
-			if len(result.ShouldRead) > 3 {
-				t.Fatalf("should_read = %v", result.ShouldRead)
-			}
-			if strings.Contains(stdout.String(), "Self-attention details live only in the body") {
-				t.Fatalf("JSON leaked page body: %q", stdout.String())
-			}
-			if test.name == "pretty" && !strings.Contains(stdout.String(), "\n  \"answer_type\"") {
-				t.Fatalf("stdout is not pretty JSON: %q", stdout.String())
-			}
-		})
-	}
+	t.Run("graph", func(t *testing.T) {
+		var stdout bytes.Buffer
+		var stderr bytes.Buffer
+		if err := run([]string{"query", "graph", "-vault", root, "transformer"}, &stdout, &stderr); err != nil {
+			t.Fatal(err)
+		}
+		if stderr.Len() != 0 {
+			t.Fatalf("stderr = %q", stderr.String())
+		}
+		var result struct {
+			AnswerType string `json:"answer_type"`
+			Candidates []struct {
+				URI         string `json:"uri"`
+				Type        string `json:"type"`
+				Description string `json:"description"`
+			} `json:"candidates"`
+			ShouldRead []string `json:"should_read"`
+			IndexOnly  bool     `json:"index_only"`
+		}
+		if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
+			t.Fatalf("invalid JSON %q: %v", stdout.String(), err)
+		}
+		if result.AnswerType != "direct" || len(result.Candidates) == 0 {
+			t.Fatalf("result = %+v", result)
+		}
+		if result.Candidates[0].URI != "gnosis://Test/transformer.md" {
+			t.Fatalf("top candidate = %+v", result.Candidates[0])
+		}
+		if result.Candidates[0].URI == "" || result.Candidates[0].Type != "Concept" {
+			t.Fatalf("candidate identity = %+v", result.Candidates[0])
+		}
+		if len(result.ShouldRead) > 3 {
+			t.Fatalf("should_read = %v", result.ShouldRead)
+		}
+		if strings.Contains(stdout.String(), "Self-attention details live only in the body") {
+			t.Fatalf("JSON leaked page body: %q", stdout.String())
+		}
+		if !strings.Contains(stdout.String(), "\n  \"answer_type\"") {
+			t.Fatalf("stdout is not pretty JSON: %q", stdout.String())
+		}
+	})
 }
 
 func TestRunQueryUsesCompactTextAndOptionalJSON(t *testing.T) {
@@ -156,7 +148,7 @@ func TestRunQueryUsesCompactTextAndOptionalJSON(t *testing.T) {
 	}
 
 	stdout.Reset()
-	if err := run([]string{"query", "search", "-vault", root, "-pretty", "Transformer Architecture"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"query", "search", "-vault", root, "-json", "Transformer Architecture"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	var result struct {
@@ -168,6 +160,9 @@ func TestRunQueryUsesCompactTextAndOptionalJSON(t *testing.T) {
 	}
 	if !result.IndexOnly || len(result.ShouldRead) != 0 {
 		t.Fatalf("result = %+v", result)
+	}
+	if !strings.Contains(stdout.String(), "\n  \"answer_type\"") {
+		t.Fatalf("stdout is not pretty JSON: %q", stdout.String())
 	}
 }
 
@@ -352,7 +347,7 @@ func TestRunProcessInvokeWithoutDiscovery(t *testing.T) {
 	root := processCommandTestVault(t)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"procedure", "invoke", "--vault", root, "--uri", "gnosis://Process%20Test/processes/query-vault.md", "--pretty"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"procedure", "invoke", "--vault", root, "--uri", "gnosis://Process%20Test/processes/query-vault.md"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	var invocation struct {
@@ -392,7 +387,7 @@ func TestRunConceptsListsProceduresForSelection(t *testing.T) {
 	}
 }
 
-func TestRunProcessDiscoveryReturnsSelectableModelProcesses(t *testing.T) {
+func TestRunProcessDiscoveryReturnsTypedProcedureCatalog(t *testing.T) {
 	root := processCommandTestVault(t)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -402,6 +397,7 @@ func TestRunProcessDiscoveryReturnsSelectableModelProcesses(t *testing.T) {
 	if !strings.Contains(stdout.String(), "\n  \"procedures\":") {
 		t.Fatalf("discovery must emit pretty JSON by default: %q", stdout.String())
 	}
+	discoveryJSON := stdout.String()
 	var discovery struct {
 		Procedures []struct {
 			URI     string   `json:"uri"`
@@ -421,17 +417,14 @@ func TestRunProcessDiscoveryReturnsSelectableModelProcesses(t *testing.T) {
 		if candidate.URI == "gnosis://Process%20Test/processes/query-vault.md" {
 			process = candidate
 		}
-		if candidate.URI == "gnosis://Process%20Test/processes/internal-review.md" {
-			t.Fatalf("discovery must hide explicit process: %+v", candidate)
-		}
 	}
 	if process.URI != "gnosis://Process%20Test/processes/query-vault.md" || strings.Join(process.Tags, ",") != "gnosis-vault" || strings.Join(process.UseWhen, ",") != "Answering a question from a vault." {
 		t.Fatalf("process = %+v", process)
 	}
-	if strings.Contains(stdout.String(), `"invocation": "explicit"`) {
-		t.Fatalf("discovery must hide explicit processes: %s", stdout.String())
+	if !strings.Contains(stdout.String(), `"invocation": "explicit"`) {
+		t.Fatalf("discovery must preserve procedure frontmatter: %s", stdout.String())
 	}
-	for _, field := range []string{"origin", "revision", "effects"} {
+	for _, field := range []string{"origin", "revision"} {
 		if strings.Contains(stdout.String(), `"`+field+`"`) {
 			t.Fatalf("discovery must not expose %q: %s", field, stdout.String())
 		}
@@ -439,18 +432,35 @@ func TestRunProcessDiscoveryReturnsSelectableModelProcesses(t *testing.T) {
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q", stderr.String())
 	}
+
+	stdout.Reset()
+	if err := run([]string{"concepts", "--vault", root, "--type", "Procedure", "--json"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), "\n  \"concepts\":") || strings.Contains(stdout.String(), "\n  \"procedures\":") {
+		t.Fatalf("concept type JSON must use concepts collection: %s", stdout.String())
+	}
+	if strings.Replace(stdout.String(), `"concepts"`, `"procedures"`, 1) != discoveryJSON {
+		t.Fatalf("concepts procedure records differ from discovery:\nconcepts: %s\ndiscovery: %s", stdout.String(), discoveryJSON)
+	}
 }
 
-func TestRunProcessDiscoveryDoesNotAcceptSearchRequest(t *testing.T) {
+func TestRunDoesNotAcceptPrettyFlag(t *testing.T) {
 	for _, args := range [][]string{
-		{"procedure", "discovery", "answer from recorded knowledge"},
+		{"concepts", "-pretty"},
+		{"concepts", "--pretty"},
 		{"procedure", "discovery", "--pretty"},
+		{"procedure", "invoke", "--pretty"},
+		{"graph", "neighbors", "--pretty"},
+		{"graph", "path", "--pretty"},
+		{"query", "search", "--pretty", "question"},
+		{"query", "graph", "--pretty", "question"},
 	} {
 		var stdout bytes.Buffer
 		var stderr bytes.Buffer
 		err := run(args, &stdout, &stderr)
-		if err == nil || !strings.Contains(err.Error(), "unexpected argument") && !strings.Contains(err.Error(), "unknown flag") {
-			t.Fatalf("args = %v error = %v, want argument or flag rejection", args, err)
+		if err == nil || !strings.Contains(err.Error(), "unknown") {
+			t.Fatalf("args = %v error = %v, want flag rejection", args, err)
 		}
 	}
 }
@@ -468,7 +478,7 @@ func TestRunGraphNeighborsAndPath(t *testing.T) {
 	root := processCommandTestVault(t)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"graph", "neighbors", "--vault", root, "--uri", "gnosis://Process%20Test/processes/query-vault.md", "--direction", "out", "--relation", "links_to", "--pretty"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"graph", "neighbors", "--vault", root, "--uri", "gnosis://Process%20Test/processes/query-vault.md", "--direction", "out", "--relation", "links_to"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	var neighbors struct {
@@ -487,7 +497,7 @@ func TestRunGraphNeighborsAndPath(t *testing.T) {
 	}
 
 	stdout.Reset()
-	if err := run([]string{"graph", "path", "--vault", root, "--from", "gnosis://Process%20Test/processes/query-vault.md", "--to", "gnosis://Process%20Test/concepts/provenance.md", "--direction", "out", "--depth", "2", "--pretty"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"graph", "path", "--vault", root, "--from", "gnosis://Process%20Test/processes/query-vault.md", "--to", "gnosis://Process%20Test/concepts/provenance.md", "--direction", "out", "--depth", "2"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	var path struct {
@@ -629,26 +639,34 @@ description: A reusable knowledge record.
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"concepts", "--vault", root, "--type", "Concept", "--pretty"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"concepts", "--vault", root, "--type", "Concept", "--json"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	var catalog struct {
-		Type     string `json:"type"`
 		Concepts []struct {
-			URI      string `json:"uri"`
-			Revision string `json:"revision"`
+			URI         string   `json:"uri"`
+			Type        string   `json:"type"`
+			Title       string   `json:"title"`
+			Description string   `json:"description"`
+			Tags        []string `json:"tags"`
 		} `json:"concepts"`
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &catalog); err != nil {
 		t.Fatalf("invalid JSON %q: %v", stdout.String(), err)
 	}
-	if catalog.Type != "Concept" || len(catalog.Concepts) != 2 {
+	if len(catalog.Concepts) != 2 {
 		t.Fatalf("catalog = %+v", catalog)
 	}
+	if !strings.Contains(stdout.String(), "\n  \"concepts\":") {
+		t.Fatalf("stdout is not pretty JSON: %q", stdout.String())
+	}
 	for _, concept := range catalog.Concepts {
-		if concept.URI == "" || concept.Revision == "" {
+		if concept.URI == "" || concept.Type != "Concept" || concept.Title == "" || concept.Description == "" {
 			t.Fatalf("concept identity = %+v", concept)
 		}
+	}
+	if got := strings.Join(catalog.Concepts[1].Tags, ","); got != "deep-learning" {
+		t.Fatalf("custom frontmatter tags = %q, want deep-learning", got)
 	}
 	if stderr.Len() != 0 {
 		t.Fatalf("stderr = %q", stderr.String())

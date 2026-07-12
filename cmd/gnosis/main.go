@@ -61,18 +61,26 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 
 func newConceptsCommand(stdout io.Writer) *cobra.Command {
 	var vaultPath, conceptType string
-	var jsonOutput, pretty bool
+	var jsonOutput bool
 	command := &cobra.Command{
 		Use:   "concepts [flags]",
 		Short: "List concept types or concepts of an exact type",
 		Args:  noArgs("concepts"),
 		RunE: func(_ *cobra.Command, _ []string) error {
-			if jsonOutput || pretty {
-				catalog, err := vault.Concepts(vaultPath, conceptType)
+			if jsonOutput {
+				typeName := strings.TrimSpace(conceptType)
+				if typeName == "" {
+					catalog, err := vault.Concepts(vaultPath, "")
+					if err != nil {
+						return err
+					}
+					return writeJSON(stdout, catalog)
+				}
+				catalog, err := vault.ConceptRecords(vaultPath, typeName)
 				if err != nil {
 					return err
 				}
-				return writeJSON(stdout, catalog, pretty)
+				return writeJSON(stdout, catalog)
 			}
 			return vault.ListConcepts(vaultPath, conceptType, stdout)
 		},
@@ -80,8 +88,7 @@ func newConceptsCommand(stdout io.Writer) *cobra.Command {
 	flags := command.Flags()
 	flags.StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
 	flags.StringVar(&conceptType, "type", "", "exact concept type")
-	flags.BoolVar(&jsonOutput, "json", false, "emit machine-readable JSON")
-	flags.BoolVar(&pretty, "pretty", false, "pretty-print JSON output (implies --json)")
+	flags.BoolVar(&jsonOutput, "json", false, "emit indented machine-readable JSON")
 	return command
 }
 
@@ -112,7 +119,7 @@ func runRead(vaultPath, uri string, jsonOutput bool, stdout io.Writer) error {
 		return fmt.Errorf("read: %w", err)
 	}
 	if jsonOutput {
-		return writeJSON(stdout, page, true)
+		return writeJSON(stdout, page)
 	}
 	_, err = io.WriteString(stdout, page.Markdown)
 	return err
@@ -191,7 +198,7 @@ func newProcedureDiscoveryCommand(stdout io.Writer) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("procedure discovery: %w", err)
 			}
-			return writeJSON(stdout, result, true)
+			return writeJSON(stdout, result)
 		},
 	}
 	flags := command.Flags()
@@ -201,7 +208,6 @@ func newProcedureDiscoveryCommand(stdout io.Writer) *cobra.Command {
 
 func newProcedureInvokeCommand(stdout io.Writer) *cobra.Command {
 	var vaultPath, uri string
-	var pretty bool
 	command := &cobra.Command{
 		Use:   "invoke [flags]",
 		Short: "Load one exact procedure execution contract",
@@ -215,13 +221,12 @@ func newProcedureInvokeCommand(stdout io.Writer) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("procedure invoke: %w", err)
 			}
-			return writeJSON(stdout, result, pretty)
+			return writeJSON(stdout, result)
 		},
 	}
 	flags := command.Flags()
 	flags.StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
 	flags.StringVar(&uri, "uri", "", "exact process gnosis URI")
-	flags.BoolVar(&pretty, "pretty", false, "pretty-print JSON output")
 	return command
 }
 
@@ -238,7 +243,6 @@ func newGraphCommand(stdout io.Writer) *cobra.Command {
 func newGraphNeighborsCommand(stdout io.Writer) *cobra.Command {
 	var vaultPath, uri, direction string
 	var relations []string
-	var pretty bool
 	command := &cobra.Command{
 		Use:   "neighbors [flags]",
 		Short: "List typed links adjacent to one exact page",
@@ -252,7 +256,7 @@ func newGraphNeighborsCommand(stdout io.Writer) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("graph neighbors: %w", err)
 			}
-			return writeJSON(stdout, result, pretty)
+			return writeJSON(stdout, result)
 		},
 	}
 	flags := command.Flags()
@@ -260,7 +264,6 @@ func newGraphNeighborsCommand(stdout io.Writer) *cobra.Command {
 	flags.StringVar(&uri, "uri", "", "exact page gnosis URI")
 	flags.StringVar(&direction, "direction", string(vault.DirectionBoth), "edge direction: out, in, or both")
 	flags.StringSliceVar(&relations, "relation", nil, "relationship type filter")
-	flags.BoolVar(&pretty, "pretty", false, "pretty-print JSON output")
 	return command
 }
 
@@ -268,7 +271,6 @@ func newGraphPathCommand(stdout io.Writer) *cobra.Command {
 	var vaultPath, from, to, direction string
 	var relations []string
 	var depth int
-	var pretty bool
 	command := &cobra.Command{
 		Use:   "path [flags]",
 		Short: "Find a typed path between exact pages",
@@ -289,7 +291,7 @@ func newGraphPathCommand(stdout io.Writer) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("graph path: %w", err)
 			}
-			return writeJSON(stdout, result, pretty)
+			return writeJSON(stdout, result)
 		},
 	}
 	flags := command.Flags()
@@ -299,20 +301,19 @@ func newGraphPathCommand(stdout io.Writer) *cobra.Command {
 	flags.StringVar(&direction, "direction", string(vault.DirectionBoth), "edge direction: out, in, or both")
 	flags.StringSliceVar(&relations, "relation", nil, "relationship type filter")
 	flags.IntVar(&depth, "depth", 3, "maximum traversal depth")
-	flags.BoolVar(&pretty, "pretty", false, "pretty-print JSON output")
 	return command
 }
 
 func newSearchQueryCommand(stdout io.Writer) *cobra.Command {
 	var vaultPath string
 	var top, maxRead, depth int
-	var jsonOutput, pretty bool
+	var jsonOutput bool
 	command := &cobra.Command{
 		Use:   "search [flags] <question>",
 		Short: "Find relevant vault pages for a question",
 		Args:  questionArgs("query search"),
 		RunE: func(_ *cobra.Command, args []string) error {
-			return runQuery(vaultPath, top, maxRead, depth, jsonOutput, pretty, args[0], stdout)
+			return runQuery(vaultPath, top, maxRead, depth, jsonOutput, args[0], stdout)
 		},
 	}
 	flags := command.Flags()
@@ -320,21 +321,19 @@ func newSearchQueryCommand(stdout io.Writer) *cobra.Command {
 	flags.IntVar(&top, "top", 3, "number of candidate pages to return")
 	flags.IntVar(&maxRead, "max-read", 3, "maximum number of pages to recommend reading")
 	flags.IntVar(&depth, "depth", 3, "maximum graph traversal depth")
-	flags.BoolVar(&jsonOutput, "json", false, "emit machine-readable JSON")
-	flags.BoolVar(&pretty, "pretty", false, "pretty-print JSON output (implies --json)")
+	flags.BoolVar(&jsonOutput, "json", false, "emit indented machine-readable JSON")
 	return command
 }
 
 func newGraphQueryCommand(stdout io.Writer) *cobra.Command {
 	var vaultPath string
 	var top, maxRead, depth int
-	var pretty bool
 	command := &cobra.Command{
 		Use:   "graph [flags] <question>",
 		Short: "Query the vault and emit graph-aware JSON",
 		Args:  questionArgs("query graph"),
 		RunE: func(_ *cobra.Command, args []string) error {
-			return runGraphQuery(vaultPath, top, maxRead, depth, pretty, args[0], stdout)
+			return runGraphQuery(vaultPath, top, maxRead, depth, args[0], stdout)
 		},
 	}
 	flags := command.Flags()
@@ -342,11 +341,10 @@ func newGraphQueryCommand(stdout io.Writer) *cobra.Command {
 	flags.IntVar(&top, "top", 3, "number of candidate pages to return")
 	flags.IntVar(&maxRead, "max-read", 3, "maximum number of pages to recommend reading")
 	flags.IntVar(&depth, "depth", 3, "maximum graph traversal depth")
-	flags.BoolVar(&pretty, "pretty", false, "pretty-print JSON output")
 	return command
 }
 
-func runQuery(vaultPath string, top, maxRead, depth int, jsonOutput, pretty bool, question string, stdout io.Writer) error {
+func runQuery(vaultPath string, top, maxRead, depth int, jsonOutput bool, question string, stdout io.Writer) error {
 	if err := validateQueryOptions(top, maxRead, depth); err != nil {
 		return fmt.Errorf("query search: %w", err)
 	}
@@ -359,14 +357,14 @@ func runQuery(vaultPath string, top, maxRead, depth int, jsonOutput, pretty bool
 	if err != nil {
 		return err
 	}
-	if jsonOutput || pretty {
-		return writeQueryJSON(stdout, result, pretty)
+	if jsonOutput {
+		return writeQueryJSON(stdout, result)
 	}
 	writeQueryText(stdout, result)
 	return nil
 }
 
-func runGraphQuery(vaultPath string, top, maxRead, depth int, pretty bool, question string, stdout io.Writer) error {
+func runGraphQuery(vaultPath string, top, maxRead, depth int, question string, stdout io.Writer) error {
 	if err := validateQueryOptions(top, maxRead, depth); err != nil {
 		return fmt.Errorf("query graph: %w", err)
 	}
@@ -379,7 +377,7 @@ func runGraphQuery(vaultPath string, top, maxRead, depth int, pretty bool, quest
 	if err != nil {
 		return err
 	}
-	return writeQueryJSON(stdout, result, pretty)
+	return writeQueryJSON(stdout, result)
 }
 
 func queryVault(root, question string, options vault.QueryOptions) (vault.QueryResult, error) {
@@ -399,16 +397,14 @@ func validateQueryOptions(top, maxRead, depth int) error {
 	return nil
 }
 
-func writeQueryJSON(output io.Writer, result vault.QueryResult, pretty bool) error {
-	return writeJSON(output, result, pretty)
+func writeQueryJSON(output io.Writer, result vault.QueryResult) error {
+	return writeJSON(output, result)
 }
 
-func writeJSON(output io.Writer, value any, pretty bool) error {
+func writeJSON(output io.Writer, value any) error {
 	encoder := json.NewEncoder(output)
 	encoder.SetEscapeHTML(false)
-	if pretty {
-		encoder.SetIndent("", "  ")
-	}
+	encoder.SetIndent("", "  ")
 	return encoder.Encode(value)
 }
 
@@ -671,7 +667,7 @@ func exactArgs(command string, count int) cobra.PositionalArgs {
 func normalizeLegacyLongFlags(args []string) []string {
 	longFlags := map[string]bool{
 		"vault": true, "top": true, "max-read": true, "depth": true,
-		"json": true, "pretty": true, "force": true, "concepts": true, "name": true, "import": true,
+		"json": true, "force": true, "concepts": true, "name": true, "import": true,
 		"type": true, "title": true, "from": true, "to": true, "direction": true, "relation": true, "filename": true, "update": true,
 	}
 	normalized := make([]string, 0, len(args))

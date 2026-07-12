@@ -61,7 +61,7 @@ relationships:
 ## Process
 
 1. Resolve the vault and requested operation. Read the effective Decision Concept Type definition. When the operation or target identity is ambiguous, ask the author one question at a time and recommend a default.
-2. Query before reading records. Use an identity-focused `gnosis query graph --vault <root> --pretty '<question>'`, then read only its applicable `should_read` records. For an exact target, read it as JSON to retain its URI, revision, origin, and unknown metadata.
+2. Query before reading records. Use an identity-focused `gnosis query graph --vault <root> '<question>'`, then read only its applicable `should_read` records. For an exact target, read it as JSON to retain its URI, revision, origin, and unknown metadata.
 3. Follow the matching branch:
    - **Read:** Return the exact choice, rationale, constraints, supersession history, provenance, conflicts, and gaps. Make no vault change and stop.
    - **Create:** Establish the non-obvious choice, material alternatives, rationale, and constraints. Resolve every author-owned choice, obtain explicit confirmation, reject duplicate identity, and build the minimum complete Decision record.

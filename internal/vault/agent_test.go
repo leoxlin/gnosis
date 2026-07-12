@@ -42,7 +42,7 @@ func TestReadAndInvokeProcessRoundTrip(t *testing.T) {
 	}
 }
 
-func TestDiscoverProcessesFiltersConfiguredTags(t *testing.T) {
+func TestDiscoverProcessesUsesTypedConceptCatalog(t *testing.T) {
 	root := agentTestVault(t)
 	writeConfig(t, root, `[vault]
 vault_name = "agent-test"
@@ -81,8 +81,19 @@ The plan is complete.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(discovery.Procedures) != 1 || discovery.Procedures[0].URI != "gnosis://agent-test/processes/query-vault.md" || strings.Join(discovery.Procedures[0].Tags, ",") != "test-vault" {
-		t.Fatalf("procedures = %+v", discovery.Procedures)
+	procedures := discovery["procedures"]
+	var queryVault ConceptRecord
+	for _, procedure := range procedures {
+		if procedure.URI == "gnosis://agent-test/processes/query-vault.md" {
+			queryVault = procedure
+		}
+	}
+	if queryVault.URI == "" {
+		t.Fatalf("procedures missing local query-vault: %+v", procedures)
+	}
+	tags, ok := queryVault.Fields["tags"].([]any)
+	if !ok || len(tags) != 1 || tags[0] != "test-vault" {
+		t.Fatalf("tags = %#v", queryVault.Fields["tags"])
 	}
 }
 
