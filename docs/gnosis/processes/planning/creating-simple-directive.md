@@ -1,5 +1,5 @@
 ---
-type: Gnosis Process
+type: GnosisProcess
 title: creating-simple-directive
 description: Use only after requirements refinement routes one bounded delivery with no material design or dependency work.
 tags: [gnosis-planning]

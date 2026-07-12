@@ -1,5 +1,5 @@
 ---
-type: Gnosis Process
+type: GnosisProcess
 title: finishing-a-development-branch
 description: Use after implementation and review are complete to verify delivery readiness and let the author choose integration or cleanup.
 tags: [gnosis-execution]

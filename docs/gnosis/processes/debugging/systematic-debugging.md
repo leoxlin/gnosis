@@ -1,5 +1,5 @@
 ---
-type: Gnosis Process
+type: GnosisProcess
 title: systematic-debugging
 description: Use for diagnosing or fixing any bug, failing test, build failure, performance problem, or unexpected technical behavior.
 tags: [gnosis-debugging]

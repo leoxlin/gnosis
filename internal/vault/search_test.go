@@ -133,12 +133,12 @@ vault_name = "Workspace"
 vault_root = "."
 `)
 	write(t, root, "concepts/gnosis-process.md", `---
-type: Concept Type
-title: Local Gnosis Process
+type: ConceptType
+title: LocalGnosisProcess
 ---
 `)
 	write(t, root, "gnosis/processes/using-gnosis.md", `---
-type: Gnosis Process
+type: GnosisProcess
 title: Local using-gnosis
 ---
 `)
@@ -155,7 +155,7 @@ title: Local using-gnosis
 	for _, document := range documents {
 		byID[document.ID] = document
 	}
-	if got := byID["concepts/gnosis-process.md"].Title; got != "Local Gnosis Process" {
+	if got := byID["concepts/gnosis-process.md"].Title; got != "LocalGnosisProcess" {
 		t.Fatalf("vault-process title = %q", got)
 	}
 	if got := byID["gnosis/processes/using-gnosis.md"].Title; got != "Local using-gnosis" {
@@ -167,7 +167,7 @@ title: Local using-gnosis
 	if _, exists := byID["concepts/gnosis-purpose.md"]; !exists {
 		t.Fatalf("documents missing bundled gnosis concepts: %+v", documents)
 	}
-	data, err := Read(root, "Gnosis Process", "query-vault")
+	data, err := Read(root, "GnosisProcess", "query-vault")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,7 +217,7 @@ vault_name = "Imported"
 vault_root = "."
 `)
 	write(t, imported, "gnosis/processes/query-vault.md", `---
-type: Gnosis Process
+type: GnosisProcess
 title: Imported query-vault
 ---
 `)

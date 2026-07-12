@@ -1,5 +1,5 @@
 ---
-type: Gnosis Decision
+type: GnosisDecision
 title: Stage directive planning by complexity and review concern
 description: Load only the planning stage and knowledge required for each directive.
 ---

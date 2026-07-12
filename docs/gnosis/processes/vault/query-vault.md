@@ -1,5 +1,5 @@
 ---
-type: Gnosis Process
+type: GnosisProcess
 title: query-vault
 description: Use when answering a question from recorded vault knowledge.
 tags: [gnosis-vault]

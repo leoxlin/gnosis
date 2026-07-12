@@ -1,5 +1,5 @@
 ---
-type: Gnosis Process
+type: GnosisProcess
 title: refining-requirements
 description: Use when requested planning must turn a prompt, issue, or bug report into directive-ready requirements.
 tags: [gnosis-planning]

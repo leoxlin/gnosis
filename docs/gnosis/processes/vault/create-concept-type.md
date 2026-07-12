@@ -1,5 +1,5 @@
 ---
-type: Gnosis Process
+type: GnosisProcess
 title: create-concept-type
 description: Use when a vault needs a new or refined ontological category.
 tags: [gnosis-vault]
@@ -30,7 +30,7 @@ relationships:
 1. Resolve the vault and read its configuration and agent rules. List existing types with `gnosis concepts --pretty` and inspect only relevant definitions with `gnosis read --id '<concept-type URI>'`.
 2. Investigate discoverable facts before asking the author. Ask only for category boundaries, examples, and exclusions.
 3. Interview the author one question at a time until the category boundary is clear. If two independent boundaries remain, create two Concept Type records.
-4. Name the category only after its boundary is clear. Create `docs/concepts/<kebab-name>.md` with `type: Concept Type`, `title`, and `description`; add frontmatter only when a consumer uses it.
+4. Name the category only after its boundary is clear. Create `docs/concepts/<kebab-name>.md` with `type: ConceptType`, `title`, and `description`; add frontmatter only when a consumer uses it.
 5. Use a definition paragraph followed by `## Use this for`, an exclusion sentence, `## Minimum record`, and `## Schema`. Keep the schema to required fields and sections.
 6. Run `gnosis index --vault <root>` only when `vault_index` is enabled, then run `gnosis validate --vault <root>`.
 

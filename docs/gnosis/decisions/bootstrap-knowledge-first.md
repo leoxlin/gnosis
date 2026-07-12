@@ -1,5 +1,5 @@
 ---
-type: Gnosis Decision
+type: GnosisDecision
 title: Bootstrap `gnosis` knowledge first on OKF
 description: Use OKF as the portable foundation for `gnosis` knowledge and layer specialized strategies above it.
 ---

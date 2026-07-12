@@ -1,6 +1,6 @@
 ---
-type: Concept Type
-title: Gnosis Directive
+type: ConceptType
+title: GnosisDirective
 description: An explicitly requested durable implementation handoff.
 path: gnosis/directives
 ---
@@ -32,7 +32,7 @@ Omit empty optional sections. Plans contain no placeholders.
 
 ```markdown
 ---
-type: Gnosis Directive
+type: GnosisDirective
 title: <name>
 description: <result>
 status: <draft | open | blocked | done>

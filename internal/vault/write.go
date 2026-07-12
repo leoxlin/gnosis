@@ -162,7 +162,7 @@ func localIdentityDestination(pages []*searchPage, localRoot, directory, concept
 func conceptTypePage(pages []*searchPage, title string) (*searchPage, error) {
 	matches := make([]*searchPage, 0, 1)
 	for _, page := range pages {
-		if page.document.Type == "Concept Type" && page.document.Title == title {
+		if page.document.Type == "ConceptType" && page.document.Title == title {
 			matches = append(matches, page)
 		}
 	}

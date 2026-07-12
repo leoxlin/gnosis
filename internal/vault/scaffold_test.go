@@ -95,12 +95,12 @@ func TestGenerateIndexesWritesFolderIndexes(t *testing.T) {
 * Entry.
 `)
 	write(t, root, "concepts/gnosis-purpose.md", `---
-type: Concept Type
-title: Gnosis Purpose
+type: ConceptType
+title: GnosisPurpose
 description: Definition of a reusable purpose record.
 ---
 
-# Gnosis Purpose
+# GnosisPurpose
 `)
 
 	written, err := GenerateIndexes(root, IndexOptions{Overwrite: true})
@@ -131,7 +131,7 @@ description: Definition of a reusable purpose record.
 	if !strings.Contains(conceptsText, "[Parent Index](../index.md)") {
 		t.Fatalf("subindex missing parent link:\n%s", conceptsText)
 	}
-	if !strings.Contains(conceptsText, "[Gnosis Purpose](gnosis-purpose.md) - Definition of a reusable purpose record.") {
+	if !strings.Contains(conceptsText, "[GnosisPurpose](gnosis-purpose.md) - Definition of a reusable purpose record.") {
 		t.Fatalf("subindex missing page metadata:\n%s", conceptsText)
 	}
 	if strings.HasSuffix(conceptsText, "\n\n") {

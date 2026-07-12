@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-const GnosisProcessType = "Gnosis Process"
+const GnosisProcessType = "GnosisProcess"
 
 // OriginKind identifies where an effective document came from.
 type OriginKind string

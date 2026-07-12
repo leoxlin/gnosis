@@ -14,7 +14,7 @@ vault_name = "Workspace"
 vault_root = "local"
 `)
 	write(t, workspace, "local/types/note.md", `---
-type: Concept Type
+type: ConceptType
 title: Note
 path: notes
 ---
@@ -68,7 +68,7 @@ vault_name = "Workspace"
 vault_root = "."
 `)
 	write(t, workspace, "types/note.md", `---
-type: Concept Type
+type: ConceptType
 title: Note
 ---
 `)
@@ -78,7 +78,7 @@ title: Note
 		t.Fatalf("missing path error = %v", err)
 	}
 	write(t, workspace, "types/note.md", `---
-type: Concept Type
+type: ConceptType
 title: Note
 path: ../outside
 ---
@@ -87,7 +87,7 @@ path: ../outside
 		t.Fatalf("unsafe path error = %v", err)
 	}
 	write(t, workspace, "types/note.md", `---
-type: Concept Type
+type: ConceptType
 title: Note
 path: notes
 ---
@@ -121,7 +121,7 @@ vault_name = "Imported"
 vault_root = "."
 `)
 	write(t, workspace, "local/types/note.md", `---
-type: Concept Type
+type: ConceptType
 title: Note
 path: notes
 ---
@@ -146,22 +146,22 @@ path: notes
 	}
 
 	write(t, workspace, "local/concepts/gnosis-process.md", `---
-type: Concept Type
-title: Gnosis Process
+type: ConceptType
+title: GnosisProcess
 path: gnosis/processes
 ---
 `)
-	builtInContent := []byte("---\ntype: Gnosis Process\ntitle: query-vault\n---\n\n# Local query vault\n")
-	if _, err := WriteDocument(workspace, "Gnosis Process", "query-vault", builtInContent, false); err == nil || !strings.Contains(err.Error(), "-overwrite") {
+	builtInContent := []byte("---\ntype: GnosisProcess\ntitle: query-vault\n---\n\n# Local query vault\n")
+	if _, err := WriteDocument(workspace, "GnosisProcess", "query-vault", builtInContent, false); err == nil || !strings.Contains(err.Error(), "-overwrite") {
 		t.Fatalf("built-in collision error = %v", err)
 	}
-	if _, err := WriteDocument(workspace, "Gnosis Process", "query-vault", builtInContent, true); err != nil {
+	if _, err := WriteDocument(workspace, "GnosisProcess", "query-vault", builtInContent, true); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(workspace, "local", "gnosis", "processes", "vault", "query-vault.md")); err != nil {
 		t.Fatalf("local grouped override = %v", err)
 	}
-	resolvedBuiltIn, err := Read(workspace, "Gnosis Process", "query-vault")
+	resolvedBuiltIn, err := Read(workspace, "GnosisProcess", "query-vault")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +184,7 @@ vault_root = "imported"
 vault_name = "Imported"
 vault_root = "."
 `)
-	write(t, imported, "types/note.md", "---\ntype: Concept Type\ntitle: Note\npath: notes\n---\n")
+	write(t, imported, "types/note.md", "---\ntype: ConceptType\ntitle: Note\npath: notes\n---\n")
 	content := []byte("---\ntype: Note\ntitle: A Note\n---\n")
 	if _, err := WriteDocument(workspace, "Note", "A Note", content, false); err == nil || !strings.Contains(err.Error(), "local vault") {
 		t.Fatalf("error = %v", err)
@@ -201,7 +201,7 @@ vault_name = "Local"
 vault_root = "."
 `)
 	write(t, root, "concepts/note.md", `---
-type: Concept Type
+type: ConceptType
 title: Note
 path: notes
 ---
@@ -248,7 +248,7 @@ vault_name = "Local"
 vault_root = "."
 `)
 	content := []byte(`---
-type: Gnosis Decision
+type: GnosisDecision
 title: Keep Commands Canonical
 description: Use the documented command form.
 ---
@@ -261,7 +261,7 @@ Use documented commands.
 
 One form is easier to maintain.
 `)
-	path, err := WriteDocument(root, "Gnosis Decision", "Keep Commands Canonical", content, false)
+	path, err := WriteDocument(root, "GnosisDecision", "Keep Commands Canonical", content, false)
 	if err != nil {
 		t.Fatal(err)
 	}

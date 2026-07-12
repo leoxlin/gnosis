@@ -1,5 +1,5 @@
 ---
-type: Gnosis Process
+type: GnosisProcess
 title: test-driven-development
 description: Use when implementing a feature, bug fix, refactor, or behavior change before changing production code.
 tags: [gnosis-execution]

@@ -1,5 +1,5 @@
 ---
-type: Gnosis Process
+type: GnosisProcess
 title: review-directive-engineering
 description: Use only when the latest complex draft needs a maximally skeptical, independent engineering-plan review.
 tags: [gnosis-planning]

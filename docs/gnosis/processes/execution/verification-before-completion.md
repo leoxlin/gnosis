@@ -1,5 +1,5 @@
 ---
-type: Gnosis Process
+type: GnosisProcess
 title: verification-before-completion
 description: Use immediately before claiming work is correct, complete, fixed, passing, or ready for delivery.
 tags: [gnosis-execution]

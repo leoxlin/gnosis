@@ -1,5 +1,5 @@
 ---
-type: Gnosis Purpose
+type: GnosisPurpose
 title: "`gnosis`"
 description: "`gnosis` makes human and agent knowledge durable, portable, and progressively useful."
 ---

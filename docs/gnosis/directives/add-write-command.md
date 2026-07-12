@@ -1,5 +1,5 @@
 ---
-type: Gnosis Directive
+type: GnosisDirective
 title: Add `gnosis write` command
 description: Write a typed Markdown document from stdin or a file into the current vault.
 status: done

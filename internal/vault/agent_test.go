@@ -14,7 +14,7 @@ func TestReadAndInvokeProcessRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if invocation.Process.ID != "processes/query-vault.md" || invocation.Process.URI != processURI || invocation.Process.Type != "Gnosis Process" {
+	if invocation.Process.ID != "processes/query-vault.md" || invocation.Process.URI != processURI || invocation.Process.Type != "GnosisProcess" {
 		t.Fatalf("invoked process = %+v", invocation.Process)
 	}
 	if invocation.Process.Origin.Kind != OriginLocal || invocation.Process.Origin.Vault != "agent-test" || invocation.Process.Revision == "" {
@@ -61,7 +61,7 @@ vault_log = false
 processes = ["test-vault"]
 `)
 	write(t, root, "docs/processes/planning.md", `---
-type: Gnosis Process
+type: GnosisProcess
 title: planning
 description: A planning-only process.
 tags: [test-planning]
@@ -170,7 +170,7 @@ vault_index = false
 vault_log = false
 `)
 	write(t, workspace, "docs/processes/start.md", `---
-type: Gnosis Process
+type: GnosisProcess
 title: start
 description: Start with shared knowledge.
 use_when:
@@ -297,7 +297,7 @@ vault_index = false
 vault_log = false
 `)
 	write(t, root, "process.md", `---
-type: Gnosis Process
+type: GnosisProcess
 title: invalid
 description: Invalid process.
 invocation: surprise
@@ -336,7 +336,7 @@ vault_index = false
 vault_log = false
 `)
 	write(t, root, "process.md", `---
-type: Gnosis Process
+type: GnosisProcess
 title: vague-process
 ---
 
@@ -414,7 +414,7 @@ description: Source identity and history.
 # Provenance
 `)
 	write(t, root, "docs/processes/query-vault.md", `---
-type: Gnosis Process
+type: GnosisProcess
 title: query-vault
 description: Use when answering a question from recorded vault knowledge.
 tags: [test-vault]

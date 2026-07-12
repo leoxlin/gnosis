@@ -1,6 +1,6 @@
 ---
-type: Concept Type
-title: Gnosis Process
+type: ConceptType
+title: GnosisProcess
 description: A discoverable, invocable workflow for vault or repository work.
 path: gnosis/processes
 ---
@@ -27,7 +27,7 @@ Do not use it for one-off knowledge, settled choices, implementation handoffs, o
 
 ```yaml
 ---
-type: Gnosis Process
+type: GnosisProcess
 title: <name>
 description: <selection condition>
 tags: [<process-family>]

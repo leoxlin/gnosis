@@ -1,5 +1,5 @@
 ---
-type: Gnosis Process
+type: GnosisProcess
 title: finalizing-directives
 description: Use only when simple drafts or reviewed complex drafts must become validated execution handoffs.
 tags: [gnosis-planning]

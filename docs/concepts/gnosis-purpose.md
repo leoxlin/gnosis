@@ -1,6 +1,6 @@
 ---
-type: Concept Type
-title: Gnosis Purpose
+type: ConceptType
+title: GnosisPurpose
 description: The durable statement of why a project or vault exists and where it stops.
 path: gnosis
 ---
@@ -24,7 +24,7 @@ Do not put architecture, plans, milestones, or tasks here.
 
 ```yaml
 ---
-type: Gnosis Purpose
+type: GnosisPurpose
 title: <name>
 description: <outcome>
 ---

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode"
 )
 
 // Result is the aggregate output of a vault validation run.
@@ -131,13 +132,43 @@ func validateFile(root, path string, config Config, effectiveSelectors map[strin
 		}
 		validateRelationships(root, path, fields, effectiveSelectors, result)
 
-		if conceptType, scalar := fields.scalar("type"); scalar && isProcessType(strings.TrimSpace(conceptType)) {
-			validateProcessRecord(path, fields, body, result)
+		if conceptType, scalar := fields.scalar("type"); scalar {
+			conceptType = strings.TrimSpace(conceptType)
+			if conceptType == "ConceptType" {
+				validateConceptTypeName(path, fields, result)
+			}
+			if isProcessType(conceptType) {
+				validateProcessRecord(path, fields, body, result)
+			}
 		}
 	}
 
 	validateReservedName(path, body, result)
 	validateLinks(root, path, text, config, effectiveSelectors, result)
+}
+
+func validateConceptTypeName(path string, fields Frontmatter, result *Result) {
+	title, scalar := fields.scalar("title")
+	title = strings.TrimSpace(title)
+	if !scalar || title == "" || isTypeName(title) {
+		return
+	}
+	result.Errors = append(result.Errors, fmt.Sprintf("%s: frontmatter \"title\" %q must use the TypeName convention", path, title))
+}
+
+func isTypeName(value string) bool {
+	for index, character := range value {
+		if index == 0 {
+			if !unicode.IsUpper(character) {
+				return false
+			}
+			continue
+		}
+		if !unicode.IsLetter(character) && !unicode.IsDigit(character) {
+			return false
+		}
+	}
+	return value != ""
 }
 
 func validateProcessRecord(path string, fields Frontmatter, body string, result *Result) {

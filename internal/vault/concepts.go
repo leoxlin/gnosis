@@ -79,7 +79,7 @@ func conceptTypeSummaries(documents []Document) []ConceptTypeSummary {
 	uris := make(map[string]string)
 	types := make(map[string]struct{})
 	for _, document := range documents {
-		if document.Type == "Concept Type" {
+		if document.Type == "ConceptType" {
 			types[document.Title] = struct{}{}
 			if _, exists := descriptions[document.Title]; !exists {
 				descriptions[document.Title] = document.Description

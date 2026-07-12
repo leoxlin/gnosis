@@ -1,5 +1,5 @@
 ---
-type: Gnosis Process
+type: GnosisProcess
 title: creating-complex-directives
 description: Use only after requirements refinement routes material design, research, governance, or dependent-delivery work.
 tags: [gnosis-planning]

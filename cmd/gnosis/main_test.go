@@ -301,7 +301,7 @@ func TestRunReadByIDAsMarkdownAndJSON(t *testing.T) {
 		t.Fatalf("page = %+v", page)
 	}
 
-	if err := run([]string{"read", "--vault", root, "--id", "processes/query-vault.md", "--type", "Gnosis Process", "--title", "query-vault"}, &stdout, &stderr); err == nil || !strings.Contains(err.Error(), "cannot be combined") {
+	if err := run([]string{"read", "--vault", root, "--id", "processes/query-vault.md", "--type", "GnosisProcess", "--title", "query-vault"}, &stdout, &stderr); err == nil || !strings.Contains(err.Error(), "cannot be combined") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -388,7 +388,7 @@ func TestRunConceptsListsGnosisProcessesForSelection(t *testing.T) {
 	root := processCommandTestVault(t)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	if err := run([]string{"concepts", "--vault", root, "--type", "Gnosis Process"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"concepts", "--vault", root, "--type", "GnosisProcess"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
@@ -577,7 +577,7 @@ title: File Input
 func TestRunConceptsPreviewsConceptTypesAndConcepts(t *testing.T) {
 	root := queryTestVault(t)
 	writeTestFile(t, root, "concept-type.md", `---
-type: Concept Type
+type: ConceptType
 title: Concept
 description: A reusable knowledge record.
 ---
@@ -585,7 +585,7 @@ description: A reusable knowledge record.
 # Concept
 `)
 	writeTestFile(t, root, "pattern-type.md", `---
-type: Concept Type
+type: ConceptType
 title: Pattern
 ---
 
@@ -605,7 +605,7 @@ description: Decouples an interface from its implementation.
 	if err := run([]string{"concepts", "-vault", root}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(stdout.String(), "Type: Concept\nDescription: A reusable knowledge record.\n") || !strings.Contains(stdout.String(), "Type: Pattern\nDescription: Pattern\n") || !strings.Contains(stdout.String(), "Type: Gnosis Process") {
+	if !strings.Contains(stdout.String(), "Type: Concept\nDescription: A reusable knowledge record.\n") || !strings.Contains(stdout.String(), "Type: Pattern\nDescription: Pattern\n") || !strings.Contains(stdout.String(), "Type: GnosisProcess") {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
 	if strings.Contains(stdout.String(), "Type: Vault Process") || strings.Contains(stdout.String(), "Type: Repository Process") {
@@ -633,7 +633,7 @@ description: Decouples an interface from its implementation.
 func TestRunConceptsEmitsMachineReadableCatalog(t *testing.T) {
 	root := queryTestVault(t)
 	writeTestFile(t, root, "concept-type.md", `---
-type: Concept Type
+type: ConceptType
 title: Concept
 description: A reusable knowledge record.
 ---
@@ -741,7 +741,7 @@ description: Source identity and history.
 # Provenance
 `)
 	writeTestFile(t, root, "processes/query-vault.md", `---
-type: Gnosis Process
+type: GnosisProcess
 title: query-vault
 description: Use when answering a question from recorded vault knowledge.
 tags: [gnosis-vault]
@@ -769,7 +769,7 @@ relationships:
 The answer is grounded.
 `)
 	writeTestFile(t, root, "processes/internal-review.md", `---
-type: Gnosis Process
+type: GnosisProcess
 title: internal-review
 description: Used by another process only.
 tags: [gnosis-vault]
@@ -804,7 +804,7 @@ func writeCommandTestVault(t *testing.T) string {
 		t.Fatal(err)
 	}
 	writeTestFile(t, root, "gnosis.toml", "[vault]\nvault_name = \"Test\"\nvault_root = \".\"")
-	writeTestFile(t, root, "concepts/note.md", "---\ntype: Concept Type\ntitle: Note\npath: notes\n---\n")
+	writeTestFile(t, root, "concepts/note.md", "---\ntype: ConceptType\ntitle: Note\npath: notes\n---\n")
 	return root
 }
 
@@ -907,15 +907,15 @@ func TestRunScaffoldWithConceptsIndexesThem(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(conceptsIndex), "Gnosis Purpose") ||
-		!strings.Contains(string(conceptsIndex), "Gnosis Process") {
+	if !strings.Contains(string(conceptsIndex), "GnosisPurpose") ||
+		!strings.Contains(string(conceptsIndex), "GnosisProcess") {
 		t.Fatalf("concepts index should list the concept definitions:\n%s", conceptsIndex)
 	}
 }
 
 func TestRunScaffoldWithConceptsPreservesExistingFilesUnlessForced(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "vault")
-	custom := "---\ntype: Concept Type\ntitle: Custom Purpose\ndescription: Local custom concept.\n---\n\n# Custom Purpose\n"
+	custom := "---\ntype: ConceptType\ntitle: Custom Purpose\ndescription: Local custom concept.\n---\n\n# Custom Purpose\n"
 	writeTestFile(t, root, "concepts/gnosis-purpose.md", custom)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

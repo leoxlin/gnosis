@@ -1,5 +1,5 @@
 ---
-type: Gnosis Decision
+type: GnosisDecision
 title: Consolidate runtime adapters in the `gnosis` plugin
 description: Keep workflows as canonical vault knowledge and expose them through one thin `gnosis` gateway.
 ---

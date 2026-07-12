@@ -50,6 +50,48 @@ title: Test
 	}
 }
 
+func TestValidateRejectsConceptTypeTitleOutsideTypeNameConvention(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, "[vault]\nvault_index = false\nvault_log = false\n")
+	write(t, root, "concepts/gnosis-process.md", `---
+type: ConceptType
+title: Gnosis Process
+description: A reusable process record.
+---
+
+# Gnosis Process
+`)
+
+	result, err := Validate(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(result.Errors, "\n"), "\"Gnosis Process\" must use the TypeName convention") {
+		t.Fatalf("errors = %v, want TypeName title validation error", result.Errors)
+	}
+}
+
+func TestValidateAcceptsConceptTypeTitleUsingTypeNameConvention(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, "[vault]\nvault_index = false\nvault_log = false\n")
+	write(t, root, "concepts/gnosis-process.md", `---
+type: ConceptType
+title: GnosisProcess
+description: A reusable process record.
+---
+
+# GnosisProcess
+`)
+
+	result, err := Validate(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Errors) != 0 {
+		t.Fatalf("unexpected validation errors: %v", result.Errors)
+	}
+}
+
 func TestValidateRejectsBrokenInternalLink(t *testing.T) {
 	root := t.TempDir()
 	write(t, root, "note.md", `---

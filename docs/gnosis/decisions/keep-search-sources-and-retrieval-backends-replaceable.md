@@ -1,5 +1,5 @@
 ---
-type: Gnosis Decision
+type: GnosisDecision
 title: Keep search sources and retrieval backends replaceable
 description: Start with live gnosis vault retrieval while preserving a stable boundary for broader sources and indexed search backends.
 ---

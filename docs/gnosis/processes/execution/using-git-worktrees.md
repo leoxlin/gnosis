@@ -1,5 +1,5 @@
 ---
-type: Gnosis Process
+type: GnosisProcess
 title: using-git-worktrees
 description: Use when feature work needs isolation or before executing a directive in a separate workspace.
 tags: [gnosis-execution]

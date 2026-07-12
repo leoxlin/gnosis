@@ -1,6 +1,6 @@
 ---
-type: Concept Type
-title: Gnosis Decision
+type: ConceptType
+title: GnosisDecision
 description: A durable, non-obvious choice that constrains future work.
 path: gnosis/decisions
 ---
@@ -24,7 +24,7 @@ Do not use it for routine implementation details, status, or facts available fro
 
 ```yaml
 ---
-type: Gnosis Decision
+type: GnosisDecision
 title: <name>
 description: <effect>
 supersedes: <optional decision link>
