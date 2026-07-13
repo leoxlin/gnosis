@@ -28,6 +28,14 @@ Do not create one implicitly for ordinary implementation, task tracking, or comp
 
 Omit empty optional sections. Plans contain no placeholders.
 
+## Lifecycle
+
+- Require an explicitly requested durable implementation handoff. Creation invokes [planning-directives](../procedures/development/planning-directives.md), which owns drafting, review, persistence, and the `draft` to `open` transition.
+- Apply only non-semantic corrections in place while preserving unknown metadata and status. A change to the goal, scope, dependencies, implementation plan, or acceptance criteria returns an unfinished Directive to `draft` and invokes `planning-directives` with its current URI, revision, original requirements, and proposed change.
+- Status follows `draft` → `open` → `blocked|done`, with `blocked` → `draft` only after evidence shows the blocker is resolved. Never assign status from assertion alone: planning finalization owns `draft` → `open`, and [execute-directive](../procedures/execution/execute-directive.md) owns evidence-backed `open` → `blocked|done`. Replanning owns `blocked` → `draft` and must revalidate the requirements, dependencies, and plan before finalization reopens it. Reject every other transition.
+- A completed Directive remains historical; create a new Directive for new or changed work instead of reopening it.
+- Prefer correction or retention after a Directive has governed work. Delete only a confirmed local duplicate or invalid `draft` after tracing inbound links and dependency history, obtaining explicit approval for the exact deletion, and repairing or intentionally removing every inbound reference. Report imported or bundled records to their owning vault.
+
 ## Schema
 
 ```markdown

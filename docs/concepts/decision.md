@@ -20,6 +20,13 @@ Do not use it for routine implementation details, status, or facts available fro
 - `# Decision` and the essential `# Why`.
 - Optional `# Constraints` and `supersedes` link.
 
+## Lifecycle
+
+- Identity is the settled non-obvious choice, not merely its title. Query for an existing choice before creating or selecting a Decision.
+- Creation resolves the material alternatives, rationale, constraints, and every author-owned choice, obtains explicit author confirmation, and rejects duplicate identity.
+- Apply non-semantic corrections in place while preserving unknown metadata. A changed choice, rationale, or constraint creates a new author-confirmed Decision whose `supersedes` field links the prior record; preserve the prior record unchanged.
+- Prefer correction or supersession after a Decision has governed work. Delete only a confirmed local duplicate or invalid record after tracing inbound links and supersession history, obtaining explicit approval for that deletion, and repairing or intentionally removing every inbound reference. Report imported or bundled records to their owning vault.
+
 ## Schema
 
 ```yaml

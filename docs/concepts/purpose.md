@@ -20,6 +20,13 @@ Do not put architecture, plans, milestones, or tasks here.
 - `# Purpose` and `# Boundaries`.
 - Optional `# Sub-purposes` when decomposition adds clarity.
 
+## Lifecycle
+
+- A vault has exactly one effective Purpose. Multiple effective records are an identity conflict that must be repaired before mutation.
+- Creation and updates distinguish discoverable facts from author-owned intent. Resolve every material choice about outcome, beneficiaries, sub-purposes, and boundaries, then obtain the author's explicit confirmation of the complete proposed Purpose.
+- Update the existing record in place while preserving applicable unknown metadata.
+- Delete only a confirmed local origin after tracing every inbound link, explaining the loss of repository intent, and obtaining explicit confirmation that the vault should no longer have a Purpose. Repair or intentionally remove every inbound reference; report imported or bundled records to their owning vault.
+
 ## Schema
 
 ```yaml
