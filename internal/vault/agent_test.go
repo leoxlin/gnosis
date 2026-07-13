@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -29,6 +30,20 @@ func TestReadAndInvokeProcessRoundTrip(t *testing.T) {
 	if !strings.Contains(invocation.Sections.Completion, "grounded answer") {
 		t.Fatalf("completion section = %q", invocation.Sections.Completion)
 	}
+	encoded, err := json.Marshal(invocation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(encoded, &fields); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := fields["sections"]; !ok {
+		t.Fatalf("invocation = %s, want sections", encoded)
+	}
+	if _, ok := fields["steps"]; ok {
+		t.Fatalf("invocation = %s, want no steps", encoded)
+	}
 
 	page, err := ReadPage(root, processURI)
 	if err != nil {
@@ -39,6 +54,85 @@ func TestReadAndInvokeProcessRoundTrip(t *testing.T) {
 	}
 	if _, err := ReadPage(root, "processes/query-vault.md"); err == nil {
 		t.Fatal("ReadPage accepted a relative path")
+	}
+}
+
+func TestInvokeMultiStepProcess(t *testing.T) {
+	root := agentTestVault(t)
+	write(t, root, "docs/processes/planning.md", `---
+type: Procedure
+title: planning
+description: Plan a delivery in ordered steps.
+---
+
+# planning
+
+## STEP 1 - refining-requirements
+
+### Knowledge inputs
+
+- The request.
+
+### Process
+
+1. Refine the requirements.
+
+### Completion
+
+The requirements are exact.
+
+## STEP 2 - creating-directives
+
+### Knowledge inputs
+
+- The exact requirements.
+
+### Process
+
+1. Create the directive.
+
+### Completion
+
+The directive is open.
+`)
+
+	invocation, err := InvokeProcess(root, "gnosis://agent-test/processes/planning.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if invocation.Sections != (ProcessSections{}) {
+		t.Fatalf("sections = %+v, want empty", invocation.Sections)
+	}
+	if len(invocation.Steps) != 2 {
+		t.Fatalf("steps = %+v", invocation.Steps)
+	}
+	first, second := invocation.Steps[0], invocation.Steps[1]
+	if first.Number != 1 || first.Name != "refining-requirements" || !strings.Contains(first.Sections.Process, "Refine the requirements") {
+		t.Fatalf("first step = %+v", first)
+	}
+	if second.Number != 2 || second.Name != "creating-directives" || !strings.Contains(second.Sections.Completion, "directive is open") {
+		t.Fatalf("second step = %+v", second)
+	}
+	encoded, err := json.Marshal(invocation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(encoded, &fields); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := fields["steps"]; !ok {
+		t.Fatalf("invocation = %s, want steps", encoded)
+	}
+	if _, ok := fields["sections"]; ok {
+		t.Fatalf("invocation = %s, want no top-level sections", encoded)
+	}
+	validation, err := Validate(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(validation.Errors) != 0 {
+		t.Fatalf("validation errors = %v", validation.Errors)
 	}
 }
 
@@ -359,6 +453,59 @@ The work is complete.
 	}
 }
 
+func TestValidateRejectsInvalidMultiStepProcess(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, `[vault]
+vault_name = "invalid-multi-step"
+vault_root = "."
+vault_index = false
+vault_log = false
+`)
+	write(t, root, "process.md", `---
+type: Procedure
+title: invalid-multi-step
+description: An invalid multi-step process.
+---
+
+# invalid-multi-step
+
+## STEP 1 - first
+
+### Knowledge inputs
+
+- Facts.
+
+### Process
+
+1. Work.
+
+### Completion
+
+The first step is complete.
+
+## STEP 3 - second
+
+### Knowledge inputs
+
+- More facts.
+
+### Process
+
+1. Work again.
+`)
+
+	result, err := Validate(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(result.Errors, "\n")
+	for _, want := range []string{"expected STEP 2", `STEP 3 - second missing required section "Completion"`} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("errors = %v, want %q", result.Errors, want)
+		}
+	}
+}
+
 func TestValidateRejectsUnresolvedTypedRelationship(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]
@@ -426,6 +573,10 @@ invocation: model
 ## Completion
 
 The grounded answer is complete.
+
+## STEP notes
+
+Optional legacy section.
 `)
 	return root
 }

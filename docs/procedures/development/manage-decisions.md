@@ -2,7 +2,7 @@
 type: Procedure
 title: manage-decisions
 description: Use when a Decision record must be created, read, corrected, superseded, or deleted.
-tags: [gnosis-vault]
+tags: [gnosis, development]
 invocation: model
 ---
 

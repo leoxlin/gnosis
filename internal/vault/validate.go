@@ -250,12 +250,9 @@ func isTypeName(value string) bool {
 }
 
 func validateProcessRecord(path string, fields frontmatterFields, body string, result *Result) {
-	_, missing, duplicates := parseProcessSections(body)
-	for _, section := range missing {
-		result.Errors = append(result.Errors, fmt.Sprintf("%s: missing required section %q", path, section))
-	}
-	for _, section := range duplicates {
-		result.Errors = append(result.Errors, fmt.Sprintf("%s: duplicate process section %q", path, section))
+	_, _, problems := parseProcess(body)
+	for _, problem := range problems {
+		result.Errors = append(result.Errors, fmt.Sprintf("%s: %s", path, problem))
 	}
 	if description, scalar := frontmatterScalar(fields, "description"); !scalar || strings.TrimSpace(description) == "" {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: process requires non-empty %q frontmatter", path, "description"))

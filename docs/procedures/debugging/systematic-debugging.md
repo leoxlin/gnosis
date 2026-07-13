@@ -23,7 +23,7 @@ Systematic debugging finds and verifies root cause before planning or changing p
 2. **Pattern analysis:** Find a working analogue, read the applicable reference completely, enumerate every difference, and identify the dependencies and assumptions the broken path requires.
 3. **Hypothesis testing:** State one specific causal hypothesis and its evidence. Test it with the smallest possible change, varying only one variable. A failed test produces a new hypothesis, not a stack of speculative fixes.
 4. For diagnosis or planning, return the evidence-backed cause, regression boundary, constraints, and reproduction without changing production behavior. Otherwise, create the smallest failing reproduction and invoke `gnosis procedure invoke --uri 'gnosis://core/procedures/execution/test-driven-development.md'`; implement one source-level fix and verify it.
-5. After three failed fix attempts, stop and question the architecture with the author. Invoke `gnosis procedure invoke --uri 'gnosis://core/procedures/planning/refining-requirements.md'` with the existing evidence before changing the design.
+5. After three failed fix attempts, stop and question the architecture with the author. Invoke `gnosis procedure invoke --uri 'gnosis://core/procedures/development/planning-directives.md'` with the existing evidence before changing the design.
 6. If evidence shows an external or timing-dependent cause, record what was ruled out in the task evidence, add appropriate handling and observability, and verify that behavior.
 
 ## Completion

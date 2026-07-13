@@ -6,7 +6,7 @@ description: Load only the planning stage and knowledge required for each direct
 
 # Decision
 
-Route every requested plan through [requirements refinement](../procedures/planning/refining-requirements.md). [Directive creation](../procedures/planning/creating-directives.md) selects the simple or complex branch: simple work creates one draft and proceeds to [finalization](../procedures/planning/finalizing-directives.md), while complex work creates PR-sized dependent drafts and runs independent purpose/decision and engineering passes through [directive review](../procedures/planning/reviewing-directives.md) before finalization.
+Route every requested plan through [requirements refinement](../procedures/development/planning-directives.md#step-1---refining-requirements). [Directive creation](../procedures/development/planning-directives.md#step-2---creating-directives) selects the simple or complex branch: simple work creates one draft and proceeds to [finalization](../procedures/development/planning-directives.md#step-4---finalizing-directives), while complex work creates PR-sized dependent drafts and runs independent purpose/decision and engineering passes through [directive review](../procedures/development/planning-directives.md#step-3---reviewing-directives) before finalization.
 
 Draft directives are not executable. Finalization alone changes them to `open`.
 

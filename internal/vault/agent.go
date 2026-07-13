@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/adrg/frontmatter"
@@ -75,6 +76,13 @@ type ProcessSections struct {
 	Completion      string `json:"completion"`
 }
 
+// ProcessStep is one ordered stage of a multi-step procedure.
+type ProcessStep struct {
+	Number   int             `json:"number"`
+	Name     string          `json:"name"`
+	Sections ProcessSections `json:"sections"`
+}
+
 // ProcessSummary is a procedure descriptor for invocation.
 type ProcessSummary struct {
 	DocumentRef
@@ -94,7 +102,8 @@ type GraphEdge struct {
 // ProcessInvocation binds one exact procedure revision for an agent to execute.
 type ProcessInvocation struct {
 	Process  ProcessSummary  `json:"process"`
-	Sections ProcessSections `json:"sections"`
+	Sections ProcessSections `json:"sections,omitzero"`
+	Steps    []ProcessStep   `json:"steps,omitempty"`
 }
 
 // Direction controls graph traversal without discarding edge direction.
@@ -225,13 +234,14 @@ func InvokeProcess(root, selector string) (ProcessInvocation, error) {
 	if err != nil {
 		return ProcessInvocation{}, err
 	}
-	sections, missing, duplicates := parseProcessSections(page.document.Body)
-	if len(missing) > 0 || len(duplicates) > 0 {
+	sections, steps, problems := parseProcess(page.document.Body)
+	if len(problems) > 0 {
 		return ProcessInvocation{}, fmt.Errorf("process %q has invalid sections", page.document.URI)
 	}
 	return ProcessInvocation{
 		Process:  summary,
 		Sections: sections,
+		Steps:    steps,
 	}, nil
 }
 
@@ -316,12 +326,9 @@ func processSummary(page *searchPage) (ProcessSummary, error) {
 	if err != nil {
 		return ProcessSummary{}, frontmatterError(err)
 	}
-	_, missing, duplicates := parseProcessSections(page.document.Body)
-	if len(missing) > 0 {
-		return ProcessSummary{}, fmt.Errorf("process %q missing required section(s): %s", page.document.URI, strings.Join(missing, ", "))
-	}
-	if len(duplicates) > 0 {
-		return ProcessSummary{}, fmt.Errorf("process %q repeats section(s): %s", page.document.URI, strings.Join(duplicates, ", "))
+	_, _, problems := parseProcess(page.document.Body)
+	if len(problems) > 0 {
+		return ProcessSummary{}, fmt.Errorf("process %q has invalid structure: %s", page.document.URI, strings.Join(problems, "; "))
 	}
 	if strings.TrimSpace(page.document.Description) == "" {
 		return ProcessSummary{}, fmt.Errorf("process %q missing non-empty description frontmatter", page.document.URI)
@@ -341,8 +348,67 @@ func processSummary(page *searchPage) (ProcessSummary, error) {
 	}, nil
 }
 
+func parseProcess(body string) (ProcessSections, []ProcessStep, []string) {
+	blocks := markdownSectionBlocks(body, 2)
+	multiStep := false
+	for _, block := range blocks {
+		if _, _, ok := parseProcessStepHeading(block.Title); ok {
+			multiStep = true
+			break
+		}
+	}
+	if !multiStep {
+		sections, missing, duplicates := parseProcessSections(body)
+		return sections, nil, processSectionProblems("", missing, duplicates)
+	}
+
+	problems := []string{}
+	if len(blocks) < 2 {
+		problems = append(problems, "multi-step procedure requires at least two steps")
+	}
+	steps := make([]ProcessStep, 0, len(blocks))
+	names := make(map[string]struct{}, len(blocks))
+	for index, block := range blocks {
+		number, name, ok := parseProcessStepHeading(block.Title)
+		if !ok {
+			problems = append(problems, fmt.Sprintf("invalid multi-step heading %q; want %q", block.Title, "STEP <number> - <name>"))
+			continue
+		}
+		expected := index + 1
+		if number != expected {
+			problems = append(problems, fmt.Sprintf("%s is out of order; expected STEP %d", block.Title, expected))
+		}
+		if _, exists := names[name]; exists {
+			problems = append(problems, fmt.Sprintf("duplicate step name %q", name))
+		}
+		names[name] = struct{}{}
+		sections, missing, duplicates := parseProcessSectionsAtLevel(block.Body, 3)
+		problems = append(problems, processSectionProblems(block.Title, missing, duplicates)...)
+		steps = append(steps, ProcessStep{Number: number, Name: name, Sections: sections})
+	}
+	return ProcessSections{}, steps, problems
+}
+
+func parseProcessStepHeading(title string) (int, string, bool) {
+	rest, ok := strings.CutPrefix(title, "STEP ")
+	if !ok {
+		return 0, "", false
+	}
+	numberText, name, ok := strings.Cut(rest, " - ")
+	number, err := strconv.Atoi(numberText)
+	name = strings.TrimSpace(name)
+	if !ok || err != nil || number < 1 || strconv.Itoa(number) != numberText || name == "" {
+		return 0, "", false
+	}
+	return number, name, true
+}
+
 func parseProcessSections(body string) (ProcessSections, []string, []string) {
-	sections, duplicates := markdownSections(body)
+	return parseProcessSectionsAtLevel(body, 2)
+}
+
+func parseProcessSectionsAtLevel(body string, level int) (ProcessSections, []string, []string) {
+	sections, duplicates := markdownSectionsAtLevel(body, level)
 	required := []string{"Knowledge inputs", "Process", "Completion"}
 	missing := []string{}
 	for _, name := range required {
@@ -357,25 +423,57 @@ func parseProcessSections(body string) (ProcessSections, []string, []string) {
 	}, missing, duplicates
 }
 
+func processSectionProblems(context string, missing, duplicates []string) []string {
+	prefix := ""
+	if context != "" {
+		prefix = context + " "
+	}
+	problems := make([]string, 0, len(missing)+len(duplicates))
+	for _, section := range missing {
+		problems = append(problems, fmt.Sprintf("%smissing required section %q", prefix, section))
+	}
+	for _, section := range duplicates {
+		problems = append(problems, fmt.Sprintf("%sduplicate process section %q", prefix, section))
+	}
+	return problems
+}
+
 func markdownSections(markdown string) (map[string]string, []string) {
+	return markdownSectionsAtLevel(markdown, 2)
+}
+
+func markdownSectionsAtLevel(markdown string, level int) (map[string]string, []string) {
 	sections := make(map[string]string)
 	duplicates := []string{}
+	for _, block := range markdownSectionBlocks(markdown, level) {
+		if _, exists := sections[block.Title]; exists {
+			duplicates = append(duplicates, block.Title)
+			continue
+		}
+		sections[block.Title] = block.Body
+	}
+	sort.Strings(duplicates)
+	return sections, duplicates
+}
+
+type markdownSection struct {
+	Title string
+	Body  string
+}
+
+func markdownSectionBlocks(markdown string, level int) []markdownSection {
+	prefix := strings.Repeat("#", level) + " "
+	blocks := []markdownSection{}
 	current := ""
-	lines := strings.Split(markdown, "\n")
 	var content []string
 	inFence := false
 	fence := ""
 	flush := func() {
-		if current == "" {
-			return
+		if current != "" {
+			blocks = append(blocks, markdownSection{Title: current, Body: strings.TrimSpace(strings.Join(content, "\n"))})
 		}
-		value := strings.TrimSpace(strings.Join(content, "\n"))
-		if _, exists := sections[current]; exists {
-			duplicates = append(duplicates, current)
-			return
-		}
-		sections[current] = value
 	}
+	lines := strings.Split(markdown, "\n")
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
@@ -388,9 +486,9 @@ func markdownSections(markdown string) (map[string]string, []string) {
 				fence = ""
 			}
 		}
-		if !inFence && strings.HasPrefix(line, "## ") && !strings.HasPrefix(line, "### ") {
+		if !inFence && strings.HasPrefix(line, prefix) {
 			flush()
-			current = strings.TrimSpace(strings.TrimPrefix(line, "## "))
+			current = strings.TrimSpace(strings.TrimPrefix(line, prefix))
 			content = nil
 			continue
 		}
@@ -399,8 +497,7 @@ func markdownSections(markdown string) (map[string]string, []string) {
 		}
 	}
 	flush()
-	sort.Strings(duplicates)
-	return sections, duplicates
+	return blocks
 }
 
 func relationshipSpecs(fields frontmatterFields) ([]relationshipSpec, error) {

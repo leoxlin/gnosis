@@ -2,7 +2,7 @@
 type: Procedure
 title: manage-purpose
 description: Use when the repository Purpose record must be created, read, refined, or deleted.
-tags: [gnosis-vault]
+tags: [gnosis, development]
 invocation: model
 ---
 
