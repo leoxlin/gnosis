@@ -1,14 +1,14 @@
 ---
 type: Procedure
-title: systematic-debugging
+title: debugging-methodically
 description: Use for diagnosing or fixing any bug, failing test, build failure, performance problem, or unexpected technical behavior.
 tags: [gnosis-debugging]
 invocation: model
 ---
 
-# systematic-debugging
+# debugging-methodically
 
-Systematic debugging finds and verifies root cause before planning or changing production behavior.
+Debugging methodically finds and verifies root cause before planning or changing production behavior.
 
 ## Knowledge inputs
 
