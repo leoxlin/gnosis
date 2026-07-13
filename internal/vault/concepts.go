@@ -5,8 +5,6 @@ import (
 	"io"
 	"sort"
 	"strings"
-
-	"github.com/adrg/frontmatter"
 )
 
 // ConceptTypeSummary is compact metadata for one available concept type.
@@ -30,11 +28,11 @@ type ConceptRecordCatalog map[string][]map[string]any
 // ConceptRecords returns exact-type records with all authored frontmatter.
 func ConceptRecords(root, conceptType string) (ConceptRecordCatalog, error) {
 	conceptType = strings.TrimSpace(conceptType)
-	source, err := NewSearchSource(root)
+	vault, err := loadEffectiveVault(root)
 	if err != nil {
 		return nil, fmt.Errorf("concepts: %w", err)
 	}
-	pages, err := source.resolvedPages()
+	pages, err := vault.pages()
 	if err != nil {
 		return nil, fmt.Errorf("concepts: %w", err)
 	}
@@ -44,17 +42,7 @@ func ConceptRecords(root, conceptType string) (ConceptRecordCatalog, error) {
 		if page.document.Type != conceptType {
 			continue
 		}
-		fields := frontmatterFields{}
-		_, err := frontmatter.MustParse(strings.NewReader(string(page.data)), &fields, yamlFrontmatter)
-		if err != nil {
-			return nil, fmt.Errorf("concepts: %s: %w", page.document.URI, frontmatterError(err))
-		}
-		record := make(map[string]any, len(fields)+1)
-		record["uri"] = page.document.URI
-		for key, value := range fields {
-			record[key] = value
-		}
-		records = append(records, record)
+		records = append(records, page.authoredRecord())
 	}
 	sort.Slice(records, func(i, j int) bool {
 		return records[i]["uri"].(string) < records[j]["uri"].(string)
@@ -65,13 +53,17 @@ func ConceptRecords(root, conceptType string) (ConceptRecordCatalog, error) {
 // Concepts returns concept type previews or exact-type document references.
 func Concepts(root, conceptType string) (ConceptCatalog, error) {
 	conceptType = strings.TrimSpace(conceptType)
-	source, err := NewSearchSource(root)
+	vault, err := loadEffectiveVault(root)
 	if err != nil {
 		return ConceptCatalog{}, fmt.Errorf("concepts: %w", err)
 	}
-	documents, err := source.Documents()
+	pages, err := vault.pages()
 	if err != nil {
 		return ConceptCatalog{}, fmt.Errorf("concepts: %w", err)
+	}
+	documents := make([]Document, 0, len(pages))
+	for _, page := range pages {
+		documents = append(documents, page.document)
 	}
 	if conceptType == "" {
 		return ConceptCatalog{ConceptTypes: conceptTypeSummaries(documents)}, nil

@@ -39,6 +39,19 @@ func TestScaffoldCreatesBaseVaultWithoutOptionalConcepts(t *testing.T) {
 	if fileExists(filepath.Join(root, "concepts", "purpose.md")) {
 		t.Fatal("optional concept files should not be created by default")
 	}
+	discovery, err := DiscoverProcesses(root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundVaultProcedure := false
+	for _, procedure := range discovery["procedures"] {
+		if procedure["uri"] == "gnosis://core/procedures/vault/query-vault.md" {
+			foundVaultProcedure = true
+		}
+	}
+	if !foundVaultProcedure {
+		t.Fatalf("scaffolded vault discovery = %+v, want bundled vault procedures", discovery)
+	}
 
 	result, err := Validate(root)
 	if err != nil {
@@ -49,6 +62,31 @@ func TestScaffoldCreatesBaseVaultWithoutOptionalConcepts(t *testing.T) {
 	}
 	if len(result.Warnings) != 0 {
 		t.Fatalf("unexpected validation warnings: %v", result.Warnings)
+	}
+}
+
+func TestScaffoldRejectsNoncanonicalVaultNameBeforeWriting(t *testing.T) {
+	root := t.TempDir()
+	_, err := Scaffold(root, ScaffoldOptions{Name: "bad name"})
+	if err == nil || !strings.Contains(err.Error(), "canonical gnosis URI authority") {
+		t.Fatalf("scaffold error = %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(root, "gnosis.toml")); !os.IsNotExist(statErr) {
+		t.Fatalf("gnosis.toml error = %v, want not written", statErr)
+	}
+}
+
+func TestScaffoldKeepsExistingConfigInSpacedDirectory(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "My Vault")
+	writeConfig(t, root, `[vault]
+vault_name = "valid-name"
+vault_root = "."
+vault_index = false
+vault_log = false
+`)
+
+	if _, err := Scaffold(root, ScaffoldOptions{}); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -144,6 +182,28 @@ description: Definition of a reusable purpose record.
 	}
 	if len(unchanged) != 0 {
 		t.Fatalf("regenerating identical indexes reported changes: %v", unchanged)
+	}
+}
+
+func TestGenerateWorkspaceIndexesUsesEffectiveLocalPolicy(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, `[vault]
+vault_name = "workspace"
+vault_root = "docs"
+vault_index = true
+vault_log = false
+`)
+	write(t, root, "docs/note.md", "---\ntype: Note\ntitle: Note\n---\n")
+
+	written, enabled, err := GenerateWorkspaceIndexes(root, IndexOptions{Overwrite: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !enabled || len(written) != 1 || written[0] != filepath.Join(root, "docs", "index.md") {
+		t.Fatalf("written = %v, enabled = %t", written, enabled)
+	}
+	if fileExists(filepath.Join(root, "index.md")) {
+		t.Fatal("workspace index escaped the configured local vault root")
 	}
 }
 

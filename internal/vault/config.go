@@ -3,6 +3,7 @@ package vault
 import (
 	"bytes"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -47,28 +48,11 @@ type DeclaredVaultConfig struct {
 	Root string `toml:"vault_root"`
 }
 
-// VaultSource is one directory read as part of an ordered composed vault.
-// VaultRoot is the configuration directory used to derive its document IDs.
-type VaultSource struct {
-	Path      string
-	VaultRoot string
-	Config    Config
-}
-
-// ConfigResolution records the workspace configuration and its ordered sources.
-type ConfigResolution struct {
-	Config          Config
-	Root            string
-	VaultRoots      []string
-	LocalVaultRoots []string
-	Sources         []VaultSource
-}
-
 // DefaultConfig returns the default gnosis configuration.
 func DefaultConfig() Config {
 	return Config{
 		Gnosis: GnosisConfig{
-			Processes: []string{"gnosis-vault"},
+			Processes: []string{"vault"},
 		},
 		Vault: VaultConfig{
 			LinkFormat:       string(LinkFormatRelative),
@@ -94,54 +78,28 @@ func (c Config) LogEnabled() bool   { return c.Vault.VaultLog }
 func (c Config) ProcessEnabled(tags []string) bool {
 	enabled := make(map[string]struct{}, len(c.Gnosis.Processes))
 	for _, tag := range c.Gnosis.Processes {
-		enabled[tag] = struct{}{}
+		enabled[processFamily(tag)] = struct{}{}
 	}
 	for _, tag := range tags {
-		if _, ok := enabled[tag]; ok {
+		if _, ok := enabled[processFamily(tag)]; ok {
 			return true
 		}
 	}
 	return false
 }
 
-func (c Config) HasLocalVault() bool {
-	return strings.TrimSpace(c.Vault.Name) != "" || strings.TrimSpace(c.Vault.Root) != ""
+func processFamily(tag string) string {
+	tag = strings.TrimSpace(tag)
+	// Older gnosis scaffolds used this family before the bundled Procedures
+	// standardized on "vault". Keep existing vaults discoverable.
+	if tag == "gnosis-vault" {
+		return "vault"
+	}
+	return tag
 }
 
-// ResolveConfig reads configuration from root in this order:
-// gnosis.local.toml, gnosis.toml, then ~/.config/gnosis.toml. It never walks
-// parent directories. When none of those files exists, it uses the defaults,
-// including the bundled vault documentation.
-//
-// A selected configuration resolves its local vault root followed by declared
-// vault roots in declaration order.
-func ResolveConfig(root string) (ConfigResolution, error) {
-	absolute, err := filepath.Abs(root)
-	if err != nil {
-		return ConfigResolution{}, err
-	}
-	start := filepath.Clean(absolute)
-	configPath, err := findConfigPath(start)
-	if err != nil {
-		return ConfigResolution{Root: start}, err
-	}
-	if configPath == "" {
-		return ConfigResolution{
-			Config: DefaultConfig(),
-			Root:   start,
-		}, nil
-	}
-
-	configRoot := filepath.Dir(configPath)
-	config, err := loadConfigPath(configPath)
-	if err != nil {
-		return ConfigResolution{Root: configRoot}, err
-	}
-	resolution := ConfigResolution{Config: config, Root: configRoot}
-	if err := resolveVaultConfig(configRoot, config, &resolution); err != nil {
-		return resolution, err
-	}
-	return resolution, nil
+func (c Config) HasLocalVault() bool {
+	return strings.TrimSpace(c.Vault.Name) != "" || strings.TrimSpace(c.Vault.Root) != ""
 }
 
 func findConfigPath(root string) (string, error) {
@@ -185,36 +143,6 @@ func loadConfigPath(path string) (Config, error) {
 	return config, nil
 }
 
-func resolveVaultConfig(root string, config Config, resolution *ConfigResolution) error {
-	root = filepath.Clean(root)
-
-	if config.HasLocalVault() {
-		vaultRoot, err := resolveVaultRoot(config, root)
-		if err != nil {
-			return fmt.Errorf("validate %s: %w", filepath.Join(root, "gnosis.toml"), err)
-		}
-		if root == resolution.Root {
-			resolution.LocalVaultRoots = append(resolution.LocalVaultRoots, vaultRoot)
-		}
-		resolution.VaultRoots = append(resolution.VaultRoots, vaultRoot)
-		resolution.Sources = append(resolution.Sources, VaultSource{Path: vaultRoot, VaultRoot: root, Config: config})
-	}
-
-	for i, declared := range config.Vaults {
-		vaultRoot, err := resolveDeclaredVaultRoot(declared, root)
-		if err != nil {
-			return fmt.Errorf("vaults[%d]: %w", i, err)
-		}
-		sourceConfig := config
-		sourceConfig.Vault.Name = declared.Name
-		sourceConfig.Vault.Root = declared.Root
-		sourceConfig.Vaults = nil
-		resolution.VaultRoots = append(resolution.VaultRoots, vaultRoot)
-		resolution.Sources = append(resolution.Sources, VaultSource{Path: vaultRoot, VaultRoot: vaultRoot, Config: sourceConfig})
-	}
-	return nil
-}
-
 func validateConfig(config Config, root string) error {
 	seenProcessTags := make(map[string]struct{}, len(config.Gnosis.Processes))
 	for i, tag := range config.Gnosis.Processes {
@@ -230,6 +158,9 @@ func validateConfig(config Config, root string) error {
 	if config.HasLocalVault() {
 		if strings.TrimSpace(config.Vault.Name) == "" {
 			return fmt.Errorf("vault.vault_name must not be empty")
+		}
+		if !isCanonicalVaultName(config.Vault.Name) {
+			return fmt.Errorf("vault.vault_name %q must be a canonical gnosis URI authority", config.Vault.Name)
 		}
 		if strings.TrimSpace(config.Vault.Root) == "" {
 			return fmt.Errorf("vault.vault_root must not be empty")
@@ -273,10 +204,22 @@ func resolveVaultRoot(config Config, root string) (string, error) {
 	return resolved, nil
 }
 
+func isCanonicalVaultName(name string) bool {
+	if name == "" || name != strings.TrimSpace(name) {
+		return false
+	}
+	probe := documentURI(name, "probe.md")
+	vaultName, path, ok := canonicalGnosisParts(probe)
+	return ok && vaultName == name && path == "probe.md"
+}
+
 func resolveDeclaredVaultRoot(config DeclaredVaultConfig, root string) (string, error) {
 	path := strings.TrimSpace(config.Root)
 	if path == "" {
 		return "", fmt.Errorf("vault_root must not be empty")
+	}
+	if parsed, err := url.Parse(path); err == nil && parsed.Scheme != "" && parsed.Host != "" {
+		return "", fmt.Errorf("remote vault imports are not supported: %q", path)
 	}
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(root, path)
@@ -311,12 +254,23 @@ func WriteWorkspaceConfig(root string, imports []string, force bool) (bool, erro
 }
 
 func writeVaultConfig(root, name string, disableIndex, disableLog, force bool) (bool, error) {
+	configPath := filepath.Join(root, "gnosis.toml")
+	if !force {
+		if _, err := os.Stat(configPath); err == nil {
+			return false, nil
+		} else if !os.IsNotExist(err) {
+			return false, err
+		}
+	}
 	if strings.TrimSpace(name) == "" {
 		absolute, err := filepath.Abs(root)
 		if err != nil {
 			return false, err
 		}
 		name = filepath.Base(absolute)
+	}
+	if !isCanonicalVaultName(name) {
+		return false, fmt.Errorf("vault name %q must be a canonical gnosis URI authority", name)
 	}
 	contents := fmt.Sprintf(`[vault]
 vault_name = %s
@@ -327,7 +281,7 @@ vault_index = %t
 vault_log = %t
 
 [gnosis]
-processes = ["gnosis-vault"]
+processes = ["vault"]
 `, strconv.Quote(name), !disableIndex, !disableLog)
-	return WriteGeneratedFile(filepath.Join(root, "gnosis.toml"), []byte(contents), force)
+	return WriteGeneratedFile(configPath, []byte(contents), force)
 }

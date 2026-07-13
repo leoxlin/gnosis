@@ -1,88 +1,13 @@
 package vault
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"unicode"
-
-	"github.com/adrg/frontmatter"
-	"go.yaml.in/yaml/v4"
 )
-
-type frontmatterFields map[string]any
-
-var yamlFrontmatter = frontmatter.NewFormat("---", "---", yaml.Unmarshal)
-
-func frontmatterError(err error) error {
-	if errors.Is(err, frontmatter.ErrNotFound) {
-		return fmt.Errorf("missing YAML frontmatter")
-	}
-	if err != nil {
-		return fmt.Errorf("invalid YAML frontmatter: %w", err)
-	}
-	return nil
-}
-
-func frontmatterScalar(fields frontmatterFields, key string) (string, bool) {
-	value, exists := fields[key]
-	if !exists {
-		return "", false
-	}
-	valueString, scalar := value.(string)
-	return valueString, scalar
-}
-
-func frontmatterScalars(fields frontmatterFields, key string) ([]string, bool) {
-	value, exists := fields[key]
-	if !exists {
-		return nil, true
-	}
-	if value == nil {
-		return nil, true
-	}
-	switch value := value.(type) {
-	case string:
-		if strings.TrimSpace(value) == "" {
-			return nil, true
-		}
-		return []string{strings.TrimSpace(value)}, true
-	case []any:
-		values := make([]string, 0, len(value))
-		for _, item := range value {
-			if item == nil {
-				continue
-			}
-			itemString, scalar := item.(string)
-			if !scalar {
-				return nil, false
-			}
-			if strings.TrimSpace(itemString) != "" {
-				values = append(values, strings.TrimSpace(itemString))
-			}
-		}
-		return values, true
-	default:
-		return nil, false
-	}
-}
-
-func frontmatterNonEmpty(fields frontmatterFields, key string) bool {
-	value := fields[key]
-	if value == nil {
-		return false
-	}
-	if valueString, scalar := value.(string); scalar {
-		return strings.TrimSpace(valueString) != ""
-	}
-	if values, sequence := value.([]any); sequence {
-		return len(values) > 0
-	}
-	return true
-}
 
 // Result is the aggregate output of a vault validation run.
 type Result struct {
@@ -103,43 +28,44 @@ func Validate(root string) (Result, error) {
 		return Result{}, fmt.Errorf("%s is not a directory", root)
 	}
 
-	resolution, err := ResolveConfig(root)
+	vault, err := loadEffectiveVault(root)
 	if err != nil {
 		return Result{}, err
 	}
-	effectiveDocumentPaths := make(map[string]struct{})
-	searchSource := &SearchSource{resolution: resolution}
-	if pages, pagesErr := searchSource.pages(); pagesErr == nil {
-		for _, page := range pages {
-			// Relative paths are retained only to resolve authored relative links.
-			effectiveDocumentPaths[page.document.Path] = struct{}{}
-			effectiveDocumentPaths[page.document.URI] = struct{}{}
-		}
+	resolver := newDocumentResolver(nil)
+	effectivePages := make(map[string]*effectivePage)
+	pages, err := vault.validationPages()
+	if err != nil {
+		return Result{}, err
+	}
+	resolver = newDocumentResolver(pages)
+	for _, page := range pages {
+		effectivePages[page.path] = page
 	}
 
 	result := Result{}
-	for _, source := range resolution.Sources {
-		vaultInfo, err := os.Stat(source.Path)
+	for _, source := range vault.sources {
+		vaultInfo, err := os.Stat(source.path)
 		if err != nil {
 			return result, err
 		}
 		if !vaultInfo.IsDir() {
-			return result, fmt.Errorf("%s is not a directory", source.Path)
+			return result, fmt.Errorf("%s is not a directory", source.path)
 		}
 
-		if source.Config.LogEnabled() {
-			checkRootLog(source.Path, &result)
+		if source.config.LogEnabled() {
+			checkRootLog(source.path, &result)
 		}
-		err = filepath.WalkDir(source.Path, func(path string, entry os.DirEntry, walkErr error) error {
+		err = filepath.WalkDir(source.path, func(path string, entry os.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				result.Errors = append(result.Errors, walkErr.Error())
 				return nil
 			}
 			if entry.IsDir() {
-				if path != source.Path && ignoredVaultDir(entry.Name()) {
+				if path != source.path && ignoredVaultDir(entry.Name()) {
 					return filepath.SkipDir
 				}
-				if source.Config.IndexEnabled() {
+				if source.config.IndexEnabled() {
 					checkDirectoryIndex(path, &result)
 				}
 				return nil
@@ -149,7 +75,7 @@ func Validate(root string) (Result, error) {
 			}
 
 			result.FilesChecked++
-			validateFile(source.Path, path, source.Config, effectiveDocumentPaths, &result)
+			validateFile(source.path, path, source.config, resolver, effectivePages[filepath.Clean(path)], &result)
 			return nil
 		})
 		if err != nil {
@@ -162,45 +88,65 @@ func Validate(root string) (Result, error) {
 	return result, nil
 }
 
-func validateFile(root, path string, config Config, effectiveDocumentPaths map[string]struct{}, result *Result) {
-	bytes, err := os.ReadFile(path)
-	if err != nil {
-		result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
-		return
+func validateFile(root, path string, config Config, resolver *documentResolver, effective *effectivePage, result *Result) {
+	var bytes []byte
+	var err error
+	if effective != nil {
+		bytes = effective.data
+	} else {
+		bytes, err = os.ReadFile(path)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
+			return
+		}
 	}
 	text := string(bytes)
 
 	isReserved := filepath.Base(path) == "index.md" || filepath.Base(path) == "log.md"
+	if effective != nil && effective.parseProblem != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, effective.parseProblem))
+		return
+	}
 	var fields frontmatterFields
 	var body string
 	if isReserved && !strings.HasPrefix(text, "---\n") {
 		fields = frontmatterFields{}
 		body = text
+	} else if effective != nil {
+		fields = effective.fields
+		body = effective.document.Body
 	} else {
-		var bodyBytes []byte
-		bodyBytes, err = frontmatter.MustParse(strings.NewReader(text), &fields, yamlFrontmatter)
-		body = string(bodyBytes)
+		parsed, parseErr := parsePage(bytes)
+		err = parseErr
 		if err != nil {
-			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, frontmatterError(err)))
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
 			return
 		}
+		fields = parsed.fields
+		body = parsed.body
 	}
 
 	if !isReserved {
-		if value, scalar := frontmatterScalar(fields, "type"); !scalar {
-			if frontmatterNonEmpty(fields, "type") {
-				result.Errors = append(result.Errors, fmt.Sprintf("%s: frontmatter %q must be a scalar", path, "type"))
-			} else {
-				result.Errors = append(result.Errors, fmt.Sprintf("%s: missing non-empty %q frontmatter", path, "type"))
+		metadata := pageMetadata{}
+		problems := []error{}
+		if effective != nil {
+			metadata = pageMetadata{
+				conceptType: effective.document.Type,
+				title:       effective.document.Title,
+				description: effective.document.Description,
+				tags:        effective.document.Tags,
+				aliases:     effective.document.Aliases,
 			}
-		} else if strings.TrimSpace(value) == "" {
-			result.Errors = append(result.Errors, fmt.Sprintf("%s: missing non-empty %q frontmatter", path, "type"))
+			problems = effective.metadataProblems
+		} else {
+			metadata, problems = interpretPageMetadata(fields)
+		}
+		for _, problem := range problems {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, problem))
 		}
 		for _, field := range []string{"title", "description"} {
-			value, scalar := frontmatterScalar(fields, field)
-			if !scalar && frontmatterNonEmpty(fields, field) {
-				result.Errors = append(result.Errors, fmt.Sprintf("%s: frontmatter %q must be a scalar", path, field))
-			} else if strings.TrimSpace(value) == "" {
+			value, fieldErr := optionalPageScalar(fields, field)
+			if fieldErr == nil && value == "" {
 				result.Warnings = append(result.Warnings, fmt.Sprintf("%s: missing recommended %q frontmatter", path, field))
 			}
 		}
@@ -208,21 +154,21 @@ func validateFile(root, path string, config Config, effectiveDocumentPaths map[s
 		if strings.TrimSpace(body) == "" {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("%s: empty markdown body", path))
 		}
-		validateRelationships(root, path, fields, effectiveDocumentPaths, result)
+		validateRelationships(root, path, fields, resolver, result)
 
-		if conceptType, scalar := frontmatterScalar(fields, "type"); scalar {
-			conceptType = strings.TrimSpace(conceptType)
+		if metadata.conceptType != "" {
+			conceptType := metadata.conceptType
 			if conceptType == "ConceptType" {
 				validateConceptTypeName(path, fields, result)
 			}
-			if isProcessType(conceptType) {
+			if isProcedureType(conceptType) {
 				validateProcessRecord(path, fields, body, result)
 			}
 		}
 	}
 
 	validateReservedName(path, body, result)
-	validateLinks(root, path, text, config, effectiveDocumentPaths, result)
+	validateLinks(root, path, text, config, resolver, result)
 }
 
 func validateConceptTypeName(path string, fields frontmatterFields, result *Result) {
@@ -250,40 +196,25 @@ func isTypeName(value string) bool {
 }
 
 func validateProcessRecord(path string, fields frontmatterFields, body string, result *Result) {
-	_, _, problems := parseProcess(body)
+	_, problems := parseProcedure(fields, body)
 	for _, problem := range problems {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: %s", path, problem))
 	}
-	if description, scalar := frontmatterScalar(fields, "description"); !scalar || strings.TrimSpace(description) == "" {
-		result.Errors = append(result.Errors, fmt.Sprintf("%s: process requires non-empty %q frontmatter", path, "description"))
-	}
-
-	if invocation, scalar := frontmatterScalar(fields, "invocation"); scalar {
-		invocation = strings.TrimSpace(invocation)
-		if invocation != "" && !validProcessInvocation(invocation) {
-			result.Errors = append(result.Errors, fmt.Sprintf("%s: frontmatter %q must be %q or %q", path, "invocation", "model", "explicit"))
-		}
-	} else if _, exists := fields["invocation"]; exists {
-		result.Errors = append(result.Errors, fmt.Sprintf("%s: frontmatter %q must be a scalar", path, "invocation"))
-	}
-
-	for _, field := range []string{"effects", "relationships"} {
-		if _, exists := fields[field]; exists {
-			result.Errors = append(result.Errors, fmt.Sprintf("%s: procedure frontmatter must not contain %q", path, field))
-		}
-	}
 }
 
-func validateRelationships(root, path string, fields frontmatterFields, effectiveDocumentPaths map[string]struct{}, result *Result) {
+func validateRelationships(root, path string, fields frontmatterFields, resolver *documentResolver, result *Result) {
 	specs, err := relationshipSpecs(fields)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
 		return
 	}
+	logicalPath, err := filepath.Rel(root, path)
+	if err != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("%s: determine vault-relative path: %v", path, err))
+		return
+	}
+	logicalPath = filepath.ToSlash(logicalPath)
 	for index, spec := range specs {
-		if _, exists := effectiveDocumentPaths[strings.TrimSpace(spec.Target)]; exists {
-			continue
-		}
 		link, include, err := parseLinkDestination(spec.Target)
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("%s: invalid relationships[%d] target: %v", path, index, err))
@@ -293,23 +224,22 @@ func validateRelationships(root, path string, fields frontmatterFields, effectiv
 			result.Errors = append(result.Errors, fmt.Sprintf("%s: relationships[%d] target %q must be an internal Markdown path", path, index, spec.Target))
 			continue
 		}
-		extension := strings.ToLower(filepath.Ext(link.Path))
-		if extension != "" && extension != ".md" {
-			result.Errors = append(result.Errors, fmt.Sprintf("%s: relationships[%d] target %q must be a Markdown path", path, index, spec.Target))
-			continue
-		}
-		target, err := linkTarget(root, path, link)
+		resolution, err := resolver.resolve(root, path, logicalPath, link)
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("%s: relationships[%d]: %v", path, index, err))
 			continue
 		}
-		candidates := []string{target}
-		if extension == "" {
-			candidates = append(candidates, target+".md")
+		if !resolution.document {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: relationships[%d] target %q must be a Markdown path", path, index, spec.Target))
+			continue
 		}
-		resolved := resolvesPhysicalCandidate(candidates)
-		if !resolved {
-			resolved = resolvesEffectiveCandidate(root, path, link, effectiveDocumentPaths)
+		if resolution.uri != "" {
+			continue
+		}
+		resolved, err := resolution.physicalExists()
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: cannot check relationships[%d] target %s: %v", path, index, spec.Target, err))
+			continue
 		}
 		if !resolved {
 			result.Errors = append(result.Errors, fmt.Sprintf("%s: unresolved relationships[%d] target %s", path, index, spec.Target))
@@ -317,37 +247,21 @@ func validateRelationships(root, path string, fields frontmatterFields, effectiv
 	}
 }
 
-func resolvesPhysicalCandidate(candidates []string) bool {
-	for _, candidate := range candidates {
-		if _, err := os.Stat(candidate); err == nil {
-			return true
-		}
-	}
-	return false
-}
-
-func resolvesEffectiveCandidate(root, sourcePath string, link Link, effectiveDocumentPaths map[string]struct{}) bool {
-	pagePath, err := filepath.Rel(root, sourcePath)
-	if err != nil {
-		return false
-	}
-	for _, candidate := range logicalDocumentCandidates(filepath.ToSlash(pagePath), link) {
-		if _, exists := effectiveDocumentPaths[candidate]; exists {
-			return true
-		}
-	}
-	return false
-}
-
-func validateLinks(root, path, text string, config Config, effectiveDocumentPaths map[string]struct{}, result *Result) {
+func validateLinks(root, path, text string, config Config, resolver *documentResolver, result *Result) {
 	preferred := config.LinkFormatValue()
 	links, err := internalLinks(text)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
 		return
 	}
+	logicalPath, err := filepath.Rel(root, path)
+	if err != nil {
+		result.Errors = append(result.Errors, fmt.Sprintf("%s: determine vault-relative path: %v", path, err))
+		return
+	}
+	logicalPath = filepath.ToSlash(logicalPath)
 	for _, link := range links {
-		if link.Absolute && preferred == LinkFormatRelative {
+		if link.URI == "" && link.Absolute && preferred == LinkFormatRelative {
 			msg := fmt.Sprintf("%s: absolute link %q; this vault is configured to prefer relative links", path, link.Raw)
 			if config.IsStrict() {
 				result.Errors = append(result.Errors, msg)
@@ -355,7 +269,7 @@ func validateLinks(root, path, text string, config Config, effectiveDocumentPath
 				result.Warnings = append(result.Warnings, msg)
 			}
 		}
-		if !link.Absolute && preferred == LinkFormatAbsolute {
+		if link.URI == "" && !link.Absolute && preferred == LinkFormatAbsolute {
 			msg := fmt.Sprintf("%s: relative link %q; this vault is configured to prefer absolute links", path, link.Raw)
 			if config.IsStrict() {
 				result.Errors = append(result.Errors, msg)
@@ -364,19 +278,21 @@ func validateLinks(root, path, text string, config Config, effectiveDocumentPath
 			}
 		}
 
-		target, err := linkTarget(root, path, link)
+		resolution, err := resolver.resolve(root, path, logicalPath, link)
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
 			continue
 		}
-		if _, err := os.Stat(target); err != nil {
-			if os.IsNotExist(err) {
-				if !resolvesEffectiveCandidate(root, path, link, effectiveDocumentPaths) {
-					result.Errors = append(result.Errors, fmt.Sprintf("%s: unresolved internal link %s", path, link.Raw))
-				}
-			} else {
-				result.Errors = append(result.Errors, fmt.Sprintf("%s: cannot check link %s: %v", path, link.Raw, err))
-			}
+		if resolution.uri != "" {
+			continue
+		}
+		resolved, err := resolution.physicalExists()
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: cannot check link %s: %v", path, link.Raw, err))
+			continue
+		}
+		if !resolved {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: unresolved internal link %s", path, link.Raw))
 		}
 	}
 }

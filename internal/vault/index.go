@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"github.com/adrg/frontmatter"
 )
 
 // IndexOptions controls how generated index files are written.
@@ -19,6 +17,24 @@ type indexEntry struct {
 	Title       string
 	Link        string
 	Description string
+}
+
+// GenerateWorkspaceIndexes applies the effective vault's local index policy
+// and generates indexes only in its writable local source.
+func GenerateWorkspaceIndexes(root string, options IndexOptions) ([]string, bool, error) {
+	vault, err := loadEffectiveVault(root)
+	if err != nil {
+		return nil, false, err
+	}
+	if !vault.config.IndexEnabled() {
+		return nil, false, nil
+	}
+	localRoot, ok := vault.localRoot()
+	if !ok {
+		return nil, true, nil
+	}
+	written, err := GenerateIndexes(localRoot, options)
+	return written, true, err
 }
 
 // GenerateIndexes creates index.md files for every directory in the vault.
@@ -227,16 +243,14 @@ func markdownTitleAndDescription(path string) (string, string) {
 	}
 	text := string(data)
 	if strings.HasPrefix(text, "---\n") || strings.HasPrefix(text, "---\r\n") {
-		fields := frontmatterFields{}
-		bodyBytes, err := frontmatter.MustParse(strings.NewReader(text), &fields, yamlFrontmatter)
-		body := string(bodyBytes)
+		parsed, err := parsePage(data)
 		if err == nil {
-			title, _ := frontmatterScalar(fields, "title")
+			title, _ := frontmatterScalar(parsed.fields, "title")
 			title = strings.TrimSpace(title)
 			if title == "" {
-				title = firstHeading(body)
+				title = firstHeading(parsed.body)
 			}
-			description, _ := frontmatterScalar(fields, "description")
+			description, _ := frontmatterScalar(parsed.fields, "description")
 			return title, strings.TrimSpace(description)
 		}
 	}

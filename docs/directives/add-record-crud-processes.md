@@ -15,7 +15,7 @@ Create `docs/procedures/records/manage-decisions.md` and `docs/procedures/record
 
 # Dependencies
 
-- [`gnosis` purpose](gnosis://core/gnosis/purpose.md) at `sha256:3334bd97fe5384ebb8ce4d50567b2ba0bb99f85b3f2161de63cbdce1d0254325`
+- [`gnosis` purpose](gnosis://core/purpose.md) at `sha256:3334bd97fe5384ebb8ce4d50567b2ba0bb99f85b3f2161de63cbdce1d0254325`
 - [Consolidate runtime adapters in the `gnosis` plugin](gnosis://core/decisions/consolidate-runtime-adapters-in-gnosis-plugin.md) at `sha256:1c7ebb07237bf6ab849172d10a9925221d6c754fd309d2840402ddc71b7a77be`
 - [Procedure](gnosis://core/concepts/procedure.md) at `sha256:f538ea8e22c15ca80bd23e1efad3d929e8b792203ef9c1189a822ddf7313175d`
 

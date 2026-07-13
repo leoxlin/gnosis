@@ -44,15 +44,11 @@ func runScaffold(vaultPath, vaultName string, force, includeConcepts bool, stdou
 		}
 		created = append(created, conceptPaths...)
 		if len(conceptPaths) > 0 {
-			resolution, err := vault.ResolveConfig(root)
+			indexPaths, _, err := vault.GenerateWorkspaceIndexes(root, vault.IndexOptions{Overwrite: true})
 			if err != nil {
 				return err
 			}
-			if resolution.Config.IndexEnabled() {
-				indexPaths, err := vault.GenerateIndexes(root, vault.IndexOptions{Overwrite: true})
-				if err != nil {
-					return err
-				}
+			if len(indexPaths) > 0 {
 				created = append(created, indexPaths...)
 			}
 		}

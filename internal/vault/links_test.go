@@ -16,6 +16,7 @@ func TestInternalLinksUsesMarkdownAST(t *testing.T) {
 [Anchor](#section)
 [External](https://example.com/page)
 [Protocol relative](//cdn.example.com/file)
+<gnosis://Test/notes/autolink.md>
 
 [target]: references/item.md
 
@@ -31,6 +32,7 @@ func TestInternalLinksUsesMarkdownAST(t *testing.T) {
 		"notes/my file.md",
 		"references/item.md",
 		"images/example.png",
+		"gnosis://Test/notes/autolink.md",
 	}
 	if len(links) != len(want) {
 		t.Fatalf("links = %+v, want %d", links, len(want))
@@ -42,6 +44,184 @@ func TestInternalLinksUsesMarkdownAST(t *testing.T) {
 	}
 	if links[1].Path != filepath.Join("notes", "my file.md") {
 		t.Fatalf("spaced path = %q", links[1].Path)
+	}
+}
+
+func TestInternalLinksHandlesBalancedDestinationsAndMarkdownCode(t *testing.T) {
+	markdown := "[Balanced](notes/a_(draft).md)\n\n" +
+		"``[Code span](notes/code.md)``\n\n" +
+		"````markdown\n[Fenced](notes/fenced.md)\n~~~\n[Still fenced](notes/still-fenced.md)\n````\n\n" +
+		"[After](notes/after.md)\n"
+
+	links, err := internalLinks(markdown)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"notes/a_(draft).md", "notes/after.md"}
+	if len(links) != len(want) {
+		t.Fatalf("links = %+v, want %v", links, want)
+	}
+	for index, raw := range want {
+		if links[index].Raw != raw {
+			t.Fatalf("links[%d].Raw = %q, want %q", index, links[index].Raw, raw)
+		}
+	}
+}
+
+func TestInternalLinksUsesMarkdownDestinationSemantics(t *testing.T) {
+	markdown := `[Escaped](notes/a\(draft\).md)
+[Entity](notes/a&amp;b.md)
+`
+	links, err := internalLinks(markdown)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		filepath.Join("notes", "a(draft).md"),
+		filepath.Join("notes", "a&b.md"),
+	}
+	if len(links) != len(want) {
+		t.Fatalf("links = %+v, want %v", links, want)
+	}
+	for index, path := range want {
+		if links[index].Path != path {
+			t.Fatalf("links[%d].Path = %q, want %q", index, links[index].Path, path)
+		}
+	}
+	if links[0].Raw != `notes/a\(draft\).md` {
+		t.Fatalf("raw destination = %q", links[0].Raw)
+	}
+}
+
+func TestRewriteMarkdownDestinationsPreservesAuthoredSyntax(t *testing.T) {
+	markdown := `[Balanced](notes/a_(draft).md "Draft title")
+[Reference][target]
+
+[target]: <notes/reference file.md?view=full#section> 'Reference title'
+`
+
+	got := rewriteMarkdownDestinations(markdown, func(raw string) string {
+		switch raw {
+		case "notes/a_(draft).md":
+			return "gnosis://Test/notes/a_(draft).md"
+		case "notes/reference file.md?view=full#section":
+			return "gnosis://Test/notes/reference%20file.md?view=full#section"
+		default:
+			return raw
+		}
+	})
+	want := `[Balanced](gnosis://Test/notes/a_(draft).md "Draft title")
+[Reference][target]
+
+[target]: <gnosis://Test/notes/reference%20file.md?view=full#section> 'Reference title'
+`
+	if got != want {
+		t.Fatalf("rewrite = %q, want %q", got, want)
+	}
+}
+
+func TestRewriteMarkdownDestinationsLeavesUnusedReferencesUntouched(t *testing.T) {
+	markdown := "[Used][used]\n\n[used]: notes/used.md\n[unused]: notes/unused.md\n"
+	got := rewriteMarkdownDestinations(markdown, func(raw string) string {
+		return "gnosis://Test/" + raw
+	})
+	want := "[Used][used]\n\n[used]: gnosis://Test/notes/used.md\n[unused]: notes/unused.md\n"
+	if got != want {
+		t.Fatalf("rewrite = %q, want %q", got, want)
+	}
+}
+
+func TestRewriteMarkdownDestinationsUsesFirstDuplicateReference(t *testing.T) {
+	markdown := "[foo]: notes/first.md\n[FOO]: notes/ignored.md\n\n[Foo][foo]\n"
+	got := rewriteMarkdownDestinations(markdown, func(raw string) string {
+		return "gnosis://Test/" + raw
+	})
+	want := "[foo]: gnosis://Test/notes/first.md\n[FOO]: notes/ignored.md\n\n[Foo][foo]\n"
+	if got != want {
+		t.Fatalf("rewrite = %q, want %q", got, want)
+	}
+}
+
+func TestRewriteMarkdownDestinationsHonorsEmptyFirstReference(t *testing.T) {
+	markdown := "[foo]: <>\n[FOO]: notes/ignored.md\n\n[Foo][foo]\n"
+	got := rewriteMarkdownDestinations(markdown, func(raw string) string {
+		return "gnosis://Test/" + raw
+	})
+	if got != markdown {
+		t.Fatalf("rewrite = %q, want source unchanged", got)
+	}
+}
+
+func TestRewriteMarkdownDestinationsUsesASTSpansInContainersAndRichLabels(t *testing.T) {
+	markdown := `> [target]:
+> notes/target.md
+>
+> [Reference][target]
+
+[<span title="]">label</span>](notes/target.md)
+`
+	want := `> [target]:
+> gnosis://Test/notes/target.md
+>
+> [Reference][target]
+
+[<span title="]">label</span>](gnosis://Test/notes/target.md)
+`
+	got := rewriteMarkdownDestinations(markdown, func(raw string) string {
+		if raw == "notes/target.md" {
+			return "gnosis://Test/notes/target.md"
+		}
+		return raw
+	})
+	if got != want {
+		t.Fatalf("rewrite = %q, want %q", got, want)
+	}
+}
+
+func TestRewriteMarkdownDestinationsHandlesLinkedImages(t *testing.T) {
+	markdown := "[![Preview](images/preview.png)](notes/target.md)\n"
+	got := rewriteMarkdownDestinations(markdown, func(raw string) string {
+		switch raw {
+		case "images/preview.png":
+			return "gnosis://Test/images/preview.png"
+		case "notes/target.md":
+			return "gnosis://Test/notes/target.md"
+		}
+		return raw
+	})
+	want := "[![Preview](gnosis://Test/images/preview.png)](gnosis://Test/notes/target.md)\n"
+	if got != want {
+		t.Fatalf("rewrite = %q, want %q", got, want)
+	}
+}
+
+func TestCanonicalGnosisURISemantics(t *testing.T) {
+	canonical := "gnosis://Test/notes/a%20note.md"
+	if got, ok := canonicalGnosisURI(canonical); !ok || got != canonical {
+		t.Fatalf("canonical URI = %q, %t", got, ok)
+	}
+	if got, ok := canonicalGnosisLink(canonical + "?view=full#part"); !ok || got != canonical {
+		t.Fatalf("canonical link = %q, %t", got, ok)
+	}
+	if got, ok := canonicalGnosisLink(canonical + "#section%2Fchild"); !ok || got != canonical {
+		t.Fatalf("encoded-fragment canonical link = %q, %t", got, ok)
+	}
+	link, include, err := parseLinkDestination(canonical + "#part")
+	if err != nil || !include || link.URI != canonical {
+		t.Fatalf("parsed canonical link = %+v, include=%t, err=%v", link, include, err)
+	}
+
+	for _, raw := range []string{
+		"gnosis://Test/notes/../a.md",
+		"gnosis://Test//notes/a.md",
+		"gnosis://user@Test/notes/a.md",
+		"gnosis://Test/notes%2Fa.md",
+		"GNOSIS://Test/notes/a.md",
+		canonical + "#part",
+	} {
+		if got, ok := canonicalGnosisURI(raw); ok {
+			t.Fatalf("canonicalGnosisURI(%q) = %q, want rejected", raw, got)
+		}
 	}
 }
 

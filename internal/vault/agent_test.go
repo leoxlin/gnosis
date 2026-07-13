@@ -63,6 +63,7 @@ func TestInvokeMultiStepProcess(t *testing.T) {
 type: Procedure
 title: planning
 description: Plan a delivery in ordered steps.
+tags: [test-planning]
 ---
 
 # planning
@@ -179,6 +180,238 @@ The plan is complete.
 	}
 }
 
+func TestDiscoverProcessesUsesDefaultVaultFamily(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	discovery, err := DiscoverProcesses(t.TempDir(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	procedures := discovery["procedures"]
+	foundQuery := false
+	for _, procedure := range procedures {
+		if procedure["uri"] == "gnosis://core/procedures/vault/query-vault.md" {
+			foundQuery = true
+		}
+		if procedure["uri"] == "gnosis://core/procedures/development/implementing-directive.md" {
+			t.Fatalf("default discovery included development procedure: %+v", procedure)
+		}
+	}
+	if !foundQuery {
+		t.Fatalf("default discovery omitted bundled vault procedures: %+v", procedures)
+	}
+}
+
+func TestDiscoverProcessesUsesConfiguredFamiliesAndOmitsExplicit(t *testing.T) {
+	root := agentTestVault(t)
+	writeConfig(t, root, `[vault]
+vault_name = "agent-test"
+vault_root = "docs"
+vault_index = false
+vault_log = false
+
+[gnosis]
+processes = ["enabled-family"]
+`)
+	write(t, root, "docs/processes/enabled.md", `---
+type: Procedure
+title: enabled
+description: A model-invocable procedure in an enabled family.
+tags: [enabled-family]
+---
+
+# enabled
+
+## Inputs
+
+- Facts.
+
+## Process
+
+1. Work.
+
+## Completion
+
+The work is complete.
+`)
+	write(t, root, "docs/processes/disabled.md", `---
+type: Procedure
+title: disabled
+description: A procedure outside the configured families.
+tags: [disabled-family]
+---
+
+# disabled
+
+## Inputs
+
+- Facts.
+
+## Process
+
+1. Work.
+
+## Completion
+
+The work is complete.
+`)
+	write(t, root, "docs/processes/explicit.md", `---
+type: Procedure
+title: explicit
+description: An explicit procedure in an enabled family.
+tags: [enabled-family]
+invocation: explicit
+---
+
+# explicit
+
+## Inputs
+
+- Facts.
+
+## Process
+
+1. Work.
+
+## Completion
+
+The work is complete.
+`)
+	write(t, root, "docs/processes/explicit-invalid.md", `---
+type: Procedure
+title: explicit-invalid
+description: A hidden explicit procedure with an invalid body.
+tags: [enabled-family]
+invocation: explicit
+---
+
+# explicit-invalid
+
+[Malformed destination](bad%ZZ.md)
+`)
+	write(t, root, "docs/processes/disabled-invalid.md", `---
+type: Procedure
+title: disabled-invalid
+description: A disabled procedure with an invalid body.
+tags: [disabled-family]
+---
+
+# disabled-invalid
+
+[Malformed destination](bad%ZZ.md)
+`)
+	write(t, root, "docs/processes/explicit-invalid-metadata.md", `---
+type: Procedure
+title: explicit-invalid-metadata
+description: [invalid]
+tags: [enabled-family]
+invocation: explicit
+aliases:
+  nested: invalid
+---
+
+# explicit-invalid-metadata
+`)
+	write(t, root, "docs/unrelated-invalid.md", `---
+type: Note
+title: Unrelated invalid page
+aliases:
+  nested: invalid
+---
+`)
+
+	discovery, err := DiscoverProcesses(root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	procedures := discovery["procedures"]
+	if len(procedures) != 1 || procedures[0]["uri"] != "gnosis://agent-test/processes/enabled.md" {
+		t.Fatalf("procedures = %+v", procedures)
+	}
+
+	invocation, err := InvokeProcess(root, "gnosis://agent-test/processes/explicit.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if invocation.Process.Invocation != "explicit" {
+		t.Fatalf("invocation = %+v", invocation)
+	}
+}
+
+func TestDiscoverProcessesRejectsMalformedEnabledProcedure(t *testing.T) {
+	root := agentTestVault(t)
+	writeConfig(t, root, `[vault]
+vault_name = "agent-test"
+vault_root = "docs"
+vault_index = false
+vault_log = false
+
+[gnosis]
+processes = ["enabled-family"]
+`)
+	write(t, root, "docs/processes/malformed.md", `---
+type: Procedure
+title: malformed
+description: A malformed enabled procedure.
+tags: [enabled-family]
+aliases:
+  nested: invalid
+---
+
+# malformed
+`)
+
+	_, err := DiscoverProcesses(root, nil)
+	if err == nil || !strings.Contains(err.Error(), "missing required section") {
+		t.Fatalf("discovery error = %v", err)
+	}
+}
+
+func TestProcedureValidationAndInvocationShareContract(t *testing.T) {
+	root := agentTestVault(t)
+	write(t, root, "docs/processes/missing-tags.md", `---
+type: Procedure
+title: missing-tags
+description: A procedure missing its process family.
+---
+
+# missing-tags
+
+## Inputs
+
+- Facts.
+
+## Process
+
+1. Work.
+
+## Completion
+
+The work is complete.
+`)
+
+	result, err := Validate(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `process requires non-empty "tags" frontmatter`
+	if !strings.Contains(strings.Join(result.Errors, "\n"), want) {
+		t.Fatalf("validation errors = %v, want %q", result.Errors, want)
+	}
+	if _, err := InvokeProcess(root, "gnosis://agent-test/processes/missing-tags.md"); err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("InvokeProcess error = %v, want %q", err, want)
+	}
+}
+
+func TestInvokeProcessReportsSelectedFrontmatterError(t *testing.T) {
+	root := agentTestVault(t)
+	write(t, root, "docs/processes/broken.md", "---\ntype: [\n---\n")
+
+	_, err := InvokeProcess(root, "gnosis://agent-test/processes/broken.md")
+	if err == nil || !strings.Contains(err.Error(), "invalid YAML frontmatter") {
+		t.Fatalf("invocation error = %v", err)
+	}
+}
+
 func TestReadPageAcceptsOnlyCanonicalGnosisURIs(t *testing.T) {
 	root := agentTestVault(t)
 	canonical := "gnosis://agent-test/processes/query-vault.md"
@@ -193,6 +426,9 @@ func TestReadPageAcceptsOnlyCanonicalGnosisURIs(t *testing.T) {
 
 	if _, err := ReadPage(root, "gnosis://vault/agent-test/processes/query-vault.md"); err == nil {
 		t.Fatal("ReadPage accepted the retired vault-path URI")
+	}
+	if _, err := ReadPage(root, "  "+canonical+"  "); err == nil {
+		t.Fatal("ReadPage accepted a noncanonical whitespace-padded URI")
 	}
 }
 
@@ -247,7 +483,7 @@ vault_log = false
 
 [[vaults]]
 vault_name = "shared"
-vault_root = "imported/docs"
+vault_root = "imported"
 `)
 	writeConfig(t, imported, `[vault]
 vault_name = "shared"
@@ -259,6 +495,7 @@ vault_log = false
 type: Procedure
 title: start
 description: Start with shared knowledge.
+tags: [test-vault]
 ---
 
 # start

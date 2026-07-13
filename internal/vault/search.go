@@ -3,21 +3,27 @@ package vault
 import (
 	"fmt"
 	"os"
-	pathpkg "path"
 	"path/filepath"
 	"sort"
 	"strings"
-
-	"github.com/adrg/frontmatter"
 )
 
-// SearchSource reads configured gnosis vault roots into search documents.
-type SearchSource struct {
-	resolution ConfigResolution
+// vaultSource is one directory in the effective vault's ordered composition.
+// vaultRoot identifies the configuration directory that owns the source.
+type vaultSource struct {
+	path      string
+	vaultRoot string
+	config    Config
 }
 
-// NewSearchSource resolves root and validates each configured vault root.
-func NewSearchSource(root string) (*SearchSource, error) {
+// effectiveVault owns the ordered, effective view of configured vault pages.
+type effectiveVault struct {
+	root    string
+	config  Config
+	sources []vaultSource
+}
+
+func loadEffectiveVault(root string) (*effectiveVault, error) {
 	absolute, err := filepath.Abs(root)
 	if err != nil {
 		return nil, err
@@ -30,32 +36,134 @@ func NewSearchSource(root string) (*SearchSource, error) {
 		return nil, fmt.Errorf("%s is not a directory", filepath.Clean(root))
 	}
 
-	resolution, err := ResolveConfig(absolute)
+	start := filepath.Clean(absolute)
+	configPath, err := findConfigPath(start)
 	if err != nil {
 		return nil, err
 	}
-	for _, source := range resolution.Sources {
-		info, err := os.Stat(source.Path)
+	vault := &effectiveVault{root: start, config: DefaultConfig()}
+	if configPath != "" {
+		vault.root = filepath.Dir(configPath)
+		vault.config, err = loadConfigPath(configPath)
+		if err != nil {
+			return nil, err
+		}
+		composer := vaultComposer{
+			vault:    vault,
+			resolved: make(map[string]struct{}),
+			active:   make(map[string]int),
+		}
+		if err := composer.compose(vault.root, vault.config); err != nil {
+			return nil, err
+		}
+	}
+	for _, source := range vault.sources {
+		info, err := os.Stat(source.path)
 		if err != nil {
 			return nil, err
 		}
 		if !info.IsDir() {
-			return nil, fmt.Errorf("%s is not a directory", source.Path)
+			return nil, fmt.Errorf("%s is not a directory", source.path)
 		}
 	}
-	return &SearchSource{resolution: resolution}, nil
+	return vault, nil
 }
 
-type searchPage struct {
-	root     string
-	path     string
-	document Document
-	data     []byte
+type vaultComposer struct {
+	vault    *effectiveVault
+	resolved map[string]struct{}
+	active   map[string]int
+	stack    []string
+}
+
+func (c *vaultComposer) compose(root string, config Config) error {
+	root = filepath.Clean(root)
+	identity, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return fmt.Errorf("resolve vault %s: %w", root, err)
+	}
+	identity, err = filepath.Abs(identity)
+	if err != nil {
+		return err
+	}
+	identity = filepath.Clean(identity)
+	if first, exists := c.active[identity]; exists {
+		cycle := append(append([]string{}, c.stack[first:]...), root)
+		return fmt.Errorf("vault import cycle: %s", strings.Join(cycle, " -> "))
+	}
+	if _, exists := c.resolved[identity]; exists {
+		return nil
+	}
+
+	c.active[identity] = len(c.stack)
+	c.stack = append(c.stack, root)
+	defer func() {
+		delete(c.active, identity)
+		c.stack = c.stack[:len(c.stack)-1]
+	}()
+
+	if config.HasLocalVault() {
+		vaultRoot, err := resolveVaultRoot(config, root)
+		if err != nil {
+			return fmt.Errorf("validate %s: %w", filepath.Join(root, "gnosis.toml"), err)
+		}
+		c.vault.sources = append(c.vault.sources, vaultSource{path: vaultRoot, vaultRoot: root, config: config})
+	}
+
+	for i, declared := range config.Vaults {
+		importRoot, err := resolveDeclaredVaultRoot(declared, root)
+		if err != nil {
+			return fmt.Errorf("vaults[%d]: %w", i, err)
+		}
+		configPath := filepath.Join(importRoot, "gnosis.toml")
+		info, err := os.Stat(configPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return fmt.Errorf("vaults[%d] import target %s must contain %s", i, importRoot, configPath)
+			}
+			return fmt.Errorf("vaults[%d]: stat %s: %w", i, configPath, err)
+		}
+		if info.IsDir() {
+			return fmt.Errorf("vaults[%d] import configuration %s is not a file", i, configPath)
+		}
+		importConfig, err := loadConfigPath(configPath)
+		if err != nil {
+			return fmt.Errorf("vaults[%d]: %w", i, err)
+		}
+		if err := c.compose(importRoot, importConfig); err != nil {
+			return fmt.Errorf("vaults[%d] %q: %w", i, declared.Name, err)
+		}
+	}
+	c.resolved[identity] = struct{}{}
+	return nil
+}
+
+func (v *effectiveVault) localRoot() (string, bool) {
+	for _, source := range v.sources {
+		if source.vaultRoot == v.root {
+			return source.path, true
+		}
+	}
+	return "", false
+}
+
+// SearchSource adapts the effective vault view into retrieval documents.
+type SearchSource struct {
+	vault *effectiveVault
+}
+
+// NewSearchSource resolves root and validates each configured vault root.
+func NewSearchSource(root string) (*SearchSource, error) {
+	vault, err := loadEffectiveVault(root)
+	if err != nil {
+		return nil, err
+	}
+	return &SearchSource{vault: vault}, nil
 }
 
 // Documents reads live concept files from every configured vault root.
 func (s *SearchSource) Documents() ([]Document, error) {
-	pages, err := s.resolvedPages()
+	pages, err := s.vault.resolvedPages()
 	if err != nil {
 		return nil, err
 	}
@@ -70,8 +178,8 @@ func (s *SearchSource) Documents() ([]Document, error) {
 	return documents, nil
 }
 
-func (s *SearchSource) resolvedPages() ([]*searchPage, error) {
-	pages, err := s.pages()
+func (v *effectiveVault) resolvedPages() ([]*effectivePage, error) {
+	pages, err := v.pages()
 	if err != nil {
 		return nil, err
 	}
@@ -83,16 +191,16 @@ func (s *SearchSource) resolvedPages() ([]*searchPage, error) {
 
 // Read returns the complete Markdown document with an exact type and title.
 func Read(root, conceptType, title string) ([]byte, error) {
-	source, err := NewSearchSource(root)
+	vault, err := loadEffectiveVault(root)
 	if err != nil {
 		return nil, err
 	}
-	pages, err := source.resolvedPages()
+	pages, err := vault.pages()
 	if err != nil {
 		return nil, err
 	}
 
-	matches := make([]*searchPage, 0, 1)
+	matches := make([]*effectivePage, 0, 1)
 	for _, page := range pages {
 		if page.document.Type == conceptType && page.document.Title == title {
 			matches = append(matches, page)
@@ -117,23 +225,31 @@ func Read(root, conceptType, title string) ([]byte, error) {
 	}
 }
 
-func (s *SearchSource) pages() ([]*searchPage, error) {
-	pages := []*searchPage{}
+func (v *effectiveVault) pages() ([]*effectivePage, error) {
+	return v.loadPages(false)
+}
+
+func (v *effectiveVault) validationPages() ([]*effectivePage, error) {
+	return v.loadPages(true)
+}
+
+func (v *effectiveVault) loadPages(tolerateInvalid bool) ([]*effectivePage, error) {
+	pages := []*effectivePage{}
 	seenPaths := make(map[string]struct{})
 	seenRelativePaths := make(map[string]struct{})
 
-	for precedence, source := range s.resolution.Sources {
-		err := filepath.WalkDir(source.Path, func(path string, entry os.DirEntry, walkErr error) error {
+	for precedence, source := range v.sources {
+		err := filepath.WalkDir(source.path, func(path string, entry os.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
 			}
 			if entry.IsDir() {
-				if path != source.Path && ignoredVaultDir(entry.Name()) {
+				if path != source.path && ignoredVaultDir(entry.Name()) {
 					return filepath.SkipDir
 				}
 				return nil
 			}
-			if filepath.Ext(path) != ".md" || reservedSearchFile(entry.Name()) {
+			if filepath.Ext(path) != ".md" || reservedPageName(entry.Name()) {
 				return nil
 			}
 			path = filepath.Clean(path)
@@ -141,7 +257,7 @@ func (s *SearchSource) pages() ([]*searchPage, error) {
 				return nil
 			}
 
-			relativePath, err := filepath.Rel(source.Path, path)
+			relativePath, err := filepath.Rel(source.path, path)
 			if err != nil {
 				return err
 			}
@@ -151,16 +267,16 @@ func (s *SearchSource) pages() ([]*searchPage, error) {
 			}
 
 			kind := OriginImport
-			if source.VaultRoot == s.resolution.Root {
+			if source.vaultRoot == v.root {
 				kind = OriginLocal
 			}
-			page, err := s.readSearchPage(source, path, Origin{
-				Vault:      source.Config.Vault.Name,
+			page, err := v.readSearchPage(source, path, Origin{
+				Vault:      source.config.Vault.Name,
 				Kind:       kind,
-				Root:       source.Path,
+				Root:       source.path,
 				Path:       path,
 				Precedence: precedence,
-			})
+			}, tolerateInvalid)
 			if err != nil {
 				return err
 			}
@@ -173,13 +289,13 @@ func (s *SearchSource) pages() ([]*searchPage, error) {
 			return nil, err
 		}
 	}
-	if err := s.appendBundledPages(&pages, seenPaths, seenRelativePaths); err != nil {
+	if err := v.appendBundledPages(&pages, seenPaths, seenRelativePaths, tolerateInvalid); err != nil {
 		return nil, err
 	}
 	return pages, nil
 }
 
-func (s *SearchSource) appendBundledPages(pages *[]*searchPage, seenPaths, seenRelativePaths map[string]struct{}) error {
+func (v *effectiveVault) appendBundledPages(pages *[]*effectivePage, seenPaths, seenRelativePaths map[string]struct{}, tolerateInvalid bool) error {
 	documents, err := bundledDocuments()
 	if err != nil {
 		return err
@@ -195,12 +311,18 @@ func (s *SearchSource) appendBundledPages(pages *[]*searchPage, seenPaths, seenR
 		if _, exists := seenPaths[path]; exists {
 			continue
 		}
-		page, err := readSearchData(bundleRoot, path, document.Data, Origin{
+		origin := Origin{
 			Vault:      "core",
 			Kind:       OriginBundle,
 			Path:       document.Path,
-			Precedence: len(s.resolution.Sources),
-		})
+			Precedence: len(v.sources),
+		}
+		var page *effectivePage
+		if tolerateInvalid {
+			page, err = newTolerantEffectivePage(bundleRoot, path, document.Data, origin)
+		} else {
+			page, err = newEffectivePage(bundleRoot, path, document.Data, origin)
+		}
 		if err != nil {
 			return err
 		}
@@ -211,100 +333,28 @@ func (s *SearchSource) appendBundledPages(pages *[]*searchPage, seenPaths, seenR
 	return nil
 }
 
-func (s *SearchSource) readSearchPage(source VaultSource, path string, origin Origin) (*searchPage, error) {
+func (v *effectiveVault) readSearchPage(source vaultSource, path string, origin Origin, tolerateInvalid bool) (*effectivePage, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	return readSearchData(source.Path, path, data, origin)
+	if tolerateInvalid {
+		return newTolerantEffectivePage(source.path, path, data, origin)
+	}
+	return newEffectivePage(source.path, path, data, origin)
 }
 
-func readSearchData(root, path string, data []byte, origin Origin) (*searchPage, error) {
-	fields := frontmatterFields{}
-	bodyBytes, err := frontmatter.MustParse(strings.NewReader(string(data)), &fields, yamlFrontmatter)
-	body := string(bodyBytes)
-	if err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, frontmatterError(err))
-	}
-
-	conceptType, err := requiredSearchScalar(fields, "type")
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
-	}
-	title, err := optionalSearchScalar(fields, "title")
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
-	}
-	description, err := optionalSearchScalar(fields, "description")
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
-	}
-	if strings.TrimSpace(description) == "" {
-		description, err = optionalSearchScalar(fields, "summary")
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", path, err)
-		}
-	}
-	tags, valid := frontmatterScalars(fields, "tags")
-	if !valid {
-		return nil, fmt.Errorf("%s: frontmatter %q must be a scalar or sequence of scalars", path, "tags")
-	}
-	aliases, valid := frontmatterScalars(fields, "aliases")
-	if !valid {
-		return nil, fmt.Errorf("%s: frontmatter %q must be a scalar or sequence of scalars", path, "aliases")
-	}
-
-	if strings.TrimSpace(title) == "" {
-		title = firstHeading(body)
-	}
-	if strings.TrimSpace(title) == "" {
-		title = humanizeName(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)))
-	}
-	relative, err := filepath.Rel(root, path)
-	if err != nil {
-		return nil, err
-	}
-
-	return &searchPage{
-		root: root,
-		path: filepath.Clean(path),
-		data: data,
-		document: Document{
-			Path:        filepath.ToSlash(relative),
-			URI:         documentURI(origin.Vault, filepath.ToSlash(relative)),
-			Title:       strings.TrimSpace(title),
-			Description: strings.TrimSpace(description),
-			Type:        strings.TrimSpace(conceptType),
-			Aliases:     aliases,
-			Tags:        tags,
-			Body:        body,
-			Links:       []string{},
-			Edges:       []Edge{},
-			Origin:      origin,
-			Revision:    documentRevision(data),
-		},
-	}, nil
-}
-
-func resolveDocumentEdges(pages []*searchPage) error {
-	pathURIs := make(map[string]string, len(pages))
-	uriPages := make(map[string]*searchPage, len(pages))
+func resolveDocumentEdges(pages []*effectivePage) error {
+	resolver := newDocumentResolver(pages)
 	for _, page := range pages {
-		pathURIs[page.path] = page.document.URI
-		uriPages[page.document.URI] = page
 		page.document.Links = []string{}
 		page.document.Edges = []Edge{}
 	}
 
 	for _, page := range pages {
-		fields := frontmatterFields{}
-		_, err := frontmatter.MustParse(strings.NewReader(string(page.data)), &fields, yamlFrontmatter)
+		resolved, err := resolver.resolvePageLinks(page)
 		if err != nil {
-			return fmt.Errorf("parse %s: %w", page.path, frontmatterError(err))
-		}
-		specs, err := relationshipSpecs(fields)
-		if err != nil {
-			return fmt.Errorf("parse relationships in %s: %w", page.path, err)
+			return fmt.Errorf("resolve links in %s: %w", page.path, err)
 		}
 
 		seenEdges := make(map[string]struct{})
@@ -326,33 +376,29 @@ func resolveDocumentEdges(pages []*searchPage) error {
 			})
 		}
 
-		for _, spec := range specs {
-			relation := strings.TrimSpace(spec.Type)
-			targetRaw := strings.TrimSpace(spec.Target)
+		for _, relationship := range resolved.relationships {
+			relation := strings.TrimSpace(relationship.spec.Type)
+			targetRaw := strings.TrimSpace(relationship.spec.Target)
 			if relation == "" || targetRaw == "" {
 				continue
 			}
-			target := resolveDocumentTarget(page, targetRaw, pathURIs, uriPages)
-			if target == "" {
+			if !relationship.include || !relationship.resolution.document || relationship.resolution.uri == "" {
 				continue
 			}
+			target := relationship.resolution.uri
 			explicitTargets[target] = struct{}{}
 			addEdge(target, relation, targetRaw, "frontmatter.relationships")
 		}
 
-		links, err := internalLinks(page.document.Body)
-		if err != nil {
-			return fmt.Errorf("parse links in %s: %w", page.path, err)
-		}
-		for _, link := range links {
-			target := resolveDocumentTarget(page, link.Raw, pathURIs, uriPages)
-			if target == "" {
+		for _, body := range resolved.body {
+			if !body.resolution.document || body.resolution.uri == "" {
 				continue
 			}
+			target := body.resolution.uri
 			if _, explicit := explicitTargets[target]; explicit {
 				continue
 			}
-			addEdge(target, "links_to", link.Raw, "body")
+			addEdge(target, "links_to", body.link.Raw, "body")
 		}
 
 		targets := make(map[string]struct{})
@@ -371,94 +417,4 @@ func resolveDocumentEdges(pages []*searchPage) error {
 		})
 	}
 	return nil
-}
-
-func resolveDocumentTarget(page *searchPage, raw string, pathURIs map[string]string, uriPages map[string]*searchPage) string {
-	raw = strings.TrimSpace(raw)
-	if _, exists := uriPages[raw]; exists {
-		return raw
-	}
-	if canonical, ok := canonicalGnosisURI(raw); ok {
-		if _, exists := uriPages[canonical]; exists {
-			return canonical
-		}
-	}
-	link, include, err := parseLinkDestination(raw)
-	if err != nil || !include {
-		return ""
-	}
-	extension := strings.ToLower(filepath.Ext(link.Path))
-	if extension != "" && extension != ".md" {
-		return ""
-	}
-
-	target, err := linkTarget(page.root, page.path, link)
-	if err == nil {
-		candidates := []string{target}
-		if extension == "" {
-			candidates = append(candidates, target+".md")
-		}
-		for _, candidate := range candidates {
-			if uri, exists := pathURIs[filepath.Clean(candidate)]; exists {
-				return uri
-			}
-		}
-	}
-
-	for _, candidate := range logicalDocumentCandidates(page.document.Path, link) {
-		for uri, target := range uriPages {
-			if target.document.Path == candidate {
-				return uri
-			}
-		}
-	}
-	return ""
-}
-
-func logicalDocumentCandidates(sourcePath string, link Link) []string {
-	logical := filepath.ToSlash(link.Path)
-	if link.Absolute {
-		logical = strings.TrimPrefix(logical, "/")
-	} else {
-		logical = pathpkg.Join(pathpkg.Dir(sourcePath), logical)
-	}
-	logical = pathpkg.Clean(logical)
-	if logical == ".." || strings.HasPrefix(logical, "../") {
-		return nil
-	}
-	candidates := []string{logical}
-	if filepath.Ext(link.Path) == "" {
-		candidates = append(candidates, logical+".md")
-	}
-	return candidates
-}
-
-func requiredSearchScalar(fields frontmatterFields, key string) (string, error) {
-	value, scalar := frontmatterScalar(fields, key)
-	if !scalar {
-		if _, exists := fields[key]; exists {
-			return "", fmt.Errorf("frontmatter %q must be a scalar", key)
-		}
-		return "", fmt.Errorf("missing non-empty %q frontmatter", key)
-	}
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return "", fmt.Errorf("missing non-empty %q frontmatter", key)
-	}
-	return value, nil
-}
-
-func optionalSearchScalar(fields frontmatterFields, key string) (string, error) {
-	value, scalar := frontmatterScalar(fields, key)
-	if scalar {
-		return strings.TrimSpace(value), nil
-	}
-	if _, exists := fields[key]; exists {
-		return "", fmt.Errorf("frontmatter %q must be a scalar", key)
-	}
-	return "", nil
-}
-
-func reservedSearchFile(name string) bool {
-	return name == "index.md" || name == "log.md"
 }

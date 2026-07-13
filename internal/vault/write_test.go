@@ -43,6 +43,11 @@ func TestWriteDocumentValidatesTargetURIAndConceptPath(t *testing.T) {
 		{"gnosis://Local/notes%5Ca-note.md", "canonical"},
 		{"gnosis://Local/other/a-note.md", "outside Concept Type"},
 		{"gnosis://Local/notes/a-note.md?view=full", "canonical"},
+		{"gnosis://Local/notes/a-note", "lowercase .md"},
+		{"gnosis://Local/notes/a-note.txt", "lowercase .md"},
+		{"gnosis://Local/notes/a-note.MD", "lowercase .md"},
+		{"gnosis://Local/notes/index.md", "reserved name"},
+		{"gnosis://Local/notes/log.md", "reserved name"},
 	} {
 		if _, err := WriteDocument(root, test.uri, content, false); err == nil || !strings.Contains(err.Error(), test.want) {
 			t.Fatalf("WriteDocument(%q) error = %v, want %q", test.uri, err, test.want)

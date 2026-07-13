@@ -400,6 +400,65 @@ func TestSearchSourceRejectsInvalidConceptFrontmatter(t *testing.T) {
 	}
 }
 
+func TestEffectiveVaultAppliesRecursivePrecedenceAndOrigin(t *testing.T) {
+	workspace := t.TempDir()
+	first := filepath.Join(workspace, "first")
+	nested := filepath.Join(workspace, "nested")
+	second := filepath.Join(workspace, "second")
+	writeConfig(t, workspace, `[vault]
+vault_name = "workspace"
+vault_root = "local"
+
+[[vaults]]
+vault_name = "first-declaration"
+vault_root = "first"
+
+[[vaults]]
+vault_name = "second-declaration"
+vault_root = "second"
+`)
+	writeConfig(t, first, `[vault]
+vault_name = "first"
+vault_root = "."
+
+[[vaults]]
+vault_name = "nested-declaration"
+vault_root = "../nested"
+`)
+	writeConfig(t, nested, "[vault]\nvault_name = \"nested\"\nvault_root = \".\"\n")
+	writeConfig(t, second, "[vault]\nvault_name = \"second\"\nvault_root = \".\"\n")
+
+	for root, title := range map[string]string{
+		filepath.Join(workspace, "local"): "Local",
+		first:                             "First",
+		nested:                            "Nested",
+		second:                            "Second",
+	} {
+		write(t, root, "collision.md", "---\ntype: Note\ntitle: "+title+"\n---\n")
+	}
+	write(t, nested, "nested-only.md", "---\ntype: Note\ntitle: Nested winner\n---\n")
+	write(t, second, "nested-only.md", "---\ntype: Note\ntitle: Later loser\n---\n")
+
+	source, err := NewSearchSource(workspace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	documents, err := source.Documents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	byPath := make(map[string]Document, len(documents))
+	for _, document := range documents {
+		byPath[document.Path] = document
+	}
+	if got := byPath["collision.md"]; got.Title != "Local" || got.Origin.Kind != OriginLocal || got.Origin.Precedence != 0 {
+		t.Fatalf("local collision winner = %+v", got)
+	}
+	if got := byPath["nested-only.md"]; got.Title != "Nested winner" || got.Origin.Vault != "nested" || got.Origin.Root != nested || got.Origin.Precedence != 2 {
+		t.Fatalf("recursive collision winner = %+v", got)
+	}
+}
+
 func mustReadFile(t *testing.T, path string) []byte {
 	t.Helper()
 	data, err := os.ReadFile(path)

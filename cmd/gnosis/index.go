@@ -5,7 +5,6 @@ import (
 	"github.com/spf13/cobra"
 	"gnosis/internal/vault"
 	"io"
-	"os"
 	"path/filepath"
 )
 
@@ -25,29 +24,13 @@ func newIndexCommand(stdout io.Writer) *cobra.Command {
 
 func runIndex(vaultPath string, stdout io.Writer) error {
 	root := vaultPath
-	info, err := os.Stat(root)
+	written, enabled, err := vault.GenerateWorkspaceIndexes(root, vault.IndexOptions{Overwrite: true})
 	if err != nil {
 		return err
 	}
-	if !info.IsDir() {
-		return fmt.Errorf("%s is not a directory", root)
-	}
-	resolution, err := vault.ResolveConfig(root)
-	if err != nil {
-		return err
-	}
-	if !resolution.Config.IndexEnabled() {
+	if !enabled {
 		fmt.Fprintf(stdout, "ok: index disabled under %s\n", filepath.Clean(root))
 		return nil
-	}
-
-	var written []string
-	for _, vaultRoot := range resolution.LocalVaultRoots {
-		paths, err := vault.GenerateIndexes(vaultRoot, vault.IndexOptions{Overwrite: true})
-		if err != nil {
-			return err
-		}
-		written = append(written, paths...)
 	}
 	for _, path := range written {
 		fmt.Fprintln(stdout, path)
