@@ -1,88 +1,203 @@
 # `gnosis`
 
-`gnosis` is a knowledge-first interface for agentic memory. It gives authors
-and agents one way to organize, validate, query, and eventually synthesize
-across wiki, vector, graph, structured, episodic, and future memory backends.
+`gnosis` is a local-first knowledge system for people and agents. It stores
+typed knowledge as ordinary Markdown, gives every document a stable URI, and
+provides a CLI for validating, searching, linking, composing, and acting on
+that knowledge.
 
-The repository is bootstrapped as knowledge first: the `docs/` directory is an
-OKF v0.1 bundle that records purpose, concepts, and durable decisions before
-the implementation code. Explicit directives can hand work to automated
-agents, while git carries delivery history. The first wiki backend is
-Obsidian-compatible markdown.
+The result is shared context that stays readable in Obsidian, portable in git,
+and precise enough for an agent to use without relying on conversation history.
 
-## Components
+## What it does
 
-- **`gnosis-vault`** is a generic framework for managing and querying knowledge.
-- **`gnosis-forge`** supports knowledge-driven software development: it grounds
-  work in recorded knowledge and preserves durable intent.
+- Scaffolds Open Knowledge Format (OKF) compatible Markdown vaults.
+- Reads and writes typed documents through canonical `gnosis://` URIs.
+- Validates frontmatter, vault structure, and links.
+- Searches documents and follows their relationships.
+- Lists records by concept type.
+- Composes a workspace from multiple local vaults.
+- Discovers executable `Procedure` records for agents.
+- Ships core concepts and procedures inside the binary.
 
-Each component is a self-contained Codex, Kimi, and Claude plugin under
-`plugins/`. The repository also exposes every plugin skill directly to agents
-working in this checkout: Codex and Kimi discover `.agents/skills/`, while
-Claude discovers `.claude/skills/`. Both directories link to the canonical
-skill sources under `plugins/`.
+`gnosis` is intentionally local-first. Vaults are directories of Markdown
+files, configuration is TOML, and generated indexes are also Markdown. Remote
+vault imports are not yet supported.
 
-To install the packaged plugins with Codex:
+## Install
+
+`gnosis` requires Go 1.25 or later.
+
+```bash
+git clone https://github.com/leoxlin/gnosis.git
+cd gnosis
+go install ./cmd/gnosis
+```
+
+The binary is installed to `$(go env GOPATH)/bin`. This repository also uses
+[mise](https://mise.jdx.dev/):
+
+```bash
+mise run build       # writes dist/gnosis
+mise run localbin    # writes ~/.local/bin/gnosis
+```
+
+## Quick start
+
+Create a vault with the reusable core concept definitions:
+
+```bash
+gnosis scaffold --vault knowledge --name knowledge --concepts
+cd knowledge
+```
+
+The generated vault is usable as plain Markdown immediately. You can also work
+with it through the CLI:
+
+```bash
+gnosis concepts
+gnosis read gnosis://knowledge/concepts/decision.md
+gnosis query search "How are decisions recorded?"
+gnosis validate
+```
+
+A document URI combines a vault name with its path:
+
+```text
+gnosis://knowledge/decisions/store-data-as-markdown.md
+         ^ vault     ^ path within the vault
+```
+
+Write a typed Markdown document from a file:
+
+```bash
+gnosis write \
+  gnosis://knowledge/decisions/store-data-as-markdown.md \
+  --filename ./store-data-as-markdown.md
+```
+
+The document must contain YAML frontmatter with a recognized `type` and a
+`title`. `gnosis write` checks the document before placing it at the path named
+by the URI.
+
+## Core model
+
+A vault is a set of typed Markdown documents connected by explicit links.
+`gnosis` includes five foundational types:
+
+- `Purpose` records why a vault or project exists and where its boundaries are.
+- `Concept` records define the vocabulary used by other knowledge.
+- `Decision` records choices that should continue to shape future work.
+- `Directive` records explicitly requested work and its acceptance criteria.
+- `Procedure` records repeatable execution contracts that agents can discover
+  and follow.
+
+The built-in concepts and procedures are available to every vault without being
+copied into it. A local document with the same path can refine or replace the
+built-in version while remaining ordinary Markdown under version control.
+
+## CLI
+
+| Command | Purpose |
+| --- | --- |
+| `gnosis scaffold` | Create a new vault. |
+| `gnosis setup` | Configure a workspace that imports local vaults. |
+| `gnosis read` | Read one exact `gnosis://` document. |
+| `gnosis write` | Validate and write one typed Markdown document. |
+| `gnosis concepts` | List known types or records of an exact type. |
+| `gnosis query search` | Find relevant pages for a question. |
+| `gnosis query graph` | Return graph-aware query results as JSON. |
+| `gnosis graph neighbors` | Inspect typed links adjacent to a page. |
+| `gnosis graph path` | Find a typed path between two pages. |
+| `gnosis procedure discovery` | List model-invocable procedures. |
+| `gnosis procedure invoke` | Load one procedure's execution contract. |
+| `gnosis index` | Regenerate Markdown indexes. |
+| `gnosis validate` | Validate vault structure and links. |
+
+Run `gnosis <command> --help` for flags and examples supported by the installed
+version.
+
+## Compose vaults
+
+A workspace can expose several local vaults through one configuration:
+
+```bash
+gnosis setup \
+  --vault ./workspace \
+  --import ../team-knowledge \
+  --import ../project-knowledge
+```
+
+This writes `workspace/gnosis.toml`. Documents remain addressable by their
+vault names, so callers can read an exact source without depending on filesystem
+layout:
+
+```bash
+cd workspace
+gnosis read gnosis://team-knowledge/purpose.md
+```
+
+Imports are resolved in configuration order. Local records can override
+imported or built-in records when written with `gnosis write --update`.
+
+## Agent integration
+
+The repository includes a `gnosis` plugin for Codex, Claude, and Kimi. Its
+gateway skill discovers applicable `Procedure` records in the current vault,
+loads their exact contracts, and guides the agent through them. This keeps
+workflows in the same portable knowledge layer as the rest of the project.
+
+Install the local plugin with Codex:
 
 ```bash
 codex plugin marketplace add .
-codex plugin add gnosis-vault@gnosis
-codex plugin add gnosis-forge@gnosis
+codex plugin add gnosis@gnosis
 ```
 
-To install them with Claude:
+Or with Claude:
 
 ```bash
-claude plugin marketplace add ./ --scope project
-claude plugin install gnosis-vault@gnosis --scope project
-claude plugin install gnosis-forge@gnosis --scope project
+claude plugin marketplace add . --scope project
+claude plugin install gnosis@gnosis --scope project
 ```
 
-From a Kimi session, install either local plugin directly or browse the local
-marketplace:
+From Kimi, install the plugin directory directly:
 
 ```text
-/plugins install ./plugins/gnosis-vault
-/plugins install ./plugins/gnosis-forge
-/plugins marketplace ./kimi-marketplace.json
+/plugins install ./plugins/gnosis
 ```
 
-## Why `gnosis`
+The plugin expects the `gnosis` binary to be available on `PATH`.
 
-`gnosis` comes from the Greek word for knowledge or knowing. The name matters
-because this project treats knowledge as active context: not only facts to
-retrieve, but intent, semantics, decisions, and instructions that agents can use
-to guide work.
+## Configuration
 
-For agents, the line between semantics and function is blurring. A skill,
-schema, directive, or decision can be plain text, but once an agent can read it
-and act from it, that text becomes functional. `gnosis` treats those texts as
-first-class knowledge objects rather than incidental documentation.
+A standalone vault uses a `gnosis.toml` like this:
 
-Knowledge can bootstrap itself. This repository begins with its own purpose,
-concepts, and decisions before building the tools that will operate over that
-knowledge.
+```toml
+[vault]
+vault_name = "knowledge"
+vault_root = "."
+link_format = "relative"
+link_format_strict = false
+vault_index = true
+vault_log = true
 
-Access to knowledge should be uniform. `gnosis` provides a singular point for
-ingesting, validating, linking, querying, and synthesizing across memory
-backends.
+[gnosis]
+processes = ["vault"]
+```
 
-## Bootstrapping `gnosis`
+`processes` controls which tagged procedure families agents may discover.
+Workspace configurations can instead declare one or more `[[vaults]]` entries
+that point to local vault roots.
 
-`gnosis` is related to the sister repository `praxis`: `gnosis` grounds
-knowledge, while `praxis` synthesizes from knowledge into action. The
-repositories meet at the boundary between what is known and what should be done.
+## Development
 
-This repository is built around the concepts of `gnosis` itself: repository
-purpose, decisions, and explicit automation directives. The author creates and
-maintains the purpose, and both author and agent are guided by it. When the
-purpose changes, that change is recorded explicitly so future work inherits the
-new center.
+Run the complete project checks with:
 
-The bootstrap logic is:
+```bash
+mise run checks
+```
 
-1. The author creates intent.
-2. The agent reasons from purpose, active decisions, code, and tests.
-3. Non-obvious choices that constrain future work become decisions.
-4. Routine implementation and verification remain discoverable through git and CI.
-5. A directive is created only when explicitly requested for automated-agent work.
+That task checks formatting, runs `go vet`, runs the test suite with and without
+the race detector, builds the CLI, and validates this repository's own vault.
+The repository is itself a `gnosis` vault: its purpose, concepts, decisions,
+directives, and procedures live under [`docs/`](docs/).
