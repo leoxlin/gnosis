@@ -136,7 +136,7 @@ The directive is open.
 	}
 }
 
-func TestDiscoverProcessesUsesTypedConceptCatalog(t *testing.T) {
+func TestDiscoverProcessesFiltersByAllTags(t *testing.T) {
 	root := agentTestVault(t)
 	writeConfig(t, root, `[vault]
 vault_name = "agent-test"
@@ -151,7 +151,7 @@ processes = ["test-vault"]
 type: Procedure
 title: planning
 description: A planning-only process.
-tags: [test-planning]
+tags: [test-vault, test-planning]
 ---
 
 # planning
@@ -169,23 +169,13 @@ tags: [test-planning]
 The plan is complete.
 `)
 
-	discovery, err := DiscoverProcesses(root)
+	discovery, err := DiscoverProcesses(root, []string{"test-vault", "test-planning"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	procedures := discovery["procedures"]
-	var queryVault map[string]any
-	for _, procedure := range procedures {
-		if procedure["uri"] == "gnosis://agent-test/processes/query-vault.md" {
-			queryVault = procedure
-		}
-	}
-	if queryVault == nil {
-		t.Fatalf("procedures missing local query-vault: %+v", procedures)
-	}
-	tags, ok := queryVault["tags"].([]any)
-	if !ok || len(tags) != 1 || tags[0] != "test-vault" {
-		t.Fatalf("tags = %#v", queryVault["tags"])
+	if len(procedures) != 1 || procedures[0]["uri"] != "gnosis://agent-test/processes/planning.md" {
+		t.Fatalf("procedures = %+v", procedures)
 	}
 }
 

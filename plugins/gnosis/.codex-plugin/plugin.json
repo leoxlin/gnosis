@@ -1,6 +1,6 @@
 {
   "name": "gnosis",
-  "version": "0.1.0+codex.20260711202439",
+  "version": "0.1.0+codex.20260713121823",
   "description": "Discover, invoke, and trace gnosis vault and repository processes.",
   "author": {
     "name": "Leo Xuzhang Lin",
@@ -16,7 +16,6 @@
     "processes"
   ],
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "gnosis",
     "shortDescription": "Apply vault and repository knowledge.",

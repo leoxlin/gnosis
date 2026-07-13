@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -205,12 +206,32 @@ func ReadPage(root, selector string) (Page, error) {
 
 // DiscoverProcesses returns procedure records under the discovery API's
 // procedure-specific collection name.
-func DiscoverProcesses(root string) (ConceptRecordCatalog, error) {
+func DiscoverProcesses(root string, tags []string) (ConceptRecordCatalog, error) {
 	catalog, err := ConceptRecords(root, ProcedureType)
 	if err != nil {
 		return nil, err
 	}
-	return ConceptRecordCatalog{"procedures": catalog["concepts"]}, nil
+	records := catalog["concepts"]
+	if len(tags) == 0 {
+		return ConceptRecordCatalog{"procedures": records}, nil
+	}
+	filtered := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		recordTags, valid := frontmatterScalars(frontmatterFields(record), "tags")
+		if valid && containsAll(recordTags, tags) {
+			filtered = append(filtered, record)
+		}
+	}
+	return ConceptRecordCatalog{"procedures": filtered}, nil
+}
+
+func containsAll(values, required []string) bool {
+	for _, value := range required {
+		if !slices.Contains(values, strings.TrimSpace(value)) {
+			return false
+		}
+	}
+	return true
 }
 
 // InvokeProcess loads one exact process as an execution contract. It is read-only.

@@ -4,4 +4,4 @@ interface:
   default_prompt: "Use $using-gnosis to select and apply the right canonical processes."
 
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true

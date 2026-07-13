@@ -24,12 +24,13 @@ func newProcedureCommand(stdout io.Writer) *cobra.Command {
 
 func newProcedureDiscoveryCommand(stdout io.Writer) *cobra.Command {
 	var vaultPath string
+	var tags []string
 	command := &cobra.Command{
 		Use:   "discovery [flags]",
 		Short: "List all model-invocable processes for agent selection",
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			result, err := vault.DiscoverProcesses(vaultPath)
+			result, err := vault.DiscoverProcesses(vaultPath, tags)
 			if err != nil {
 				return fmt.Errorf("procedure discovery: %w", err)
 			}
@@ -38,6 +39,7 @@ func newProcedureDiscoveryCommand(stdout io.Writer) *cobra.Command {
 	}
 	flags := command.Flags()
 	flags.StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
+	flags.StringSliceVar(&tags, "tags", nil, "require all procedure tags")
 	return command
 }
 
