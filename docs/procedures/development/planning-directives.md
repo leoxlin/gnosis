@@ -82,7 +82,7 @@ The latest draft revision has separate purpose/decision and engineering verdicts
 2. Reject schema or coverage gaps, ambiguous paths/interfaces, non-atomic steps, omitted code/patches, weak tests, missing expected results, unsafe omissions, cycles, and unverifiable criteria. Preserve every finding disposition.
 3. Apply accepted feedback. If a simple draft becomes complex or directive boundaries/count change, return the affected set to [creating-directives](#step-2---creating-directives). After any other material correction, persist the `draft`, read its new revision, then repeat [reviewing-directives](#step-3---reviewing-directives). Stop for the author if the same accepted blocker survives one correction.
 4. Finalize in dependency order. Verify current dependency contracts; when a provider contract changes, update and re-review all downstream dependents. Change `draft` to `open` only when the latest required reviews leave no accepted Critical or Important finding.
-5. Persist each `open` record with `gnosis write '<directive URI>' --filename <draft-file>`, read back its URI/revision, validate the vault, and return the ordered bindings. Offer [execute-directive](../execution/execute-directive.md) only on an execution request.
+5. Persist each `open` record with `gnosis write '<directive URI>' --filename <draft-file>`, read back its URI/revision, validate the vault, and return the ordered bindings. On an execution request, offer [implementing-directive](implementing-directive.md) for only the first dependency-ready binding; every later directive requires a separate invocation after the selected directive finishes.
 
 ### Completion
 

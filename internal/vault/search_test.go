@@ -264,18 +264,34 @@ vault_root = "."
 	for _, document := range documents {
 		byURI[document.URI] = struct{}{}
 	}
-	for _, uri := range []string{"gnosis://core/concepts/procedure.md", "gnosis://core/concepts/decision.md", "gnosis://core/concepts/directive.md", "gnosis://core/concepts/purpose.md", "gnosis://core/procedures/execution/execute-directive.md", "gnosis://core/procedures/vault/query-vault.md", "gnosis://core/procedures/execution/verification-before-completion.md"} {
+	for _, uri := range []string{"gnosis://core/concepts/procedure.md", "gnosis://core/concepts/decision.md", "gnosis://core/concepts/directive.md", "gnosis://core/concepts/purpose.md", "gnosis://core/procedures/development/implementing-directive.md", "gnosis://core/procedures/vault/query-vault.md"} {
 		if _, exists := byURI[uri]; !exists {
 			t.Fatalf("documents missing %s: %+v", uri, documents)
 		}
 	}
-	for _, uri := range []string{"gnosis://core/procedures/executing-plans.md", "gnosis://core/procedures/ingest-concept.md", "gnosis://core/procedures/receiving-code-review.md", "gnosis://core/procedures/requesting-code-review.md", "gnosis://core/procedures/review/code-review.md", "gnosis://core/procedures/subagent-driven-development.md", "gnosis://core/procedures/using-gnosis-forge.md", "gnosis://core/procedures/skills/writing-skills.md"} {
+	for _, uri := range []string{"gnosis://core/procedures/executing-plans.md", "gnosis://core/procedures/execution/dispatching-parallel-agents.md", "gnosis://core/procedures/execution/execute-directive.md", "gnosis://core/procedures/execution/finishing-a-development-branch.md", "gnosis://core/procedures/execution/test-driven-development.md", "gnosis://core/procedures/execution/using-git-worktrees.md", "gnosis://core/procedures/execution/verification-before-completion.md", "gnosis://core/procedures/ingest-concept.md", "gnosis://core/procedures/receiving-code-review.md", "gnosis://core/procedures/requesting-code-review.md", "gnosis://core/procedures/review/code-review.md", "gnosis://core/procedures/subagent-driven-development.md", "gnosis://core/procedures/using-gnosis-forge.md", "gnosis://core/procedures/skills/writing-skills.md"} {
 		if _, exists := byURI[uri]; exists {
 			t.Fatalf("documents include retired process %s: %+v", uri, documents)
 		}
 	}
 	if _, exists := byURI["gnosis://core/documentation/basic-usage.md"]; exists {
 		t.Fatalf("documents include removed basic usage page: %+v", documents)
+	}
+	invocation, err := InvokeProcess(root, "gnosis://core/procedures/development/implementing-directive.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantSteps := []string{"selecting-directive", "preparing-workspace", "implementing-tasks", "reviewing-implementation", "verifying-directive", "finishing-directive"}
+	if len(invocation.Steps) != len(wantSteps) {
+		t.Fatalf("implementing-directive steps = %+v", invocation.Steps)
+	}
+	for i, want := range wantSteps {
+		if invocation.Steps[i].Number != i+1 || invocation.Steps[i].Name != want {
+			t.Fatalf("implementing-directive step %d = %+v, want %q", i+1, invocation.Steps[i], want)
+		}
+	}
+	if process := invocation.Steps[0].Sections.Process; !strings.Contains(process, "Bind exactly one directive") || !strings.Contains(process, "Never switch to another directive") && !strings.Contains(process, "never advances automatically") {
+		t.Fatalf("implementing-directive selection does not enforce one directive: %s", process)
 	}
 }
 
