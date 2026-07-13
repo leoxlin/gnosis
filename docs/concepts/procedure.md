@@ -2,6 +2,7 @@
 type: ConceptType
 title: Procedure
 description: A discoverable, invocable workflow for vault or repository work.
+path: procedures
 ---
 
 # Procedure

@@ -2,6 +2,7 @@
 type: ConceptType
 title: Directive
 description: An explicitly requested durable implementation handoff.
+path: directives
 ---
 
 # Directive

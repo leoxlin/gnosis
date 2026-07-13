@@ -2,6 +2,7 @@
 type: ConceptType
 title: Decision
 description: A durable, non-obvious choice that constrains future work.
+path: decisions
 ---
 
 # Decision
