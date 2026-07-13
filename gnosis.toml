@@ -8,7 +8,7 @@ vault_log = false
 
 [gnosis]
 processes = [
+  "gnosis",
   "development",
-  "gnosis-vault",
-  "gnosis-debugging",
+  "vault",
 ]

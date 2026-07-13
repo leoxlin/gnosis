@@ -2,7 +2,7 @@
 type: Procedure
 title: create-concept-type
 description: Use when a vault needs a new or refined ontological category.
-tags: [gnosis-vault]
+tags: [gnosis, vault]
 invocation: model
 ---
 

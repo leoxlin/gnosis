@@ -2,7 +2,7 @@
 type: Procedure
 title: planning-directives
 description: Use when requested planning must turn a prompt, issue, or bug report into validated execution handoffs.
-tags: [gnosis, development]
+tags: [gnosis, development, planning]
 invocation: model
 ---
 

@@ -2,7 +2,7 @@
 type: Procedure
 title: debugging-methodically
 description: Use for diagnosing or fixing any bug, failing test, build failure, performance problem, or unexpected technical behavior.
-tags: [gnosis-debugging]
+tags: [gnosis, development, debugging]
 invocation: model
 ---
 

@@ -2,7 +2,7 @@
 type: Procedure
 title: maintain-vault
 description: Use when auditing or repairing the integrity of a vault.
-tags: [gnosis-vault]
+tags: [gnosis, vault]
 invocation: model
 ---
 
