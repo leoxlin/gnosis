@@ -47,7 +47,7 @@ relationships:
 
 `manage-decisions` handles the Decision lifecycle while preserving settled intent and history.
 
-## Knowledge inputs
+## Inputs
 
 - The requested operation, resolved vault, repository instructions, and vault configuration.
 - The effective Decision Concept Type definition.
@@ -89,7 +89,7 @@ relationships:
 
 `manage-purpose` handles the singleton Purpose lifecycle through shared, author-confirmed understanding.
 
-## Knowledge inputs
+## Inputs
 
 - The requested operation, resolved vault, repository instructions, and vault configuration.
 - The effective Purpose Concept Type definition and current Purpose record, when one exists.

@@ -69,7 +69,7 @@ description: Plan a delivery in ordered steps.
 
 ## STEP 1 - refining-requirements
 
-### Knowledge inputs
+### Inputs
 
 - The request.
 
@@ -83,7 +83,7 @@ The requirements are exact.
 
 ## STEP 2 - creating-directives
 
-### Knowledge inputs
+### Inputs
 
 - The exact requirements.
 
@@ -156,7 +156,7 @@ tags: [test-planning]
 
 # planning
 
-## Knowledge inputs
+## Inputs
 
 - Requirements.
 
@@ -273,7 +273,7 @@ description: Start with shared knowledge.
 
 # start
 
-## Knowledge inputs
+## Inputs
 
 - [Shared](../shared/end.md)
 
@@ -406,7 +406,7 @@ invocation: surprise
 		t.Fatal(err)
 	}
 	joined := strings.Join(result.Errors, "\n")
-	for _, want := range []string{"missing required section \"Knowledge inputs\"", "missing required section \"Completion\"", "invocation"} {
+	for _, want := range []string{"missing required section \"Inputs\"", "missing required section \"Completion\"", "invocation"} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("errors = %v, want %q", result.Errors, want)
 		}
@@ -428,7 +428,7 @@ title: vague-process
 
 # vague-process
 
-## Knowledge inputs
+## Inputs
 
 - Current facts.
 
@@ -471,7 +471,7 @@ description: An invalid multi-step process.
 
 ## STEP 1 - first
 
-### Knowledge inputs
+### Inputs
 
 - Facts.
 
@@ -485,7 +485,7 @@ The first step is complete.
 
 ## STEP 3 - second
 
-### Knowledge inputs
+### Inputs
 
 - More facts.
 
@@ -562,7 +562,7 @@ invocation: model
 
 # query-vault
 
-## Knowledge inputs
+## Inputs
 
 - [Provenance](../concepts/provenance.md)
 

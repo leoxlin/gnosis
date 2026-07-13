@@ -10,7 +10,7 @@ invocation: model
 
 Debugging methodically finds and verifies root cause before planning or changing production behavior.
 
-## Knowledge inputs
+## Inputs
 
 - Any governing directive and relevant active decisions.
 - Complete error output, reproduction steps, current implementation, and tests.

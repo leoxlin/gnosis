@@ -10,7 +10,7 @@ invocation: model
 
 `query-vault` answers from the smallest relevant set of recorded knowledge, preserving provenance, uncertainty, conflicts, and gaps.
 
-## Knowledge inputs
+## Inputs
 
 - Vault configuration and agent rules.
 - Knowledge-query results, candidate identity and provenance, and only the concept pages they identify as necessary.

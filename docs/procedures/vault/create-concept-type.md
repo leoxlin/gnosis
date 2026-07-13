@@ -10,7 +10,7 @@ invocation: model
 
 `create-concept-type` establishes the smallest stable category that fits the author's examples. It resolves category boundaries before creating a reusable schema.
 
-## Knowledge inputs
+## Inputs
 
 - Vault configuration and agent rules.
 - Nearby Concept Type records and records that may belong to the proposed category.

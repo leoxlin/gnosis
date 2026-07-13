@@ -10,7 +10,7 @@ invocation: model
 
 `managing-intents` applies one provenance-aware lifecycle workflow while each Concept Type defines its own identity, history, and mutation rules.
 
-## Knowledge inputs
+## Inputs
 
 - The requested operation and record type, resolved vault, repository instructions, and vault configuration.
 - The effective Concept Type definition, including its lifecycle rules.

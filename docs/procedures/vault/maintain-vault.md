@@ -10,7 +10,7 @@ invocation: model
 
 `maintain-vault` repairs high-confidence structural and semantic problems while preserving uncertainty and author-owned meaning decisions.
 
-## Knowledge inputs
+## Inputs
 
 - Vault configuration, agent rules, and enabled navigation settings.
 - Structural validation results and the affected pages.

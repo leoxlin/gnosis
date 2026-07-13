@@ -409,7 +409,7 @@ func parseProcessSections(body string) (ProcessSections, []string, []string) {
 
 func parseProcessSectionsAtLevel(body string, level int) (ProcessSections, []string, []string) {
 	sections, duplicates := markdownSectionsAtLevel(body, level)
-	required := []string{"Knowledge inputs", "Process", "Completion"}
+	required := []string{"Inputs", "Process", "Completion"}
 	missing := []string{}
 	for _, name := range required {
 		if strings.TrimSpace(sections[name]) == "" {
@@ -417,7 +417,7 @@ func parseProcessSectionsAtLevel(body string, level int) (ProcessSections, []str
 		}
 	}
 	return ProcessSections{
-		KnowledgeInputs: sections["Knowledge inputs"],
+		KnowledgeInputs: sections["Inputs"],
 		Process:         sections["Process"],
 		Completion:      sections["Completion"],
 	}, missing, duplicates

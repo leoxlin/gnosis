@@ -10,7 +10,7 @@ invocation: model
 
 ## STEP 1 - selecting-directive
 
-### Knowledge inputs
+### Inputs
 
 - One exact open directive URI/revision, its linked decisions, and any ordered bindings returned by planning.
 - Current prerequisite statuses and supplied contracts, repository instructions, implementation, tests, workspace state, and merge base.
@@ -30,7 +30,7 @@ Exactly one current `open` directive is active, its prerequisites and contracts 
 
 ## STEP 2 - preparing-workspace
 
-### Knowledge inputs
+### Inputs
 
 - The selected directive, relevant decisions, repository instructions, and any declared worktree preference.
 - Current git directory, common directory, branch, submodule, worktree ownership, dependency setup, and baseline verification commands.
@@ -50,7 +50,7 @@ The selected directive has one author-approved workspace with known ownership an
 
 ## STEP 3 - implementing-tasks
 
-### Knowledge inputs
+### Inputs
 
 - The selected directive's ordered tasks, acceptance criteria, linked decisions, required process URIs, and supported-platform constraints.
 - Existing interfaces, implementation boundaries, tests, focused and surrounding verification commands, and current task evidence.
@@ -76,7 +76,7 @@ Every task in the selected directive is implemented in order with required proce
 
 ## STEP 4 - reviewing-implementation
 
-### Knowledge inputs
+### Inputs
 
 - The selected directive and decisions, merge base, current head and diff, task reports, reviewed commit ranges, and verification evidence.
 - Repository review instructions and the exact acceptance criteria, interfaces, safety constraints, and allowed paths.
@@ -94,7 +94,7 @@ The selected directive's complete implementation has current review evidence, ev
 
 ## STEP 5 - verifying-directive
 
-### Knowledge inputs
+### Inputs
 
 - The selected directive's goal, scope, tasks, acceptance criteria, linked decisions, and repository-defined quality gates.
 - The current implementation and diff, delegated artifacts, and exact commands or observations that can prove each prospective completion claim.
@@ -113,7 +113,7 @@ Every acceptance criterion and stated success for the selected directive is back
 
 ## STEP 6 - finishing-directive
 
-### Knowledge inputs
+### Inputs
 
 - The selected directive and fresh complete review and verification evidence.
 - Current branch, merge base, worktree ownership, remote, working-tree state, and repository-defined integration and release instructions.

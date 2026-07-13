@@ -10,7 +10,7 @@ invocation: model
 
 ## STEP 1 - refining-requirements
 
-### Knowledge inputs
+### Inputs
 
 - The author's request, repository rules, and current purpose.
 - Query-selected decisions, implementation, tests, issues, and authoritative sources.
@@ -28,7 +28,7 @@ Diagnosis is complete, or evidence-backed requirements are routed by exact proce
 
 ## STEP 2 - creating-directives
 
-### Knowledge inputs
+### Inputs
 
 - The exact requirements packet and its purpose/decision URI-revisions.
 - Requirement-linked or query-selected code, tests, docs, conventions, dependencies, and existing directive records.
@@ -51,7 +51,7 @@ Every planned delivery has one validated `open` directive; complex dependencies 
 
 ## STEP 3 - reviewing-directives
 
-### Knowledge inputs
+### Inputs
 
 - The exact draft and requirements revisions; repository root/HEAD/diff; purpose, decision, dependency, and sibling directive URI/revisions; repository rules and dependency metadata.
 - Purpose holds enduring outcomes and boundaries. Decisions hold durable non-obvious choices and use `supersedes` for semantic replacement. Directives remain `draft` until finalization.
@@ -71,7 +71,7 @@ The latest draft revision has separate purpose/decision and engineering verdicts
 
 ## STEP 4 - finalizing-directives
 
-### Knowledge inputs
+### Inputs
 
 - Exact draft URI/revisions or one unpersisted simple draft; frozen requirements; immutable review reports and dispositions; latest purpose/decision revisions.
 - Required directive contract: status, Goal, Scope, evidence-bearing Acceptance criteria, an Implementation plan for multi-step work, and linked revision-bound contracts for prerequisites.

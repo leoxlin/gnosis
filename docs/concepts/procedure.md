@@ -20,8 +20,8 @@ Do not use it for one-off knowledge, settled choices, implementation handoffs, o
 - A selection-focused `description`.
 - A `tags` frontmatter value identifying its process family. Discovery returns only records whose tags intersect `[gnosis].processes`.
 - One executable shape:
-  - **Single-step:** Unique, non-empty `## Knowledge inputs`, `## Process`, and `## Completion` sections.
-  - **Multi-step:** Two or more uniquely named `## STEP <number> - <name>` sections, numbered consecutively from 1, each with unique, non-empty `### Knowledge inputs`, `### Process`, and `### Completion` sections.
+  - **Single-step:** Unique, non-empty `## Inputs`, `## Process`, and `## Completion` sections.
+  - **Multi-step:** Two or more uniquely named `## STEP <number> - <name>` sections, numbered consecutively from 1, each with unique, non-empty `### Inputs`, `### Process`, and `### Completion` sections.
 - Self-contained instructions. Links and hard-coded knowledge URIs may target other `Procedure` records or gnosis concept records; copy required rules inline and name dynamic runtime inputs without linking them.
 - Optional `invocation` frontmatter. An `explicit` invocation is omitted from discovery and is invoked only by another active procedure.
 
@@ -40,7 +40,7 @@ invocation: <model | explicit>
 
 # <name>
 
-## Knowledge inputs
+## Inputs
 ## Process
 ## Completion
 ```
@@ -59,12 +59,12 @@ invocation: <model | explicit>
 # <name>
 
 ## STEP 1 - <step-name>
-### Knowledge inputs
+### Inputs
 ### Process
 ### Completion
 
 ## STEP 2 - <step-name>
-### Knowledge inputs
+### Inputs
 ### Process
 ### Completion
 ```

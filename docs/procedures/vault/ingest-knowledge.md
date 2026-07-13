@@ -10,7 +10,7 @@ invocation: model
 
 `ingest-knowledge` compiles supplied evidence into the smallest useful set of durable, connected, and traceable concept records, including the single-concept case.
 
-## Knowledge inputs
+## Inputs
 
 - Vault configuration, agent rules, and enabled navigation settings.
 - Relevant Concept Type definitions and nearby concept pages.

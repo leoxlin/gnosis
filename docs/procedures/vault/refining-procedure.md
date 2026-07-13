@@ -12,7 +12,7 @@ invocation: model
 
 ## STEP 1 - mapping-procedure
 
-### Knowledge inputs
+### Inputs
 
 - The author's request, an exact or resolvable target Procedure identity, and any resumable refinement checkpoint.
 - The effective Procedure record, URI, revision, origin, owning vault, ConceptType definition, repository rules, configuration, and history.
@@ -42,7 +42,7 @@ One existing Procedure is bound to an exact URI, revision, and origin. Its relev
 
 ## STEP 2 - resolving-contract
 
-### Knowledge inputs
+### Inputs
 
 - The bound target and source revisions, provisional control-flow map, evidence ledger, and integration contracts.
 - Resolved, unresolved, and invalidated author decisions and any confirmed scope expansion.
@@ -72,7 +72,7 @@ Every material fact is established or rendered irrelevant by safe behavior; ever
 
 ## STEP 3 - writing-and-verifying
 
-### Knowledge inputs
+### Inputs
 
 - The exact approved record contents, semantic-change and integration-impact summaries, and validation plan.
 - Bound target, dependency, and source revisions; local origins and paths; and pre-change content snapshots.
