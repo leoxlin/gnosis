@@ -2,12 +2,13 @@
 type: ConceptType
 title: Procedure
 description: A discoverable, invocable workflow for vault or repository work.
-path: procedures
 ---
 
 # Procedure
 
 A **Procedure** is a repeatable workflow that an agent can discover and invoke from the effective vault.
+
+By convention, the Procedure records lives at `gnosis://<vault>/procedures/`.
 
 ## Use this for
 

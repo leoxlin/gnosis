@@ -2,12 +2,13 @@
 type: ConceptType
 title: Decision
 description: A durable, non-obvious choice that constrains future work.
-path: decisions
 ---
 
 # Decision
 
 A **Decision** preserves a settled choice whose rationale cannot be recovered reliably from the result.
+
+By convention, the Decision records lives at `gnosis://<vault>/decisions/`.
 
 ## Use this for
 

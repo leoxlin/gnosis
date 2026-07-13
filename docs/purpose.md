@@ -1,10 +1,10 @@
 ---
 type: Purpose
-title: "`gnosis`"
-description: "`gnosis` makes human and agent knowledge durable, portable, and progressively useful."
+title: gnosis
+description: "gnosis makes human and agent knowledge durable, portable, and progressively useful."
 ---
 
-# `gnosis`
+# gnosis
 
 ## Purpose
 

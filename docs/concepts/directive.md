@@ -2,7 +2,6 @@
 type: ConceptType
 title: Directive
 description: An explicitly requested durable implementation handoff.
-path: directives
 ---
 
 # Directive
@@ -10,6 +9,8 @@ path: directives
 A **Directive** is a bounded handoff for later automated or unattended execution.
 
 `draft` is planning-only; finalization alone changes it to executable `open`.
+
+By convention, the Directive records lives at `gnosis://<vault>/directives/`.
 
 ## Use this for
 
