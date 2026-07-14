@@ -1,0 +1,14 @@
+[vault]
+vault_name = "fixture"
+vault_root = "docs"
+link_format = "relative"
+link_format_strict = false
+vault_index = false
+vault_log = false
+
+[[vaults]]
+vault_name = "core"
+vault_root = ".gnosis-core"
+
+[gnosis]
+processes = ["gnosis", "development", "vault"]

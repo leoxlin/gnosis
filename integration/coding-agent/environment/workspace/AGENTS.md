@@ -1,0 +1,3 @@
+- Work in this checkout; do not create a worktree.
+- Use Python and its standard library only.
+- Keep the current branch when the directive is complete; delivery is outside scope.

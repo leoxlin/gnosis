@@ -63,6 +63,11 @@ done
 description = "Run all Go tests"
 run = "go test ./..."
 
+[tasks.integration]
+description = "Run the Harbor coding-agent integration"
+depends = ["build"]
+run = "./integration/coding-agent.sh"
+
 [tasks.checks]
 description = "Run formatting, vet, tests, build, and documentation validation"
 run = '''
