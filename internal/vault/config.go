@@ -270,6 +270,29 @@ func WriteWorkspaceConfig(root string, imports []string, force bool) (bool, erro
 	return WriteGeneratedFile(filepath.Join(root, "gnosis.toml"), []byte(contents.String()), force)
 }
 
+// WriteGitHubWikiConfig configures a GitHub Wiki as the primary vault.
+func WriteGitHubWikiConfig(root, name, repository string, force bool) (bool, error) {
+	if !isCanonicalVaultName(name) {
+		return false, fmt.Errorf("vault name %q must be a canonical gnosis URI authority", name)
+	}
+	if err := validateGitHubRepository(repository); err != nil {
+		return false, fmt.Errorf("GitHub Wiki repository: %w", err)
+	}
+	contents := fmt.Sprintf(`[vault]
+vault_name = %s
+backend = %q
+repository = %s
+link_format = "relative"
+link_format_strict = false
+vault_index = true
+vault_log = true
+
+[gnosis]
+processes = ["vault"]
+`, strconv.Quote(name), githubWikiBackend, strconv.Quote(repository))
+	return WriteGeneratedFile(filepath.Join(root, "gnosis.toml"), []byte(contents), force)
+}
+
 func writeVaultConfig(root, name string, disableIndex, disableLog, force bool) (bool, error) {
 	configPath := filepath.Join(root, "gnosis.toml")
 	if !force {
