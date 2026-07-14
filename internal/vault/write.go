@@ -84,6 +84,9 @@ func WriteDocument(root, uri string, content []byte, update bool) (string, error
 	if err := atomicWriteFile(destination, content, 0o644); err != nil {
 		return "", err
 	}
+	if err := vault.publish("gnosis: update vault"); err != nil {
+		return "", fmt.Errorf("write: publish backend: %w", err)
+	}
 	return destination, nil
 }
 

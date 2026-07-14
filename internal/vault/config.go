@@ -36,6 +36,8 @@ type GnosisConfig struct {
 type VaultConfig struct {
 	Name             string `toml:"vault_name"`
 	Root             string `toml:"vault_root"`
+	Backend          string `toml:"backend"`
+	Repository       string `toml:"repository"`
 	LinkFormat       string `toml:"link_format"`
 	LinkFormatStrict bool   `toml:"link_format_strict"`
 	VaultIndex       bool   `toml:"vault_index"`
@@ -99,7 +101,7 @@ func processFamily(tag string) string {
 }
 
 func (c Config) HasLocalVault() bool {
-	return strings.TrimSpace(c.Vault.Name) != "" || strings.TrimSpace(c.Vault.Root) != ""
+	return strings.TrimSpace(c.Vault.Name) != "" || strings.TrimSpace(c.Vault.Root) != "" || strings.TrimSpace(c.Vault.Backend) != "" || strings.TrimSpace(c.Vault.Repository) != ""
 }
 
 func findConfigPath(root string) (string, error) {
@@ -162,11 +164,26 @@ func validateConfig(config Config, root string) error {
 		if !isCanonicalVaultName(config.Vault.Name) {
 			return fmt.Errorf("vault.vault_name %q must be a canonical gnosis URI authority", config.Vault.Name)
 		}
-		if strings.TrimSpace(config.Vault.Root) == "" {
-			return fmt.Errorf("vault.vault_root must not be empty")
-		}
-		if _, err := resolveVaultRoot(config, root); err != nil {
-			return err
+		switch config.Vault.Backend {
+		case "":
+			if strings.TrimSpace(config.Vault.Repository) != "" {
+				return fmt.Errorf("vault.repository requires a backend")
+			}
+			if strings.TrimSpace(config.Vault.Root) == "" {
+				return fmt.Errorf("vault.vault_root must not be empty")
+			}
+			if _, err := resolveVaultRoot(config, root); err != nil {
+				return err
+			}
+		case githubWikiBackend:
+			if strings.TrimSpace(config.Vault.Root) != "" {
+				return fmt.Errorf("vault.vault_root must be empty for backend %q", githubWikiBackend)
+			}
+			if err := validateGitHubRepository(config.Vault.Repository); err != nil {
+				return fmt.Errorf("vault.repository: %w", err)
+			}
+		default:
+			return fmt.Errorf("vault.backend %q is not supported", config.Vault.Backend)
 		}
 		switch config.Vault.LinkFormat {
 		case string(LinkFormatRelative), string(LinkFormatAbsolute):

@@ -21,6 +21,7 @@ type effectiveVault struct {
 	root    string
 	config  Config
 	sources []vaultSource
+	backend *gitBackend
 }
 
 func loadEffectiveVault(root string) (*effectiveVault, error) {
@@ -103,9 +104,23 @@ func (c *vaultComposer) compose(root string, config Config) error {
 	}()
 
 	if config.HasLocalVault() {
-		vaultRoot, err := resolveVaultRoot(config, root)
-		if err != nil {
-			return fmt.Errorf("validate %s: %w", filepath.Join(root, "gnosis.toml"), err)
+		var vaultRoot string
+		if config.Vault.Backend == githubWikiBackend {
+			if root != c.vault.root {
+				return fmt.Errorf("GitHub Wiki backends are supported only for the primary vault")
+			}
+			backend, err := prepareGitHubWikiBackend(config.Vault.Repository)
+			if err != nil {
+				return err
+			}
+			c.vault.backend = backend
+			vaultRoot = backend.root
+		} else {
+			var err error
+			vaultRoot, err = resolveVaultRoot(config, root)
+			if err != nil {
+				return fmt.Errorf("validate %s: %w", filepath.Join(root, "gnosis.toml"), err)
+			}
 		}
 		c.vault.sources = append(c.vault.sources, vaultSource{path: vaultRoot, vaultRoot: root, config: config})
 	}
@@ -136,6 +151,13 @@ func (c *vaultComposer) compose(root string, config Config) error {
 	}
 	c.resolved[identity] = struct{}{}
 	return nil
+}
+
+func (v *effectiveVault) publish(message string) error {
+	if v.backend == nil {
+		return nil
+	}
+	return v.backend.publish(message)
 }
 
 func (v *effectiveVault) localRoot() (string, bool) {

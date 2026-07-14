@@ -34,7 +34,15 @@ func GenerateWorkspaceIndexes(root string, options IndexOptions) ([]string, bool
 		return nil, true, nil
 	}
 	written, err := GenerateIndexes(localRoot, options)
-	return written, true, err
+	if err != nil {
+		return written, true, err
+	}
+	if len(written) > 0 {
+		if err := vault.publish("gnosis: update indexes"); err != nil {
+			return written, true, fmt.Errorf("publish backend: %w", err)
+		}
+	}
+	return written, true, nil
 }
 
 // GenerateIndexes creates index.md files for every directory in the vault.
