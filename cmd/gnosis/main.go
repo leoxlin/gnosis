@@ -61,6 +61,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		newWriteCommand(os.Stdin, stdout),
 		newValidateCommand(stdout, stderr),
 		newSearchCommand(stdout),
+		newServeCommand(),
 		newProcedureCommand(stdout),
 		newGraphCommand(stdout),
 	)
