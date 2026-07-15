@@ -21,7 +21,7 @@ invocation: model
 1. Resolve the vault, read its agent rules and configuration, then run `gnosis validate --vault <root>` for the structural baseline.
 2. Audit frontmatter, links, orphan pages, near-duplicate identities, stale summaries, and conflicting claims. Audit indexes or logs only when their matching options are enabled.
 3. Apply high-confidence repairs in place. Preserve unknown metadata and source-backed disagreements; report identity or meaning conflicts that require author judgment.
-4. Run `gnosis index --vault <root>` when `vault_index` is enabled and record material repairs only when `vault_log` is enabled.
+4. Run `gnosis index vault --vault <root>` when `vault_index` is enabled and record material repairs only when `vault_log` is enabled.
 5. Re-run `gnosis validate --vault <root>` and summarize remaining semantic findings.
 
 ## Completion
