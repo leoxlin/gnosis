@@ -5,17 +5,161 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"gnosis/internal/vault"
 )
+
+func TestHTTPAPIAndUI(t *testing.T) {
+	workspace := httpTestVault(t)
+	server := httptest.NewServer(newHTTPHandler(workspace))
+	t.Cleanup(server.Close)
+
+	response, err := http.Get(server.URL + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := response.Body.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK || !strings.Contains(string(body), "gnosis atlas") {
+		t.Fatalf("GET / = %d %q", response.StatusCode, body)
+	}
+
+	var graph vault.KnowledgeGraph
+	if status := getHTTPJSON(t, server.URL+"/api/v1/graph", &graph); status != http.StatusOK {
+		t.Fatalf("GET graph status = %d", status)
+	}
+	if len(graph.Nodes) < 2 || !hasGraphEdge(graph.Edges, "gnosis://test/decision.md", "gnosis://test/procedure.md") {
+		t.Fatalf("graph = %+v", graph)
+	}
+	var catalog vault.VaultCatalog
+	if status := getHTTPJSON(t, server.URL+"/api/v1/vaults", &catalog); status != http.StatusOK {
+		t.Fatalf("GET vaults status = %d", status)
+	}
+	if len(catalog.Vaults) == 0 || catalog.Vaults[0].Vault != "test" {
+		t.Fatalf("vaults = %+v", catalog)
+	}
+	var pages struct {
+		Pages []vault.DocumentRef `json:"pages"`
+	}
+	if status := getHTTPJSON(t, server.URL+"/api/v1/pages", &pages); status != http.StatusOK {
+		t.Fatalf("GET pages status = %d", status)
+	}
+	if len(pages.Pages) < 2 {
+		t.Fatalf("pages = %+v", pages)
+	}
+
+	var page vault.Page
+	pageURL := server.URL + "/api/v1/page?uri=" + url.QueryEscape("gnosis://test/decision.md")
+	if status := getHTTPJSON(t, pageURL, &page); status != http.StatusOK {
+		t.Fatalf("GET page status = %d", status)
+	}
+	if page.Document.URI != "gnosis://test/decision.md" || !strings.Contains(page.Markdown, "gnosis://test/procedure.md") {
+		t.Fatalf("page = %+v", page)
+	}
+
+	var concepts conceptsOutput
+	if status := getHTTPJSON(t, server.URL+"/api/v1/concepts?type=Decision", &concepts); status != http.StatusOK {
+		t.Fatalf("GET concepts status = %d", status)
+	}
+	if concepts.Type != "Decision" || len(concepts.Concepts) != 1 {
+		t.Fatalf("concepts = %+v", concepts)
+	}
+
+	var search vault.QueryResult
+	searchURL := server.URL + "/api/v1/search?backend=lexical&question=small+adequate+design&top=1"
+	if status := getHTTPJSON(t, searchURL, &search); status != http.StatusOK {
+		t.Fatalf("GET search status = %d", status)
+	}
+	if len(search.Candidates) != 1 || search.Candidates[0].URI != "gnosis://test/decision.md" {
+		t.Fatalf("search = %+v", search)
+	}
+
+	var failure map[string]string
+	if status := getHTTPJSON(t, server.URL+"/api/v1/page?uri=invalid", &failure); status != http.StatusBadRequest {
+		t.Fatalf("invalid page status = %d", status)
+	}
+	if failure["error"] == "" {
+		t.Fatalf("invalid page response = %+v", failure)
+	}
+}
+
+func TestHTTPMCP(t *testing.T) {
+	server := httptest.NewServer(newHTTPHandler(httpTestVault(t)))
+	t.Cleanup(server.Close)
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "gnosis-http-test", Version: "0.0.0"}, nil)
+	session, err := client.Connect(context.Background(), &mcp.StreamableClientTransport{
+		Endpoint: server.URL + "/mcp",
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := session.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+
+	listed, err := session.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed.Tools) != 4 {
+		t.Fatalf("tools = %d, want 4", len(listed.Tools))
+	}
+	result := callMCPTool(t, session, "get_page", map[string]any{
+		"uri": "gnosis://test/decision.md",
+	})
+	var page vault.Page
+	decodeMCPResult(t, result, &page)
+	if page.Document.URI != "gnosis://test/decision.md" {
+		t.Fatalf("page = %+v", page)
+	}
+}
+
+func TestHTTPServerStopsOnCancellation(t *testing.T) {
+	workspace := httpTestVault(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	exited := make(chan error, 1)
+	ready := make(chan struct{})
+	output := &readyWriter{ready: ready}
+	go func() {
+		exited <- serveHTTP(ctx, "127.0.0.1:0", workspace, output)
+	}()
+
+	select {
+	case <-ready:
+	case <-time.After(2 * time.Second):
+		t.Fatal("HTTP server did not start")
+	}
+	cancel()
+	select {
+	case err := <-exited:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("HTTP server did not stop after cancellation")
+	}
+}
 
 func TestMCPTools(t *testing.T) {
 	workspace := mcpTestVault(t)
@@ -293,4 +437,63 @@ description: Prefer the smallest adequate design.
 Use the simplest design that satisfies the current requirement.
 `)
 	return workspace
+}
+
+func httpTestVault(t *testing.T) string {
+	t.Helper()
+	workspace := commandVault(t)
+	writeCommandFile(t, workspace, "decision.md", `---
+type: Decision
+title: Keep it small
+description: Prefer the smallest adequate design.
+---
+
+Follow the [implementation procedure](procedure.md).
+`)
+	writeCommandFile(t, workspace, "procedure.md", `---
+type: Procedure
+title: Implement the decision
+description: Apply the selected design.
+---
+
+Build only what the decision requires.
+`)
+	return workspace
+}
+
+func getHTTPJSON(t *testing.T, endpoint string, target any) int {
+	t.Helper()
+	response, err := http.Get(endpoint)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.NewDecoder(response.Body).Decode(target); err != nil {
+		if closeErr := response.Body.Close(); closeErr != nil {
+			t.Error(closeErr)
+		}
+		t.Fatal(err)
+	}
+	if err := response.Body.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return response.StatusCode
+}
+
+func hasGraphEdge(edges []vault.GraphEdge, from, to string) bool {
+	for _, edge := range edges {
+		if edge.From.URI == from && edge.To.URI == to {
+			return true
+		}
+	}
+	return false
+}
+
+type readyWriter struct {
+	once  sync.Once
+	ready chan struct{}
+}
+
+func (w *readyWriter) Write(data []byte) (int, error) {
+	w.once.Do(func() { close(w.ready) })
+	return len(data), nil
 }

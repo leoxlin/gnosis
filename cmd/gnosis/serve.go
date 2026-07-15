@@ -133,7 +133,7 @@ func newServeCommand() *cobra.Command {
 		Short: "Serve gnosis over a protocol transport",
 		Args:  cobra.NoArgs,
 	}
-	command.AddCommand(newServeMCPCommand())
+	command.AddCommand(newServeHTTPCommand(), newServeMCPCommand())
 	return command
 }
 

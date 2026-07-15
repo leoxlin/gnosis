@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>gnosis atlas</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f4f1e8;
+      --muted: #9ea6a0;
+      --line: #29332f;
+      --panel: #121917;
+      --panel-2: #17201d;
+      --accent: #e8b86d;
+      --green: #8bc5a4;
+      --radius: 14px;
+      font: 15px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: #0b100f; color: var(--ink); }
+    button, input, select { font: inherit; }
+    button { color: inherit; }
+    .shell { display: grid; grid-template-columns: 310px minmax(0, 1fr); min-height: 100vh; }
+    aside { border-right: 1px solid var(--line); background: var(--panel); padding: 22px; display: flex; flex-direction: column; gap: 18px; }
+    .brand { display: flex; align-items: center; justify-content: space-between; }
+    .brand h1 { font: 700 21px/1.1 ui-serif, Georgia, serif; letter-spacing: .02em; margin: 0; }
+    .mark { width: 32px; height: 32px; border: 1px solid var(--accent); border-radius: 50%; display: grid; place-items: center; color: var(--accent); }
+    .stats { color: var(--muted); font-size: 12px; }
+    .controls { display: grid; gap: 9px; }
+    input, select { width: 100%; border: 1px solid var(--line); border-radius: 9px; background: #0c1210; color: var(--ink); padding: 10px 11px; outline: none; }
+    input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px #e8b86d22; }
+    #documents { list-style: none; padding: 0; margin: 0 -8px; overflow: auto; flex: 1; }
+    #documents button { width: 100%; text-align: left; border: 0; border-radius: 9px; background: transparent; padding: 9px 10px; cursor: pointer; }
+    #documents button:hover, #documents button[aria-current="true"] { background: var(--panel-2); }
+    .doc-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .doc-type { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+    main { min-width: 0; padding: 22px; display: grid; grid-template-rows: auto minmax(360px, 55vh) auto; gap: 16px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .topbar h2 { margin: 0; font: 600 13px/1 ui-monospace, monospace; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; }
+    .endpoints { display: flex; gap: 8px; flex-wrap: wrap; justify-content: end; }
+    .pill { border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; font-size: 11px; color: var(--muted); }
+    .graph { position: relative; min-height: 360px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: radial-gradient(circle at 50% 45%, #17211d, #0c1210 68%); }
+    canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+    .hint { position: absolute; left: 14px; bottom: 12px; color: var(--muted); font-size: 11px; pointer-events: none; }
+    article { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); overflow: hidden; }
+    .detail-head { padding: 18px 20px; border-bottom: 1px solid var(--line); }
+    .detail-head h3 { font: 650 23px/1.2 ui-serif, Georgia, serif; margin: 0 0 7px; }
+    .detail-head p { color: var(--muted); margin: 0; max-width: 80ch; }
+    .metadata { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 13px; color: var(--muted); font-size: 11px; }
+    .metadata strong { color: var(--green); font-weight: 500; }
+    pre { margin: 0; padding: 20px; white-space: pre-wrap; overflow-wrap: anywhere; color: #d8d9d2; background: #0c1210; max-height: 55vh; overflow: auto; tab-size: 2; }
+    .empty { display: grid; min-height: 190px; place-items: center; padding: 30px; text-align: center; color: var(--muted); }
+    .error { color: #f0a198; }
+    @media (max-width: 800px) {
+      .shell { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); max-height: 44vh; }
+      main { grid-template-rows: auto 55vh auto; padding: 14px; }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .endpoints { justify-content: start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <div class="brand">
+        <h1>gnosis atlas</h1>
+        <div class="mark" aria-hidden="true">◎</div>
+      </div>
+      <div class="stats" id="stats">loading vault…</div>
+      <div class="controls">
+        <label><span hidden>Filter documents</span><input id="filter" type="search" placeholder="Filter documents…" autocomplete="off"></label>
+        <label><span hidden>Concept type</span><select id="type"><option value="">All concept types</option></select></label>
+      </div>
+      <ul id="documents" aria-label="Documents"></ul>
+    </aside>
+    <main>
+      <header class="topbar">
+        <h2>Effective knowledge graph</h2>
+        <div class="endpoints">
+          <span class="pill">REST /api/v1</span>
+          <span class="pill">MCP /mcp</span>
+        </div>
+      </header>
+      <section class="graph" aria-label="Document relationship graph">
+        <canvas id="graph" role="img" aria-label="Connected gnosis documents"></canvas>
+        <div class="hint">select a node or document</div>
+      </section>
+      <article id="detail">
+        <div class="empty">Select a document to inspect its source, identity, and provenance.</div>
+      </article>
+    </main>
+  </div>
+  <script>
+    const state = { nodes: [], edges: [], selected: null, query: "", type: "", frames: 0 };
+    const canvas = document.querySelector("#graph");
+    const context = canvas.getContext("2d");
+    const list = document.querySelector("#documents");
+    const detail = document.querySelector("#detail");
+    const filter = document.querySelector("#filter");
+    const type = document.querySelector("#type");
+
+    const color = value => {
+      let hash = 0;
+      for (const character of value) hash = (hash * 31 + character.charCodeAt(0)) | 0;
+      return `hsl(${Math.abs(hash) % 360} 48% 64%)`;
+    };
+
+    const matches = node => {
+      const query = state.query.toLowerCase();
+      const text = `${node.title} ${node.type} ${node.description || ""}`.toLowerCase();
+      return (!state.type || node.type === state.type) && (!query || text.includes(query));
+    };
+
+    function resize() {
+      const box = canvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(box.width * ratio));
+      canvas.height = Math.max(1, Math.floor(box.height * ratio));
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      draw();
+    }
+
+    function settle() {
+      const nodes = state.nodes;
+      if (!nodes.length || state.frames > 180) return draw();
+      // ponytail: pairwise repulsion favors zero dependencies; use a spatial index for thousand-node vaults.
+      for (let i = 0; i < nodes.length; i++) {
+        nodes[i].dx = 0;
+        nodes[i].dy = 0;
+        for (let j = i + 1; j < nodes.length; j++) {
+          const x = nodes[j].x - nodes[i].x;
+          const y = nodes[j].y - nodes[i].y;
+          const distance = Math.max(.002, x * x + y * y);
+          const force = Math.min(.00012 / distance, .012);
+          nodes[i].dx -= x * force;
+          nodes[i].dy -= y * force;
+          nodes[j].dx += x * force;
+          nodes[j].dy += y * force;
+        }
+      }
+      for (const edge of state.edges) {
+        const from = edge.fromNode;
+        const to = edge.toNode;
+        if (!from || !to) continue;
+        const x = to.x - from.x;
+        const y = to.y - from.y;
+        const force = Math.max(0, Math.hypot(x, y) - .16) * .018;
+        from.dx += x * force;
+        from.dy += y * force;
+        to.dx -= x * force;
+        to.dy -= y * force;
+      }
+      for (const node of nodes) {
+        node.dx += (.5 - node.x) * .00035;
+        node.dy += (.5 - node.y) * .00035;
+        node.x = Math.min(.94, Math.max(.06, node.x + node.dx));
+        node.y = Math.min(.91, Math.max(.09, node.y + node.dy));
+      }
+      state.frames++;
+      draw();
+      requestAnimationFrame(settle);
+    }
+
+    function draw() {
+      const box = canvas.getBoundingClientRect();
+      context.clearRect(0, 0, box.width, box.height);
+      const visible = new Set(state.nodes.filter(matches).map(node => node.uri));
+      for (const edge of state.edges) {
+        if (!edge.fromNode || !edge.toNode) continue;
+        const active = !state.query && !state.type || visible.has(edge.from.uri) && visible.has(edge.to.uri);
+        context.strokeStyle = active ? "#4b5d56aa" : "#29332f55";
+        context.lineWidth = active ? 1 : .6;
+        context.beginPath();
+        context.moveTo(edge.fromNode.x * box.width, edge.fromNode.y * box.height);
+        context.lineTo(edge.toNode.x * box.width, edge.toNode.y * box.height);
+        context.stroke();
+      }
+      for (const node of state.nodes) {
+        const isSelected = state.selected === node.uri;
+        const active = matches(node);
+        const x = node.x * box.width;
+        const y = node.y * box.height;
+        context.globalAlpha = active ? 1 : .18;
+        context.fillStyle = color(node.type);
+        context.beginPath();
+        context.arc(x, y, isSelected ? 8 : 5, 0, Math.PI * 2);
+        context.fill();
+        if (isSelected) {
+          context.strokeStyle = "#f4f1e8";
+          context.lineWidth = 2;
+          context.stroke();
+        }
+        if (isSelected || state.nodes.length < 55 && active) {
+          context.fillStyle = "#d8d9d2";
+          context.font = "11px ui-monospace, monospace";
+          context.fillText(node.title, x + 9, y + 4);
+        }
+      }
+      context.globalAlpha = 1;
+    }
+
+    function renderList() {
+      list.replaceChildren();
+      const visible = state.nodes.filter(matches);
+      for (const node of visible) {
+        const item = document.createElement("li");
+        const button = document.createElement("button");
+        button.dataset.uri = node.uri;
+        button.setAttribute("aria-current", String(state.selected === node.uri));
+        const title = document.createElement("span");
+        title.className = "doc-title";
+        title.textContent = node.title;
+        const kind = document.createElement("span");
+        kind.className = "doc-type";
+        kind.textContent = node.type;
+        button.append(title, kind);
+        button.addEventListener("click", () => select(node));
+        item.append(button);
+        list.append(item);
+      }
+      document.querySelector("#stats").textContent = `${visible.length} of ${state.nodes.length} documents · ${state.edges.length} links`;
+      draw();
+    }
+
+    async function select(node) {
+      state.selected = node.uri;
+      renderList();
+      detail.innerHTML = '<div class="empty">Loading document…</div>';
+      try {
+        const response = await fetch(`/api/v1/page?uri=${encodeURIComponent(node.uri)}`);
+        const page = await response.json();
+        if (!response.ok) throw new Error(page.error || `HTTP ${response.status}`);
+
+        detail.replaceChildren();
+        const head = document.createElement("div");
+        head.className = "detail-head";
+        const heading = document.createElement("h3");
+        heading.textContent = page.document.title;
+        const description = document.createElement("p");
+        description.textContent = page.document.description || "No description.";
+        const metadata = document.createElement("div");
+        metadata.className = "metadata";
+        for (const [label, value] of [
+          ["type", page.document.type], ["vault", page.document.origin.vault],
+          ["origin", page.document.origin.kind], ["uri", page.document.uri],
+          ["revision", page.document.revision.slice(0, 19)]
+        ]) {
+          const field = document.createElement("span");
+          const key = document.createElement("strong");
+          key.textContent = `${label}: `;
+          field.append(key, document.createTextNode(value));
+          metadata.append(field);
+        }
+        head.append(heading, description, metadata);
+        const source = document.createElement("pre");
+        source.textContent = page.markdown;
+        detail.append(head, source);
+      } catch (error) {
+        detail.innerHTML = `<div class="empty error"></div>`;
+        detail.firstElementChild.textContent = error.message;
+      }
+    }
+
+    async function load() {
+      try {
+        const response = await fetch("/api/v1/graph");
+        const graph = await response.json();
+        if (!response.ok) throw new Error(graph.error || `HTTP ${response.status}`);
+        const count = Math.max(1, graph.nodes.length);
+        state.nodes = graph.nodes.map((node, index) => {
+          const angle = index * 2.399963229728653;
+          const radius = .08 + .34 * Math.sqrt((index + 1) / count);
+          return { ...node, x: .5 + Math.cos(angle) * radius, y: .5 + Math.sin(angle) * radius };
+        });
+        const byURI = new Map(state.nodes.map(node => [node.uri, node]));
+        state.edges = graph.edges.map(edge => ({ ...edge, fromNode: byURI.get(edge.from.uri), toNode: byURI.get(edge.to.uri) }));
+        for (const name of [...new Set(state.nodes.map(node => node.type))].sort()) {
+          const option = document.createElement("option");
+          option.value = option.textContent = name;
+          type.append(option);
+        }
+        renderList();
+        settle();
+      } catch (error) {
+        document.querySelector("#stats").textContent = "unable to load vault";
+        detail.innerHTML = '<div class="empty error"></div>';
+        detail.firstElementChild.textContent = error.message;
+      }
+    }
+
+    filter.addEventListener("input", () => { state.query = filter.value.trim(); renderList(); });
+    type.addEventListener("change", () => { state.type = type.value; renderList(); });
+    canvas.addEventListener("click", event => {
+      const box = canvas.getBoundingClientRect();
+      let closest = null;
+      let distance = 15;
+      for (const node of state.nodes) {
+        const current = Math.hypot(node.x * box.width - (event.clientX - box.left), node.y * box.height - (event.clientY - box.top));
+        if (current < distance) { closest = node; distance = current; }
+      }
+      if (closest) select(closest);
+    });
+    window.addEventListener("resize", resize);
+    resize();
+    load();
+  </script>
+</body>
+</html>

@@ -69,6 +69,12 @@ type GraphEdge struct {
 	Source   string      `json:"source,omitempty"`
 }
 
+// KnowledgeGraph is the complete resolved document graph for visualization.
+type KnowledgeGraph struct {
+	Nodes []DocumentRef `json:"nodes"`
+	Edges []GraphEdge   `json:"edges"`
+}
+
 // Direction controls graph traversal without discarding edge direction.
 type Direction string
 
@@ -139,6 +145,24 @@ func ListPages(root string) ([]DocumentRef, error) {
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].URI < result[j].URI })
 	return result, nil
+}
+
+// ReadGraph returns every effective page and resolved edge in deterministic order.
+func ReadGraph(root string) (KnowledgeGraph, error) {
+	graph, pages, err := loadAgentGraph(root)
+	if err != nil {
+		return KnowledgeGraph{}, err
+	}
+
+	nodes := make([]DocumentRef, 0, len(pages))
+	edges := []GraphEdge{}
+	for _, page := range pages {
+		nodes = append(nodes, page.document.Ref())
+		edges = append(edges, graph.outgoing[page.document.URI]...)
+	}
+	sort.Slice(nodes, func(i, j int) bool { return nodes[i].URI < nodes[j].URI })
+	sortGraphEdges(edges)
+	return KnowledgeGraph{Nodes: nodes, Edges: edges}, nil
 }
 
 // ReadPage reads one exact effective page by gnosis URI.
