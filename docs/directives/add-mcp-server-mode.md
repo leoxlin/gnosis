@@ -32,7 +32,7 @@ Add `gnosis serve mcp`, four read-only tools, cancellation, and SDK-level tests.
 # Dependencies
 
 - [Add pgvector semantic knowledge backend](gnosis://core/directives/add-pgvector-knowledge-backend.md) @ `sha256:ea8620578c83484e95f0d1fccf8a481ffdf5e665eda321a30ad14ec70d3a8530` — supplies the completed semantic retrieval contract.
-- [Reshape CLI around resource verbs](gnosis://core/directives/reshape-cli-around-resource-verbs.md) @ `sha256:983386c54ec791006a339d2962c45c8feffd01d8828f16a52cd7917cce97047e` — supplies the open final command tree, context propagation, and search defaults.
+- [Reshape CLI around resource verbs](gnosis://core/directives/reshape-cli-around-resource-verbs.md) @ `sha256:513da291e5fa349fd1dd837f9cefab4e598d62c554b3f1c01cd93c3d9946ccbe` — supplies the completed final command tree, context propagation, and search defaults.
 - [Use pgvector for semantic knowledge retrieval](gnosis://core/decisions/use-pgvector-semantic-retrieval.md) @ `sha256:70cff98b8205d5297c7e0900066cbe3bdaa9c3745ffdc7d532fd98721ea79cdc` — preserves read-only derived retrieval and exact-page separation.
 
 # Implementation plan
