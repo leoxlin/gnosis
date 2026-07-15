@@ -11,7 +11,7 @@ Provide two canonical, model-invocable processes for managing Decision and Purpo
 
 # Scope
 
-Create `docs/procedures/records/manage-decisions.md` and `docs/procedures/records/manage-purpose.md` with the existing `gnosis-vault` discovery tag. Absorb the author-confirmed refinement workflow from `refine-purpose` into `manage-purpose`, remove the old record, and update its incoming process link. Do not change runtime code, discovery configuration, unrelated process records, or `README.md`.
+Create `docs/procedures/records/manage-decisions.md` and `docs/procedures/records/manage-purpose.md` with the `vault` discovery tag. Absorb the author-confirmed refinement workflow from `refine-purpose` into `manage-purpose`, remove the old record, and update its incoming process link. Do not change runtime code, discovery configuration, unrelated process records, or `README.md`.
 
 # Dependencies
 
@@ -35,7 +35,7 @@ Create `docs/procedures/records/manage-decisions.md` with this complete content:
 type: Procedure
 title: manage-decisions
 description: Use when a Decision record must be created, read, corrected, superseded, or deleted.
-tags: [gnosis-vault]
+tags: [vault]
 invocation: model
 effects: [read, vault-write]
 relationships:
@@ -77,7 +77,7 @@ Create `docs/procedures/records/manage-purpose.md` with this complete content:
 type: Procedure
 title: manage-purpose
 description: Use when the repository Purpose record must be created, read, refined, or deleted.
-tags: [gnosis-vault]
+tags: [vault]
 invocation: model
 effects: [read, vault-write]
 relationships:
@@ -118,7 +118,7 @@ Delete `docs/procedures/vault/refine-purpose.md` after the replacement process c
 # Acceptance criteria
 
 - Exactly two process records exist in `docs/procedures/records/`: `manage-decisions.md` and `manage-purpose.md`.
-- Both records satisfy the Procedure schema, use model invocation, retain the enabled `gnosis-vault` tag, and expose their possible read/write effects.
+- Both records satisfy the Procedure schema, use model invocation, retain the enabled `vault` tag, and expose their possible read/write effects.
 - `manage-decisions` covers create, read, update, and delete while preserving decision history through supersession for semantic changes.
 - `manage-purpose` covers create, read, update, and delete and contains the author-confirmed understanding safeguards formerly owned by `refine-purpose`.
 - No live reference or discoverable process identity remains for `vault/refine-purpose.md`.

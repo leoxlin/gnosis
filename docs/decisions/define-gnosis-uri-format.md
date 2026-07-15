@@ -28,12 +28,10 @@ knowledge without conflating it with a workspace's local vault.
 # Constraints
 
 - Newly emitted page identities and resolved rendered links use this grammar.
-- Selectors recognize this grammar only; `gnosis://vault/<vault-name>/<path>` is not a gnosis document link.
+- Selectors recognize this grammar only.
 - The path is an effective vault-relative page path, not a local filesystem path.
 - A canonical gnosis URI is the sole document identifier accepted by commands.
 
 # Rejected alternatives
 
-- **`gnosis://vault/<vault-name>/<path>`** — rejected because it overloads the URI path with the vault identity and leaves the authority uninformative.
 - **Local filesystem paths as document links** — rejected because they are not portable across vault roots or composed workspaces.
-- **An alias for the former path-based form** — rejected because one link grammar keeps selectors and emitted identities unambiguous.

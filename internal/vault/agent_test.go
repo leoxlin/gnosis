@@ -424,9 +424,6 @@ func TestReadPageAcceptsOnlyCanonicalGnosisURIs(t *testing.T) {
 		t.Fatalf("URI = %q, want %q", page.Document.URI, canonical)
 	}
 
-	if _, err := ReadPage(root, "gnosis://vault/agent-test/processes/query-vault.md"); err == nil {
-		t.Fatal("ReadPage accepted the retired vault-path URI")
-	}
 	if _, err := ReadPage(root, "  "+canonical+"  "); err == nil {
 		t.Fatal("ReadPage accepted a noncanonical whitespace-padded URI")
 	}

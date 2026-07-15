@@ -80,24 +80,14 @@ func (c Config) LogEnabled() bool   { return c.Vault.VaultLog }
 func (c Config) ProcessEnabled(tags []string) bool {
 	enabled := make(map[string]struct{}, len(c.Gnosis.Processes))
 	for _, tag := range c.Gnosis.Processes {
-		enabled[processFamily(tag)] = struct{}{}
+		enabled[strings.TrimSpace(tag)] = struct{}{}
 	}
 	for _, tag := range tags {
-		if _, ok := enabled[processFamily(tag)]; ok {
+		if _, ok := enabled[strings.TrimSpace(tag)]; ok {
 			return true
 		}
 	}
 	return false
-}
-
-func processFamily(tag string) string {
-	tag = strings.TrimSpace(tag)
-	// Older gnosis scaffolds used this family before the bundled Procedures
-	// standardized on "vault". Keep existing vaults discoverable.
-	if tag == "gnosis-vault" {
-		return "vault"
-	}
-	return tag
 }
 
 func (c Config) HasLocalVault() bool {

@@ -30,15 +30,14 @@ func TestDefaultConfigEnablesVaultProcesses(t *testing.T) {
 	}
 }
 
-func TestProcessEnabledNormalizesConfiguredFamilies(t *testing.T) {
+func TestProcessEnabledMatchesConfiguredFamilies(t *testing.T) {
 	config := DefaultConfig()
-	config.Gnosis.Processes = []string{" gnosis-vault "}
+	config.Gnosis.Processes = []string{" vault "}
 	if !config.ProcessEnabled([]string{"vault"}) {
-		t.Fatal("legacy configured process family was not enabled")
+		t.Fatal("configured process family was not enabled")
 	}
-	config.Gnosis.Processes = []string{"vault"}
-	if !config.ProcessEnabled([]string{"gnosis-vault"}) {
-		t.Fatal("legacy authored process family was not enabled")
+	if config.ProcessEnabled([]string{"planning"}) {
+		t.Fatal("distinct authored process family was enabled")
 	}
 }
 
@@ -49,14 +48,14 @@ vault_name = "Local"
 vault_root = "."
 
 [gnosis]
-processes = ["gnosis-vault", "gnosis-planning"]
+processes = ["vault", "planning"]
 `)
 
 	vault, err := loadEffectiveVault(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := vault.config.Gnosis.Processes, []string{"gnosis-vault", "gnosis-planning"}; !reflect.DeepEqual(got, want) {
+	if got, want := vault.config.Gnosis.Processes, []string{"vault", "planning"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("processes = %v, want %v", got, want)
 	}
 }
