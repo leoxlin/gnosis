@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -126,6 +127,42 @@ func TestEmbeddingClientEmbed(t *testing.T) {
 	}
 	if len(vectors) != 2 || vectors[0][0] != 1 || vectors[1][1] != 1 {
 		t.Fatalf("vectors = %v", vectors)
+	}
+}
+
+func TestEmbeddingClientBatches(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		requests.Add(1)
+		var body embeddingRequest
+		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+			t.Errorf("decode request: %v", err)
+		}
+		data := make([]map[string]any, 0, len(body.Input))
+		for i := range body.Input {
+			data = append(data, map[string]any{"index": i, "embedding": []float32{float32(i + 1), 1}})
+		}
+		if err := json.NewEncoder(response).Encode(map[string]any{"data": data}); err != nil {
+			t.Errorf("encode response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	inputs := make([]string, embeddingBatchSize+1)
+	for i := range inputs {
+		inputs[i] = "input"
+	}
+	client := embeddingClient{config: SemanticConfig{
+		EmbeddingsURL:   server.URL,
+		EmbeddingsModel: "test-model",
+		HTTPClient:      server.Client(),
+	}}
+	vectors, err := client.embed(context.Background(), inputs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(vectors) != len(inputs) || requests.Load() != 2 {
+		t.Fatalf("vectors = %d, requests = %d", len(vectors), requests.Load())
 	}
 }
 
