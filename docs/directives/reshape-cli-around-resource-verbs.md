@@ -2,7 +2,7 @@
 type: Directive
 title: Reshape CLI around resource verbs
 description: Replace legacy listing and query commands with get, search, and resource-scoped index commands that expose semantic knowledge cleanly.
-status: open
+status: done
 ---
 
 # Goal
@@ -37,12 +37,12 @@ Reorganize command construction and tests, expose semantic sync/search, and upda
 **Files:** create `cmd/gnosis/get_test.go`, `cmd/gnosis/search_test.go`, and `cmd/gnosis/index_test.go`; modify or delete `cmd/gnosis/vaults_test.go` after moving every assertion; modify `cmd/gnosis/setup_test.go` only if shared helpers move.
 **Interfaces:** `newGetCommand(io.Writer)`, `newSearchCommand(io.Writer)`, and grouped `newIndexCommand(io.Writer)`.
 
-- [ ] Assert root help contains `get`, `search`, and `index`, and rejects removed `vaults`, `concepts`, and `query` commands.
-- [ ] Move existing vault/concept JSON and text expectations to `get vaults` and `get concepts [type]`; prove a second concept argument and removed `--type` fail.
-- [ ] Prove `search knowledge <question>` defaults to vector, `--backend lexical` returns the existing `QueryResult`, unknown backends fail, and `index knowledge` reports `SemanticIndexResult` as text or `--json`.
-- [ ] Prove bare `index` errors and `index vault` preserves current generated-index behavior.
-- [ ] Run `go test ./cmd/gnosis -run 'Get|Search|Index|Root'`; expect red.
-- [ ] Commit: `test: define resource-oriented CLI`.
+- [x] Assert root help contains `get`, `search`, and `index`, and rejects removed `vaults`, `concepts`, and `query` commands.
+- [x] Move existing vault/concept JSON and text expectations to `get vaults` and `get concepts [type]`; prove a second concept argument and removed `--type` fail.
+- [x] Prove `search knowledge <question>` defaults to vector, `--backend lexical` returns the existing `QueryResult`, unknown backends fail, and `index knowledge` reports `SemanticIndexResult` as text or `--json`.
+- [x] Prove bare `index` errors and `index vault` preserves current generated-index behavior.
+- [x] Run `go test ./cmd/gnosis -run 'Get|Search|Index|Root'`; expect red.
+- [x] Commit: `test: define resource-oriented CLI`.
 
 ### Task 2: Reparent commands and delete obsolete entry points
 
@@ -58,11 +58,11 @@ gnosis index vault [--vault PATH]
 gnosis index knowledge [--vault PATH] [--json]
 ```
 
-- [ ] Reuse the existing vault/concept/query renderers and validation; use `command.Context()` for semantic calls. Do not create aliases or deprecation shims.
-- [ ] Register only the new command parents at root and remove dead constructors/functions after callers move.
-- [ ] Add `runContext(context.Context, []string, io.Writer, io.Writer) error`; keep `run` as the background-context test wrapper, and have `main` create/defer `signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)` before calling `runContext`. Use `ExecuteContext`; never call `os.Exit` inside Cobra handlers.
-- [ ] Run focused command tests and `go test ./...`; expect green.
-- [ ] Commit: `feat: reshape gnosis CLI around resources`.
+- [x] Reuse the existing vault/concept/query renderers and validation; use `command.Context()` for semantic calls. Do not create aliases or deprecation shims.
+- [x] Register only the new command parents at root and remove dead constructors/functions after callers move.
+- [x] Add `runContext(context.Context, []string, io.Writer, io.Writer) error`; keep `run` as the background-context test wrapper, and have `main` create/defer `signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)` before calling `runContext`. Use `ExecuteContext`; never call `os.Exit` inside Cobra handlers.
+- [x] Run focused command tests and `go test ./...`; expect green.
+- [x] Commit: `feat: reshape gnosis CLI around resources`.
 
 ### Task 3: Remove active obsolete command references
 
@@ -70,10 +70,10 @@ gnosis index knowledge [--vault PATH] [--json]
 **Files:** update active `docs/decisions/*.md`, `docs/procedures/**/*.md`, `plugins/gnosis/skills/**/*.md`, and integration scripts/instructions that invoke removed forms; do not rewrite completed directive evidence solely to modernize history.
 **Interfaces:** exact replacements are `concepts`→`get concepts`, `query search|query graph`→`search knowledge --backend lexical`, and bare index→`index vault`.
 
-- [ ] Apply every active replacement and update prose describing the command tree; preserve procedure semantics and exact URIs.
-- [ ] Run `rg -n 'gnosis (vaults|concepts|query search|query graph)( |`)' docs/decisions docs/procedures plugins integration`; expect no matches.
-- [ ] Run `gnosis validate --vault .` and `go test ./... -count=1`; expect green.
-- [ ] Commit: `docs: update resource-oriented gnosis commands`.
+- [x] Apply every active replacement and update prose describing the command tree; preserve procedure semantics and exact URIs.
+- [x] Run `rg -n 'gnosis (vaults|concepts|query search|query graph)( |`)' docs/decisions docs/procedures plugins integration`; expect no matches.
+- [x] Run `gnosis validate --vault .` and `go test ./... -count=1`; expect green.
+- [x] Commit: `docs: update resource-oriented gnosis commands`.
 
 # Acceptance criteria
 
@@ -82,3 +82,11 @@ gnosis index knowledge [--vault PATH] [--json]
 - Removed forms fail as unknown commands and have no compatibility aliases — run command tests and root help assertions.
 - Index lifecycle is explicit by resource — `index vault` changes generated Markdown only when configured; `index knowledge` changes only derived pgvector state.
 - Active workflow knowledge contains no removed invocation, and `go test ./...`, `go vet ./...`, and vault validation pass.
+
+# Completion evidence
+
+- Red: `go test ./cmd/gnosis -run 'Get|Search|Index|Root'` failed on the missing semantic-index result renderer before production command changes.
+- Commits: `4791ead` (command contracts), `158928d` (resource-oriented CLI), and `8dc67f7` (active workflow updates).
+- Command acceptance: `go run ./cmd/gnosis get vaults --json`, `go run ./cmd/gnosis get concepts Decision --json`, and lexical `search knowledge` returned valid current-vault results; focused tests prove vector defaulting, removed-command failures, and resource-scoped indexing.
+- Full gate: `mise run checks` passed formatting, vet, unit tests, race tests, build, and validation of 39 Markdown files.
+- Delivery: implementation is preserved in the shared `main` workspace; no auxiliary worktree, remote push, or pull request was created.
