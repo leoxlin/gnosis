@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 )
@@ -13,13 +16,19 @@ import (
 const defaultVault = "."
 
 func main() {
-	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := runContext(ctx, os.Args[1:], os.Stdout, os.Stderr); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
 func run(args []string, stdout, stderr io.Writer) error {
+	return runContext(context.Background(), args, stdout, stderr)
+}
+
+func runContext(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if len(args) == 0 {
 		command := newRootCommand(stdout, stderr)
 		command.SetOut(stderr)
@@ -31,7 +40,7 @@ func run(args []string, stdout, stderr io.Writer) error {
 
 	command := newRootCommand(stdout, stderr)
 	command.SetArgs(args)
-	return command.Execute()
+	return command.ExecuteContext(ctx)
 }
 
 func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
@@ -43,7 +52,18 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	}
 	command.SetOut(stdout)
 	command.SetErr(stderr)
-	command.AddCommand(newScaffoldCommand(stdout), newSetupCommand(stdout), newVaultsCommand(stdout), newIndexCommand(stdout), newReadCommand(stdout), newWriteCommand(os.Stdin, stdout), newValidateCommand(stdout, stderr), newQueryCommand(stdout), newConceptsCommand(stdout), newProcedureCommand(stdout), newGraphCommand(stdout))
+	command.AddCommand(
+		newScaffoldCommand(stdout),
+		newSetupCommand(stdout),
+		newGetCommand(stdout),
+		newIndexCommand(stdout),
+		newReadCommand(stdout),
+		newWriteCommand(os.Stdin, stdout),
+		newValidateCommand(stdout, stderr),
+		newSearchCommand(stdout),
+		newProcedureCommand(stdout),
+		newGraphCommand(stdout),
+	)
 	command.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "Print the gnosis version",
