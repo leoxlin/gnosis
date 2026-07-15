@@ -2,7 +2,7 @@
 type: Directive
 title: Add MCP server mode
 description: Serve gnosis vault listing, concept listing, exact page reads, and semantic or lexical knowledge search over MCP stdio.
-status: open
+status: done
 ---
 
 # Goal
@@ -43,11 +43,11 @@ Add `gnosis serve mcp`, four read-only tools, cancellation, and SDK-level tests.
 **Files:** create `cmd/gnosis/serve_test.go`.
 **Interfaces:** tools `get_vaults`, `get_concepts`, `get_page`, and `search_knowledge` with typed JSON inputs/outputs. `get_concepts` returns one stable `conceptsOutput` containing `concept_types`, optional `type`, and `concepts`, rather than a Go union.
 
-- [ ] Add tests that connect an SDK client to the server, list exactly four tools, call each tool against a fixture vault, decode structured JSON results, and prove invalid URI/type/backend inputs return MCP tool errors rather than terminating the session.
-- [ ] Assert `search_knowledge` defaults to vector and accepts `backend: "lexical"`, `top`, `max_read`, and `depth`; use lexical in hermetic fixture calls.
-- [ ] Assert server stdout contains protocol frames only and cancellation closes the session.
-- [ ] Run `go test ./cmd/gnosis -run MCP`; expect red.
-- [ ] Commit: `test: define gnosis MCP server contract`.
+- [x] Add tests that connect an SDK client to the server, list exactly four tools, call each tool against a fixture vault, decode structured JSON results, and prove invalid URI/type/backend inputs return MCP tool errors rather than terminating the session.
+- [x] Assert `search_knowledge` defaults to vector and accepts `backend: "lexical"`, `top`, `max_read`, and `depth`; use lexical in hermetic fixture calls.
+- [x] Assert server stdout contains protocol frames only and cancellation closes the session.
+- [x] Run `go test ./cmd/gnosis -run MCP`; expect red.
+- [x] Commit: `test: define gnosis MCP server contract`.
 
 ### Task 2: Implement read-only stdio server mode
 
@@ -64,11 +64,11 @@ get_page({"uri": "gnosis://..."}) -> vault.Page
 search_knowledge({"question":"...", "backend":"vector|lexical", "top":3, "max_read":3, "depth":3}) -> vault.QueryResult
 ```
 
-- [ ] Add `github.com/modelcontextprotocol/go-sdk@v1.6.1` and tidy modules.
-- [ ] Build a `newMCPServer(vaultPath string)` with only the four tools. Return typed structured results and concise errors; normalize both concept catalog variants into `conceptsOutput`; route every operation directly to the same vault functions used by CLI handlers. Resolve semantic environment lazily inside vector search calls so the server and lexical tools start without database credentials.
-- [ ] Add `serve` as a Cobra parent and `mcp` as a no-argument child. Run the server with `command.Context()` and `mcp.StdioTransport`; write no startup banner.
-- [ ] Run focused MCP tests, `go test ./... -count=1`, and `go vet ./...`; expect green.
-- [ ] Commit: `feat: serve gnosis knowledge over MCP`.
+- [x] Add `github.com/modelcontextprotocol/go-sdk@v1.6.1` and tidy modules.
+- [x] Build a `newMCPServer(vaultPath string)` with only the four tools. Return typed structured results and concise errors; normalize both concept catalog variants into `conceptsOutput`; route every operation directly to the same vault functions used by CLI handlers. Resolve semantic environment lazily inside vector search calls so the server and lexical tools start without database credentials.
+- [x] Add `serve` as a Cobra parent and `mcp` as a no-argument child. Run the server with `command.Context()` and `mcp.StdioTransport`; write no startup banner.
+- [x] Run focused MCP tests, `go test ./... -count=1`, and `go vet ./...`; expect green.
+- [x] Commit: `feat: serve gnosis knowledge over MCP`.
 
 ### Task 3: Verify a real subprocess handshake
 
@@ -76,10 +76,10 @@ search_knowledge({"question":"...", "backend":"vector|lexical", "top":3, "max_re
 **Files:** extend `cmd/gnosis/serve_test.go`; update non-README plugin/integration configuration only if a checked-in fixture needs the final invocation.
 **Interfaces:** client starts the built command with `serve mcp --vault <fixture>`.
 
-- [ ] Build a temporary gnosis binary, connect with SDK `CommandTransport`, initialize, list tools, call `get_page` and lexical `search_knowledge`, close the session, and assert clean process exit.
-- [ ] Run `go test ./cmd/gnosis -run MCPSubprocess -count=1`; expect pass with no database or network.
-- [ ] Run `go test -race ./... -count=1`, `go build ./...`, and `gnosis validate --vault .`; expect green.
-- [ ] Commit: `test: verify gnosis MCP stdio mode`.
+- [x] Build a temporary gnosis binary, connect with SDK `CommandTransport`, initialize, list tools, call `get_page` and lexical `search_knowledge`, close the session, and assert clean process exit.
+- [x] Run `go test ./cmd/gnosis -run MCPSubprocess -count=1`; expect pass with no database or network.
+- [x] Run `go test -race ./... -count=1`, `go build ./...`, and `gnosis validate --vault .`; expect green.
+- [x] Commit: `test: verify gnosis MCP stdio mode`.
 
 # Acceptance criteria
 
@@ -88,3 +88,12 @@ search_knowledge({"question":"...", "backend":"vector|lexical", "top":3, "max_re
 - Tool responses preserve canonical URI, origin, and revision; invalid input becomes tool-level errors without corrupting the protocol stream.
 - No mutation or arbitrary filesystem tool is exposed — inspect the exact four-tool list assertion.
 - `go test -race ./... -count=1`, `go vet ./...`, `go build ./...`, and vault validation pass.
+
+# Completion evidence
+
+- Red: `go test ./cmd/gnosis -run MCP` failed on the missing `newMCPServer` and normalized `conceptsOutput` contracts before production code was added.
+- Commits: `550b2d3` (in-process contracts), `505e7cd` (read-only MCP server), and `261ab9e` (real subprocess handshake).
+- Protocol acceptance: `TestMCPSubprocess` built a temporary gnosis binary, initialized over `CommandTransport`, listed exactly four tools, called `get_page` and lexical `search_knowledge`, and closed cleanly with no stderr; successful protocol parsing proves stdout contained only MCP frames.
+- Semantic path: in-process tests prove vector defaulting and lazy environment resolution; code review confirms direct routing to the same `QuerySemanticKnowledge` and `QueryKnowledge` functions as the CLI.
+- Full gate: `mise run checks` passed formatting, vet, unit tests, race tests, build, and validation of 39 Markdown files.
+- Delivery: implementation is preserved in the shared `main` workspace; no auxiliary worktree, remote push, or pull request was created.
