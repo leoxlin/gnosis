@@ -328,6 +328,7 @@ func QuerySemanticKnowledge(
 		if err := json.Unmarshal(origin, &candidate.Origin); err != nil {
 			return QueryResult{}, fmt.Errorf("semantic query: decode origin for %q: %w", candidate.URI, err)
 		}
+		candidate.Description = truncateRunes(candidate.Description, maxDescriptionRune)
 		candidate.Score = roundScore(candidate.Score)
 		result.Candidates = append(result.Candidates, candidate)
 		if len(result.ShouldRead) < options.MaxRead {
@@ -350,6 +351,9 @@ func validateSemanticConfig(config SemanticConfig) error {
 	parsedURL, err := url.ParseRequestURI(config.EmbeddingsURL)
 	if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
 		return fmt.Errorf("semantic config: GNOSIS_EMBEDDING_URL is invalid: %q", config.EmbeddingsURL)
+	}
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return fmt.Errorf("semantic config: GNOSIS_EMBEDDING_URL must use http or https: %q", config.EmbeddingsURL)
 	}
 	if strings.TrimSpace(config.EmbeddingsModel) == "" {
 		return errors.New("semantic config: GNOSIS_EMBEDDING_MODEL must not be empty")

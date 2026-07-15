@@ -54,6 +54,10 @@ func TestSemanticConfigFromEnv(t *testing.T) {
 	if first.EmbeddingsAPIKey != "embedding-secret" {
 		t.Fatalf("api key = %q", first.EmbeddingsAPIKey)
 	}
+	t.Setenv("GNOSIS_EMBEDDING_URL", "ftp://example.com/embeddings")
+	if _, err := SemanticConfigFromEnv(root); err == nil || !strings.Contains(err.Error(), "http or https") {
+		t.Fatalf("unsupported embeddings scheme error = %v", err)
+	}
 }
 
 func TestSemanticChunks(t *testing.T) {
