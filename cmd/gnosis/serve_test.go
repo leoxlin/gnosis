@@ -1,9 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -150,6 +154,77 @@ func TestMCPServerStopsOnCancellation(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("server did not stop after cancellation")
+	}
+}
+
+func TestMCPSubprocess(t *testing.T) {
+	binary := filepath.Join(t.TempDir(), "gnosis")
+	build := exec.Command("go", "build", "-o", binary, ".")
+	build.Env = append(os.Environ(), "GOCACHE="+filepath.Join(t.TempDir(), "go-cache"))
+	if output, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build gnosis: %v\n%s", err, output)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	var stderr bytes.Buffer
+	command := exec.Command(binary, "serve", "mcp", "--vault", mcpTestVault(t))
+	command.Stderr = &stderr
+	command.Env = append(
+		os.Environ(),
+		"GNOSIS_DATABASE_URL=",
+		"GNOSIS_EMBEDDING_URL=",
+		"GNOSIS_EMBEDDING_MODEL=",
+	)
+	client := mcp.NewClient(&mcp.Implementation{Name: "gnosis-test", Version: "0.0.0"}, nil)
+	session, err := client.Connect(ctx, &mcp.CommandTransport{Command: command}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = session.Close() })
+
+	listed, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed.Tools) != 4 {
+		t.Fatalf("tools = %d, want 4", len(listed.Tools))
+	}
+
+	pageResult, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      "get_page",
+		Arguments: map[string]any{"uri": "gnosis://test/decision.md"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var page vault.Page
+	decodeMCPResult(t, pageResult, &page)
+	if page.Document.URI != "gnosis://test/decision.md" || page.Document.Revision == "" {
+		t.Fatalf("page = %+v", page)
+	}
+
+	searchResult, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name: "search_knowledge",
+		Arguments: map[string]any{
+			"question": "small adequate design",
+			"backend":  "lexical",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var query vault.QueryResult
+	decodeMCPResult(t, searchResult, &query)
+	if len(query.Candidates) == 0 || query.Candidates[0].URI != "gnosis://test/decision.md" {
+		t.Fatalf("query = %+v", query)
+	}
+
+	if err := session.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if stderr.Len() != 0 {
+		t.Fatalf("server stderr = %q", stderr.String())
 	}
 }
 
