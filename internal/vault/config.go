@@ -24,12 +24,6 @@ const (
 type Config struct {
 	Vault  VaultConfig           `toml:"vault"`
 	Vaults []DeclaredVaultConfig `toml:"vaults"`
-	Gnosis GnosisConfig          `toml:"gnosis"`
-}
-
-// GnosisConfig controls which tagged process families are discoverable.
-type GnosisConfig struct {
-	Processes []string `toml:"processes"`
 }
 
 // VaultConfig holds local vault settings.
@@ -53,9 +47,6 @@ type DeclaredVaultConfig struct {
 // DefaultConfig returns the default gnosis configuration.
 func DefaultConfig() Config {
 	return Config{
-		Gnosis: GnosisConfig{
-			Processes: []string{"vault"},
-		},
 		Vault: VaultConfig{
 			LinkFormat:       string(LinkFormatRelative),
 			LinkFormatStrict: false,
@@ -75,20 +66,6 @@ func (c Config) LinkFormatValue() LinkFormat {
 func (c Config) IsStrict() bool     { return c.Vault.LinkFormatStrict }
 func (c Config) IndexEnabled() bool { return c.Vault.VaultIndex }
 func (c Config) LogEnabled() bool   { return c.Vault.VaultLog }
-
-// ProcessEnabled reports whether at least one process tag is enabled.
-func (c Config) ProcessEnabled(tags []string) bool {
-	enabled := make(map[string]struct{}, len(c.Gnosis.Processes))
-	for _, tag := range c.Gnosis.Processes {
-		enabled[strings.TrimSpace(tag)] = struct{}{}
-	}
-	for _, tag := range tags {
-		if _, ok := enabled[strings.TrimSpace(tag)]; ok {
-			return true
-		}
-	}
-	return false
-}
 
 func (c Config) HasLocalVault() bool {
 	return strings.TrimSpace(c.Vault.Name) != "" || strings.TrimSpace(c.Vault.Root) != "" || strings.TrimSpace(c.Vault.Backend) != "" || strings.TrimSpace(c.Vault.Repository) != ""
@@ -136,17 +113,6 @@ func loadConfigPath(path string) (Config, error) {
 }
 
 func validateConfig(config Config, root string) error {
-	seenProcessTags := make(map[string]struct{}, len(config.Gnosis.Processes))
-	for i, tag := range config.Gnosis.Processes {
-		tag = strings.TrimSpace(tag)
-		if tag == "" {
-			return fmt.Errorf("gnosis.processes[%d] must not be empty", i)
-		}
-		if _, exists := seenProcessTags[tag]; exists {
-			return fmt.Errorf("gnosis.processes[%d] duplicates %q", i, tag)
-		}
-		seenProcessTags[tag] = struct{}{}
-	}
 	if config.HasLocalVault() {
 		if strings.TrimSpace(config.Vault.Name) == "" {
 			return fmt.Errorf("vault.vault_name must not be empty")
@@ -276,9 +242,6 @@ link_format = "relative"
 link_format_strict = false
 vault_index = true
 vault_log = true
-
-[gnosis]
-processes = ["vault"]
 `, strconv.Quote(name), githubWikiBackend, strconv.Quote(repository))
 	return WriteGeneratedFile(filepath.Join(root, "gnosis.toml"), []byte(contents), force)
 }
@@ -309,9 +272,6 @@ link_format = "relative"
 link_format_strict = false
 vault_index = %t
 vault_log = %t
-
-[gnosis]
-processes = ["vault"]
 `, strconv.Quote(name), !disableIndex, !disableLog)
 	return WriteGeneratedFile(configPath, []byte(contents), force)
 }

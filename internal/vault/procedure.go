@@ -50,8 +50,8 @@ type procedureEligibility struct {
 	tags       []string
 }
 
-// DiscoverProcesses returns valid, model-invocable Procedures enabled by the
-// root configuration and matching every requested tag.
+// DiscoverProcesses returns valid, model-invocable Procedures matching every
+// requested tag.
 func DiscoverProcesses(root string, requestedTags []string) (ConceptRecordCatalog, error) {
 	vault, err := loadEffectiveVault(root)
 	if err != nil {
@@ -69,7 +69,6 @@ func DiscoverProcesses(root string, requestedTags []string) (ConceptRecordCatalo
 		}
 		eligibility, eligibilityProblems := parseProcedureEligibility(page.fields)
 		if len(eligibilityProblems) > 0 || eligibility.invocation != "model" ||
-			!vault.config.ProcessEnabled(eligibility.tags) ||
 			!containsAll(eligibility.tags, requestedTags) {
 			continue
 		}

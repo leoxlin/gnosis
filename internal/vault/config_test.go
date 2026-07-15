@@ -24,24 +24,7 @@ func TestLoadEffectiveVaultUsesDefaultsWithoutConfiguration(t *testing.T) {
 	}
 }
 
-func TestDefaultConfigEnablesVaultProcesses(t *testing.T) {
-	if got, want := DefaultConfig().Gnosis.Processes, []string{"vault"}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("processes = %v, want %v", got, want)
-	}
-}
-
-func TestProcessEnabledMatchesConfiguredFamilies(t *testing.T) {
-	config := DefaultConfig()
-	config.Gnosis.Processes = []string{" vault "}
-	if !config.ProcessEnabled([]string{"vault"}) {
-		t.Fatal("configured process family was not enabled")
-	}
-	if config.ProcessEnabled([]string{"planning"}) {
-		t.Fatal("distinct authored process family was enabled")
-	}
-}
-
-func TestLoadEffectiveVaultLoadsProcessTags(t *testing.T) {
+func TestLoadEffectiveVaultRejectsRemovedProcessesConfig(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]
 vault_name = "Local"
@@ -51,12 +34,9 @@ vault_root = "."
 processes = ["vault", "planning"]
 `)
 
-	vault, err := loadEffectiveVault(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, want := vault.config.Gnosis.Processes, []string{"vault", "planning"}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("processes = %v, want %v", got, want)
+	_, err := loadEffectiveVault(root)
+	if err == nil || !strings.Contains(err.Error(), "gnosis") {
+		t.Fatalf("removed processes config error = %v", err)
 	}
 }
 

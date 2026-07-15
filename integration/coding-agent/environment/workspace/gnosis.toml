@@ -9,6 +9,3 @@ vault_log = false
 [[vaults]]
 vault_name = "core"
 vault_root = ".gnosis-core"
-
-[gnosis]
-processes = ["gnosis", "development", "vault"]

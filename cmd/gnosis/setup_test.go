@@ -26,9 +26,6 @@ link_format = "relative"
 link_format_strict = false
 vault_index = true
 vault_log = true
-
-[gnosis]
-processes = ["vault"]
 `
 	if string(content) != want {
 		t.Fatalf("gnosis.toml = %q, want %q", content, want)

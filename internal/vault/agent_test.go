@@ -139,15 +139,6 @@ The directive is open.
 
 func TestDiscoverProcessesFiltersByAllTags(t *testing.T) {
 	root := agentTestVault(t)
-	writeConfig(t, root, `[vault]
-vault_name = "agent-test"
-vault_root = "docs"
-vault_index = false
-vault_log = false
-
-[gnosis]
-processes = ["test-vault"]
-`)
 	write(t, root, "docs/processes/planning.md", `---
 type: Procedure
 title: planning
@@ -180,7 +171,7 @@ The plan is complete.
 	}
 }
 
-func TestDiscoverProcessesUsesDefaultVaultFamily(t *testing.T) {
+func TestDiscoverProcessesIncludesAllModelInvocableProceduresByDefault(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	discovery, err := DiscoverProcesses(t.TempDir(), nil)
 	if err != nil {
@@ -188,30 +179,22 @@ func TestDiscoverProcessesUsesDefaultVaultFamily(t *testing.T) {
 	}
 	procedures := discovery["procedures"]
 	foundQuery := false
+	foundImplementation := false
 	for _, procedure := range procedures {
 		if procedure["uri"] == "gnosis://core/procedures/vault/query-vault.md" {
 			foundQuery = true
 		}
 		if procedure["uri"] == "gnosis://core/procedures/development/implementing-directive.md" {
-			t.Fatalf("default discovery included development procedure: %+v", procedure)
+			foundImplementation = true
 		}
 	}
-	if !foundQuery {
-		t.Fatalf("default discovery omitted bundled vault procedures: %+v", procedures)
+	if !foundQuery || !foundImplementation {
+		t.Fatalf("default discovery omitted model-invocable procedures: %+v", procedures)
 	}
 }
 
-func TestDiscoverProcessesUsesConfiguredFamiliesAndOmitsExplicit(t *testing.T) {
+func TestDiscoverProcessesIncludesAllFamiliesAndOmitsExplicit(t *testing.T) {
 	root := agentTestVault(t)
-	writeConfig(t, root, `[vault]
-vault_name = "agent-test"
-vault_root = "docs"
-vault_index = false
-vault_log = false
-
-[gnosis]
-processes = ["enabled-family"]
-`)
 	write(t, root, "docs/processes/enabled.md", `---
 type: Procedure
 title: enabled
@@ -236,7 +219,7 @@ The work is complete.
 	write(t, root, "docs/processes/disabled.md", `---
 type: Procedure
 title: disabled
-description: A procedure outside the configured families.
+description: A procedure in another family.
 tags: [disabled-family]
 ---
 
@@ -288,17 +271,6 @@ invocation: explicit
 
 [Malformed destination](bad%ZZ.md)
 `)
-	write(t, root, "docs/processes/disabled-invalid.md", `---
-type: Procedure
-title: disabled-invalid
-description: A disabled procedure with an invalid body.
-tags: [disabled-family]
----
-
-# disabled-invalid
-
-[Malformed destination](bad%ZZ.md)
-`)
 	write(t, root, "docs/processes/explicit-invalid-metadata.md", `---
 type: Procedure
 title: explicit-invalid-metadata
@@ -324,7 +296,18 @@ aliases:
 		t.Fatal(err)
 	}
 	procedures := discovery["procedures"]
-	if len(procedures) != 1 || procedures[0]["uri"] != "gnosis://agent-test/processes/enabled.md" {
+	foundEnabled, foundDisabled, foundExplicit := false, false, false
+	for _, procedure := range procedures {
+		switch procedure["uri"] {
+		case "gnosis://agent-test/processes/enabled.md":
+			foundEnabled = true
+		case "gnosis://agent-test/processes/disabled.md":
+			foundDisabled = true
+		case "gnosis://agent-test/processes/explicit.md":
+			foundExplicit = true
+		}
+	}
+	if !foundEnabled || !foundDisabled || foundExplicit {
 		t.Fatalf("procedures = %+v", procedures)
 	}
 
@@ -339,15 +322,6 @@ aliases:
 
 func TestDiscoverProcessesRejectsMalformedEnabledProcedure(t *testing.T) {
 	root := agentTestVault(t)
-	writeConfig(t, root, `[vault]
-vault_name = "agent-test"
-vault_root = "docs"
-vault_index = false
-vault_log = false
-
-[gnosis]
-processes = ["enabled-family"]
-`)
 	write(t, root, "docs/processes/malformed.md", `---
 type: Procedure
 title: malformed

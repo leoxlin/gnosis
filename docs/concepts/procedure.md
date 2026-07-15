@@ -20,7 +20,7 @@ Do not use it for one-off knowledge, settled choices, implementation handoffs, o
 ## Minimum record
 
 - A selection-focused `description`.
-- A `tags` frontmatter value identifying its process family. Discovery returns only records whose tags intersect `[gnosis].processes`.
+- A `tags` frontmatter value identifying its process family. Callers can select families with `gnosis procedure discovery --tags`.
 - One executable shape:
   - **Single-step:** Unique, non-empty `## Inputs`, `## Process`, and `## Completion` sections.
   - **Multi-step:** Two or more uniquely named `## STEP <number> - <name>` sections, numbered consecutively from 1, each with unique, non-empty `### Inputs`, `### Process`, and `### Completion` sections.
