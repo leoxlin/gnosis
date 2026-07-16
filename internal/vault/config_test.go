@@ -55,7 +55,7 @@ func TestLoadEffectiveVaultWithEmptyFileHasNoSources(t *testing.T) {
 	}
 }
 
-func TestLoadEffectiveVaultUsesGitRepositoryDefaults(t *testing.T) {
+func TestLoadEffectiveVaultUsesGitRepositoryDefaultsWithoutConfiguration(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	repository := t.TempDir()
 	if err := os.Mkdir(filepath.Join(repository, ".git"), 0o755); err != nil {
@@ -68,13 +68,23 @@ func TestLoadEffectiveVaultUsesGitRepositoryDefaults(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(root, "docs"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	writeConfig(t, root, `[vault]
-vault_name = "repo"
-`)
+	if err := os.WriteFile(filepath.Join(root, "docs", "purpose.md"), []byte(`---
+type: Purpose
+title: Repository purpose
+description: Verify git repository defaults.
+---
+
+# Repository purpose
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	vault, err := loadEffectiveVault(root)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if got, want := vault.config.Vault.Name, "local"; got != want {
+		t.Fatalf("vault name = %q, want %q", got, want)
 	}
 	if got, want := vault.config.Vault.Root, "docs"; got != want {
 		t.Fatalf("vault root = %q, want %q", got, want)
@@ -90,6 +100,29 @@ vault_name = "repo"
 	}
 	if got, want := sourcePaths(vault), []string{filepath.Join(root, "docs")}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("vault roots = %v, want %v", got, want)
+	}
+	documents, err := (&SearchSource{vault: vault}).Documents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, document := range documents {
+		if document.URI == "gnosis://local/purpose.md" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("documents = %+v, want gnosis://local/purpose.md", documents)
+	}
+	result, err := Validate(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Errors) != 0 {
+		t.Fatalf("unexpected validation errors: %v", result.Errors)
+	}
+	if got, want := result.FilesChecked, 1; got != want {
+		t.Fatalf("files checked = %d, want %d", got, want)
 	}
 }
 

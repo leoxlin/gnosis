@@ -26,8 +26,8 @@ Reorganize command construction and tests, expose semantic sync/search, and upda
 
 # Dependencies
 
-- [Add pgvector semantic knowledge backend](gnosis://core/directives/add-pgvector-knowledge-backend.md) @ `sha256:ea8620578c83484e95f0d1fccf8a481ffdf5e665eda321a30ad14ec70d3a8530` — supplies the completed `SemanticConfigFromEnv`, `SyncSemanticIndex`, and `QuerySemanticKnowledge` contract.
-- [Use pgvector for semantic knowledge retrieval](gnosis://core/decisions/use-pgvector-semantic-retrieval.md) @ `sha256:70cff98b8205d5297c7e0900066cbe3bdaa9c3745ffdc7d532fd98721ea79cdc` — vector search remains explicit derived retrieval.
+- [Add pgvector semantic knowledge backend](gnosis://local/directives/add-pgvector-knowledge-backend.md) @ `sha256:ea8620578c83484e95f0d1fccf8a481ffdf5e665eda321a30ad14ec70d3a8530` — supplies the completed `SemanticConfigFromEnv`, `SyncSemanticIndex`, and `QuerySemanticKnowledge` contract.
+- [Use pgvector for semantic knowledge retrieval](gnosis://local/decisions/use-pgvector-semantic-retrieval.md) @ `sha256:70cff98b8205d5297c7e0900066cbe3bdaa9c3745ffdc7d532fd98721ea79cdc` — vector search remains explicit derived retrieval.
 
 # Implementation plan
 

@@ -20,7 +20,7 @@ Support `gnosis://_/path/to/doc.md` as a portable any-vault URI that resolves th
 
 # Purpose/Decision Changes
 
-- `gnosis://core/decisions/define-gnosis-uri-format.md` @ `sha256:9ac5de52daff9868545610ad4b0952c30c4c9e08b149042bb28370c3a02d444f` → `gnosis://core/decisions/use-any-vault-uri-authority.md` @ `sha256:2fe25bf26178a0c0e6c71cab540dc396365a8597037e527db7693ddea8289c95` — reserves `_` for precedence-based resolution while keeping emitted identities concrete.
+- `gnosis://local/decisions/define-gnosis-uri-format.md` @ `sha256:9ac5de52daff9868545610ad4b0952c30c4c9e08b149042bb28370c3a02d444f` → `gnosis://local/decisions/use-any-vault-uri-authority.md` @ `sha256:2fe25bf26178a0c0e6c71cab540dc396365a8597037e527db7693ddea8289c95` — reserves `_` for precedence-based resolution while keeping emitted identities concrete.
 
 # Implementation plan
 
@@ -64,5 +64,5 @@ Support `gnosis://_/path/to/doc.md` as a portable any-vault URI that resolves th
 - The same focused command passed after implementation.
 - `go test ./internal/vault -count=1` passed after implementation and review.
 - `mise run checks` passed formatting, vet, uncached full tests, race tests, build, and validation of 41 Markdown files.
-- `go run ./cmd/gnosis read 'gnosis://_/purpose.md' --json` returned concrete identity `gnosis://core/purpose.md`.
+- `go run ./cmd/gnosis read 'gnosis://_/purpose.md' --json` returned concrete identity `gnosis://local/purpose.md`.
 - `git diff --check` passed, and `README.md` remained untouched.

@@ -54,6 +54,7 @@ func defaultConfig(root string) Config {
 		},
 	}
 	if withinGitRepository(root) {
+		config.Vault.Name = "local"
 		config.Vault.Root = "docs"
 		config.Vault.LinkFormatStrict = true
 		config.Vault.VaultIndex = false

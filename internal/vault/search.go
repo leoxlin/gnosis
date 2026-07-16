@@ -49,6 +49,8 @@ func loadEffectiveVault(root string) (*effectiveVault, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+	if configPath != "" || vault.config.HasLocalVault() {
 		composer := vaultComposer{
 			vault:    vault,
 			resolved: make(map[string]struct{}),

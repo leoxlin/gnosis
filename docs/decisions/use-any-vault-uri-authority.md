@@ -2,7 +2,7 @@
 type: Decision
 title: Use `_` as the any-vault URI authority
 description: Reserve `_` for vault-agnostic URI resolution while keeping emitted document identities concrete.
-supersedes: gnosis://core/decisions/define-gnosis-uri-format.md
+supersedes: gnosis://local/decisions/define-gnosis-uri-format.md
 ---
 
 # Decision
@@ -24,4 +24,3 @@ Portable procedures and agent workflows need to address a known vault-relative p
 - Wildcard writes use the highest-precedence configured filesystem-backed vault and preserve Concept Type path validation and collision protection.
 - Concrete URI selectors retain their exact-vault behavior.
 - Query strings and fragments remain link-only suffixes and do not apply to selectors or write targets.
-
