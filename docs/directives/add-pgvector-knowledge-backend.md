@@ -33,12 +33,12 @@ Create the semantic configuration, chunking, OpenAI-compatible embedding client,
 
 # Dependencies
 
-- [`gnosis` purpose](gnosis://local/purpose.md) @ `sha256:b432c4496daa35faed91cb294f41fa67522b1d9959daf29575baea09e59cf38f` — Markdown remains portable author-owned knowledge.
-- [Use pgvector for semantic knowledge retrieval](gnosis://local/decisions/use-pgvector-semantic-retrieval.md) @ `sha256:70cff98b8205d5297c7e0900066cbe3bdaa9c3745ffdc7d532fd98721ea79cdc` — supplies derived-index, embedding, provenance, explicit-sync, and exact-search constraints.
+- [`gnosis` purpose](../purpose.md) @ `sha256:b432c4496daa35faed91cb294f41fa67522b1d9959daf29575baea09e59cf38f` — Markdown remains portable author-owned knowledge.
+- [Use pgvector for semantic knowledge retrieval](../decisions/use-pgvector-semantic-retrieval.md) @ `sha256:70cff98b8205d5297c7e0900066cbe3bdaa9c3745ffdc7d532fd98721ea79cdc` — supplies derived-index, embedding, provenance, explicit-sync, and exact-search constraints.
 
 # Purpose/Decision Changes
 
-- `gnosis://local/decisions/keep-search-sources-and-retrieval-backends-replaceable.md` @ `sha256:da0e4dc0f3941800a8164fdab6b731eabc79bd1c1f05ef1040a9ed539124ffe7` → `gnosis://local/decisions/use-pgvector-semantic-retrieval.md` @ `sha256:70cff98b8205d5297c7e0900066cbe3bdaa9c3745ffdc7d532fd98721ea79cdc`: persistent semantic retrieval is now authorized while the backend-independent contract remains.
+- `../decisions/keep-search-sources-and-retrieval-backends-replaceable.md` @ `sha256:da0e4dc0f3941800a8164fdab6b731eabc79bd1c1f05ef1040a9ed539124ffe7` → `../decisions/use-pgvector-semantic-retrieval.md` @ `sha256:70cff98b8205d5297c7e0900066cbe3bdaa9c3745ffdc7d532fd98721ea79cdc`: persistent semantic retrieval is now authorized while the backend-independent contract remains.
 
 # Implementation plan
 

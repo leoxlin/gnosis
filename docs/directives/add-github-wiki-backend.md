@@ -27,7 +27,7 @@ Allow a workspace to configure a GitHub Wiki as its primary `gnosis` vault and u
 
 ### Task 1: Resolve and synchronize the backend
 
-**Load:** `internal/vault/config.go`, `internal/vault/search.go`, `internal/vault/write.go`, `internal/vault/index.go`, `internal/vault/config_test.go`, `docs/decisions/use-git-working-trees-for-github-wiki-backend.md`, and `gnosis://local/procedures/development/implementing-directive.md`.
+**Load:** `internal/vault/config.go`, `internal/vault/search.go`, `internal/vault/write.go`, `internal/vault/index.go`, `internal/vault/config_test.go`, `docs/decisions/use-git-working-trees-for-github-wiki-backend.md`, and `../procedures/development/implementing-directive.md`.
 **Files:** modify `internal/vault/config.go`, `internal/vault/search.go`, `internal/vault/write.go`, `internal/vault/index.go`; create `internal/vault/backend.go`, `internal/vault/backend_test.go`; test `internal/vault/config_test.go`.
 **Interfaces:** extend `VaultConfig` with backend/repository fields; add internal backend preparation and publish operations returning a filesystem root; preserve existing exported vault operations.
 
@@ -40,7 +40,7 @@ Allow a workspace to configure a GitHub Wiki as its primary `gnosis` vault and u
 
 ### Task 2: Configure a GitHub Wiki workspace
 
-**Load:** `cmd/gnosis/setup.go`, `internal/vault/config.go`, the Task 1 interfaces, and `gnosis://local/procedures/development/implementing-directive.md`.
+**Load:** `cmd/gnosis/setup.go`, `internal/vault/config.go`, the Task 1 interfaces, and `../procedures/development/implementing-directive.md`.
 **Files:** modify `cmd/gnosis/setup.go`, `internal/vault/config.go`; create or modify focused tests beside the owning package.
 **Interfaces:** `gnosis setup --github-wiki OWNER/REPOSITORY --name VAULT [--vault PATH] [--force]` writes a primary-vault `gnosis.toml`; existing `--import` behavior remains unchanged.
 

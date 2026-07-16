@@ -154,7 +154,7 @@ func validateFile(root, path string, config Config, resolver *documentResolver, 
 		if strings.TrimSpace(body) == "" {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("%s: empty markdown body", path))
 		}
-		validateRelationships(root, path, fields, resolver, result)
+		validateRelationships(root, path, fields, config, resolver, result)
 
 		if metadata.conceptType != "" {
 			conceptType := metadata.conceptType
@@ -202,7 +202,7 @@ func validateProcessRecord(path string, fields frontmatterFields, body string, r
 	}
 }
 
-func validateRelationships(root, path string, fields frontmatterFields, resolver *documentResolver, result *Result) {
+func validateRelationships(root, path string, fields frontmatterFields, config Config, resolver *documentResolver, result *Result) {
 	specs, err := relationshipSpecs(fields)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
@@ -224,6 +224,7 @@ func validateRelationships(root, path string, fields frontmatterFields, resolver
 			result.Errors = append(result.Errors, fmt.Sprintf("%s: relationships[%d] target %q must be an internal Markdown path", path, index, spec.Target))
 			continue
 		}
+		validateLinkFormat(path, link, config, result)
 		resolution, err := resolver.resolve(root, path, logicalPath, link)
 		if err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("%s: relationships[%d]: %v", path, index, err))
@@ -248,7 +249,6 @@ func validateRelationships(root, path string, fields frontmatterFields, resolver
 }
 
 func validateLinks(root, path, text string, config Config, resolver *documentResolver, result *Result) {
-	preferred := config.LinkFormatValue()
 	links, err := internalLinks(text)
 	if err != nil {
 		result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", path, err))
@@ -261,22 +261,7 @@ func validateLinks(root, path, text string, config Config, resolver *documentRes
 	}
 	logicalPath = filepath.ToSlash(logicalPath)
 	for _, link := range links {
-		if link.URI == "" && link.Absolute && preferred == LinkFormatRelative {
-			msg := fmt.Sprintf("%s: absolute link %q; this vault is configured to prefer relative links", path, link.Raw)
-			if config.IsStrict() {
-				result.Errors = append(result.Errors, msg)
-			} else {
-				result.Warnings = append(result.Warnings, msg)
-			}
-		}
-		if link.URI == "" && !link.Absolute && preferred == LinkFormatAbsolute {
-			msg := fmt.Sprintf("%s: relative link %q; this vault is configured to prefer absolute links", path, link.Raw)
-			if config.IsStrict() {
-				result.Errors = append(result.Errors, msg)
-			} else {
-				result.Warnings = append(result.Warnings, msg)
-			}
-		}
+		validateLinkFormat(path, link, config, result)
 
 		resolution, err := resolver.resolve(root, path, logicalPath, link)
 		if err != nil {
@@ -295,6 +280,28 @@ func validateLinks(root, path, text string, config Config, resolver *documentRes
 			result.Errors = append(result.Errors, fmt.Sprintf("%s: unresolved internal link %s", path, link.Raw))
 		}
 	}
+}
+
+func validateLinkFormat(path string, link Link, config Config, result *Result) {
+	vaultName, _, _ := canonicalGnosisParts(link.URI)
+	isLocalURI := vaultName != "" && vaultName == config.Vault.Name
+	isAbsolute := link.Absolute || isLocalURI
+	preferred := config.LinkFormatValue()
+
+	var msg string
+	switch {
+	case isAbsolute && preferred == LinkFormatRelative:
+		msg = fmt.Sprintf("%s: absolute link %q; this vault is configured to prefer relative links", path, link.Raw)
+	case link.URI == "" && !link.Absolute && preferred == LinkFormatAbsolute:
+		msg = fmt.Sprintf("%s: relative link %q; this vault is configured to prefer absolute links", path, link.Raw)
+	default:
+		return
+	}
+	if config.IsStrict() {
+		result.Errors = append(result.Errors, msg)
+		return
+	}
+	result.Warnings = append(result.Warnings, msg)
 }
 
 func checkRootLog(root string, result *Result) {

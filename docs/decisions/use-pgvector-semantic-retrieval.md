@@ -2,7 +2,7 @@
 type: Decision
 title: Use pgvector for semantic knowledge retrieval
 description: Keep Markdown authoritative while indexing derived document chunks in pgvector for semantic search.
-supersedes: gnosis://local/decisions/keep-search-sources-and-retrieval-backends-replaceable.md
+supersedes: keep-search-sources-and-retrieval-backends-replaceable.md
 ---
 
 # Decision
@@ -28,4 +28,4 @@ An explicit synchronization command makes database mutation visible and testable
 
 # Supersedes
 
-- [Keep search sources and retrieval backends replaceable](gnosis://local/decisions/keep-search-sources-and-retrieval-backends-replaceable.md)
+- [Keep search sources and retrieval backends replaceable](keep-search-sources-and-retrieval-backends-replaceable.md)

@@ -269,12 +269,15 @@ type: Concept
 func TestValidateWarnsOnWrongLinkFormat(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]
+vault_name = "local"
+vault_root = "."
 link_format = "relative"
 link_format_strict = false
 `)
 	write(t, root, "index.md", `# Index
 
 [Concept](/concept.md)
+[Local concept](gnosis://local/concept.md)
 `)
 	write(t, root, "log.md", `# Log
 
@@ -284,9 +287,18 @@ link_format_strict = false
 `)
 	write(t, root, "concept.md", `---
 type: Concept
+relationships:
+  - type: related_to
+    target: gnosis://local/related.md
 ---
 
 # Concept
+`)
+	write(t, root, "related.md", `---
+type: Concept
+---
+
+# Related
 `)
 
 	result, err := Validate(root)
@@ -296,20 +308,26 @@ type: Concept
 	if len(result.Errors) != 0 {
 		t.Fatalf("unexpected validation errors: %v", result.Errors)
 	}
-	if len(result.Warnings) == 0 {
-		t.Fatal("expected link-format warning")
+	if got := strings.Join(result.Warnings, "\n"); !strings.Contains(got, "gnosis://local/concept.md") {
+		t.Fatalf("warnings = %v, want local URI link-format warning", result.Warnings)
+	}
+	if got := strings.Join(result.Warnings, "\n"); !strings.Contains(got, "gnosis://local/related.md") {
+		t.Fatalf("warnings = %v, want local relationship link-format warning", result.Warnings)
 	}
 }
 
 func TestValidateErrorsOnWrongLinkFormatWhenStrict(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]
+vault_name = "local"
+vault_root = "."
 link_format = "relative"
 link_format_strict = true
 `)
 	write(t, root, "index.md", `# Index
 
 [Concept](/concept.md)
+[Local concept](gnosis://local/concept.md)
 `)
 	write(t, root, "log.md", `# Log
 
@@ -319,17 +337,29 @@ link_format_strict = true
 `)
 	write(t, root, "concept.md", `---
 type: Concept
+relationships:
+  - type: related_to
+    target: gnosis://local/related.md
 ---
 
 # Concept
+`)
+	write(t, root, "related.md", `---
+type: Concept
+---
+
+# Related
 `)
 
 	result, err := Validate(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Errors) == 0 {
-		t.Fatal("expected validation error for absolute link")
+	if got := strings.Join(result.Errors, "\n"); !strings.Contains(got, "gnosis://local/concept.md") {
+		t.Fatalf("errors = %v, want local URI link-format error", result.Errors)
+	}
+	if got := strings.Join(result.Errors, "\n"); !strings.Contains(got, "gnosis://local/related.md") {
+		t.Fatalf("errors = %v, want local relationship link-format error", result.Errors)
 	}
 }
 

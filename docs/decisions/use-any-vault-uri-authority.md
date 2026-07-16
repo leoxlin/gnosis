@@ -2,7 +2,7 @@
 type: Decision
 title: Use `_` as the any-vault URI authority
 description: Reserve `_` for vault-agnostic URI resolution while keeping emitted document identities concrete.
-supersedes: gnosis://local/decisions/define-gnosis-uri-format.md
+supersedes: define-gnosis-uri-format.md
 ---
 
 # Decision

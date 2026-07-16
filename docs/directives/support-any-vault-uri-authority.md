@@ -20,7 +20,7 @@ Support `gnosis://_/path/to/doc.md` as a portable any-vault URI that resolves th
 
 # Purpose/Decision Changes
 
-- `gnosis://local/decisions/define-gnosis-uri-format.md` @ `sha256:9ac5de52daff9868545610ad4b0952c30c4c9e08b149042bb28370c3a02d444f` → `gnosis://local/decisions/use-any-vault-uri-authority.md` @ `sha256:2fe25bf26178a0c0e6c71cab540dc396365a8597037e527db7693ddea8289c95` — reserves `_` for precedence-based resolution while keeping emitted identities concrete.
+- `../decisions/define-gnosis-uri-format.md` @ `sha256:9ac5de52daff9868545610ad4b0952c30c4c9e08b149042bb28370c3a02d444f` → `../decisions/use-any-vault-uri-authority.md` @ `sha256:2fe25bf26178a0c0e6c71cab540dc396365a8597037e527db7693ddea8289c95` — reserves `_` for precedence-based resolution while keeping emitted identities concrete.
 
 # Implementation plan
 
