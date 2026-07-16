@@ -18,7 +18,7 @@ invocation: model
 ### Process
 
 1. Bind exactly one directive. When planning returned multiple ordered bindings, select only the first dependency-ready binding and leave every other directive unstarted. This invocation never advances automatically to a sibling, dependent, follow-up, or next directive.
-2. Read the selected directive with `gnosis read '<directive URI>' --json`; stop unless its current status is `open`. Record the selected URI/revision as the only directive this invocation may change.
+2. Read the selected directive with `gnosis get pages '<directive URI>' --full`; stop unless its current status is `open`. Record the selected URI/revision as the only directive this invocation may change.
 3. Require every prerequisite directive to be `done` at its bound revision and every supplied contract to be present in the checkout. If a prerequisite is incomplete or has drifted, set only the selected directive to `blocked`, record the evidence, persist and read back that revision, validate the vault, and stop; do not implement the prerequisite in this invocation.
 4. Inspect the selected directive's decisions, scope, acceptance criteria, implementation plan, affected implementation, and tests. Resolve contradictory decisions, obsolete assumptions, unsafe instructions, or steps whose intended result cannot be determined with the author before changing production behavior. If an author-owned issue remains unresolved, set only the selected directive to `blocked`, persist the issue and evidence, read back that revision, validate the vault, and stop.
 5. Choose the smallest adequate execution mode: direct execution in the controlling session or delegated execution of one independently reviewable task at a time. Keep task briefs, reports, diff packages, and transient progress in repository-ignored scratch files.
@@ -58,17 +58,17 @@ The selected directive has one author-approved workspace with known ownership an
 ### Process
 
 1. Execute only the selected directive's tasks, in order, with at most one task active. In delegated mode, give the current task to one fresh implementer with its exact goal, scope, evidence, constraints, decisions, allowed files, inherited interfaces, required verification, report contract, and governing procedure URIs.
-2. For every task, invoke each governing procedure by exact URI with `gnosis procedure invoke --uri '<procedure URI>'`. Require its completion evidence and the task's focused and surrounding verification before advancing.
+2. For every task, invoke each governing procedure by exact URI with `gnosis get procedures '<procedure URI>' --full`. Require its completion evidence and the task's focused and surrounding verification before advancing.
 3. Parallelize only independent domains inside the current task. Before dispatch, prove that no domain needs another's result and that their files and mutable resources cannot overlap. Modifying agents use separate workspaces; read-only investigators may share a checkout. Never dispatch work from another task or directive. Require each agent to report its evidence or implementation, unresolved concerns, changed or inspected paths, commands, and results; the controller reviews every artifact and owns all directive changes.
 4. For each behavior change, use red-green-refactor:
    - **Red:** Write one minimal test through the real interface and run it until it fails because the required behavior is missing. A pass or setup error is not red.
    - **Green:** Write only the production code needed for that test, then run the focused and relevant surrounding tests until their output is clean.
    - **Refactor:** Improve names, boundaries, or duplication without adding behavior and while keeping the tests green. Repeat for the next required behavior or edge case.
 5. Revert production code written before its failing test and reimplement it from the observed red state. Use mocks only where a real dependency cannot reasonably be exercised; never weaken a requirement to obtain green. For a non-behavior task, perform the directive's exact validation instead.
-6. When a failure's root cause is not established, invoke `gnosis procedure invoke --uri 'gnosis://_/procedures/development/debugging-methodically.md'` and vary one evidenced hypothesis at a time. Apply the resulting fix only to the selected directive and current task.
+6. When a failure's root cause is not established, invoke `gnosis get procedures 'gnosis://_/procedures/development/debugging-methodically.md' --full` and vary one evidenced hypothesis at a time. Apply the resulting fix only to the selected directive and current task.
 7. After each task, require focused and surrounding verification. In delegated mode, also require a file-based implementation report and exact base-to-head diff package; independently inspect the diff, resolve blocking findings, and record the reviewed commit range before starting the next task.
 8. After parallel or delegated work, review every artifact and diff, check assumptions and paths for overlap, integrate compatible changes, and run the combined verification required by the current task. Individually valid reports are not evidence that the integrated state passes.
-9. If implementation genuinely cannot continue, set only the selected directive to `blocked`, record the concrete blocker and evidence, persist it with `gnosis write '<directive URI>' --filename <directive-file>`, read back its URI/revision, validate the vault, and stop. Never switch to another directive.
+9. If implementation genuinely cannot continue, set only the selected directive to `blocked`, record the concrete blocker and evidence, persist it with `gnosis apply page '<directive URI>' --filename <directive-file>`, read back its URI/revision, validate the vault, and stop. Never switch to another directive.
 
 ### Completion
 
@@ -130,7 +130,7 @@ Every acceptance criterion and stated success for the selected directive is back
    - **Discard:** Enumerate the exact branch, commits, and workspace that would be deleted and require exact author confirmation before destructive action.
 5. Remove only worktrees created and owned by this procedure, only after a successful merge or confirmed discard, and only from outside the worktree. Preserve harness-managed workspaces.
 6. Set the selected directive to `done` only when fresh evidence satisfies every acceptance criterion and the author-selected delivery outcome is achieved with the verified work preserved. A failed delivery leaves it `open` or `blocked` with evidence; a retained branch may be `done` when delivery was outside scope, while a discarded implementation remains or returns to `open`.
-7. Persist the selected directive with `gnosis write '<directive URI>' --filename <directive-file>`, read back its URI/revision, validate the vault, report the preserved delivery state, and return. Starting another directive always requires a new invocation.
+7. Persist the selected directive with `gnosis apply page '<directive URI>' --filename <directive-file>`, read back its URI/revision, validate the vault, report the preserved delivery state, and return. Starting another directive always requires a new invocation.
 
 ### Completion
 

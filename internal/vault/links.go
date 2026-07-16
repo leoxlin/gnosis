@@ -58,6 +58,12 @@ func canonicalGnosisParts(raw string) (string, string, bool) {
 	return u.Host, strings.TrimPrefix(u.Path, "/"), true
 }
 
+// IsCanonicalURI reports whether raw is an exact canonical gnosis page URI.
+func IsCanonicalURI(raw string) bool {
+	_, ok := canonicalGnosisURI(raw)
+	return ok
+}
+
 // canonicalGnosisLink accepts a canonical identity with an optional query or
 // fragment and returns the underlying page identity.
 func canonicalGnosisLink(raw string) (string, bool) {

@@ -1,40 +1,68 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"github.com/spf13/cobra"
-	"gnosis/internal/vault"
 	"io"
+	"strings"
+
+	"github.com/spf13/cobra"
+	toon "github.com/toon-format/toon-go"
+	"gnosis/internal/vault"
 )
 
-func newValidateCommand(stdout, stderr io.Writer) *cobra.Command {
-	var vaultPath string
+func newValidateCommand(options *rootOptions, stdout, stderr io.Writer) *cobra.Command {
 	command := &cobra.Command{
-		Use:   "validate [flags]",
-		Short: "Validate vault structure and links",
-		Args:  cobra.NoArgs,
+		Use:     "validate",
+		Short:   "Validate resources",
+		Args:    cobra.NoArgs,
+		GroupID: "workspace",
+		Example: "gnosis validate vault\n" +
+			"gnosis --vault <path> validate vault",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return runValidate(vaultPath, stdout, stderr)
+			return newUsageError(errors.New("validate: missing resource"))
 		},
 	}
-	command.Flags().StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
+	command.AddCommand(newValidateVaultCommand(options, stdout, stderr))
 	return command
+}
+
+func newValidateVaultCommand(
+	options *rootOptions,
+	stdout io.Writer,
+	stderr io.Writer,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   "vault",
+		Short: "Validate vault structure and links",
+		Args:  cobra.NoArgs,
+		Example: "gnosis validate vault\n" +
+			"gnosis --vault <path> validate vault",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return runValidate(options.vaultPath, stdout, stderr)
+		},
+	}
 }
 
 func runValidate(vaultPath string, stdout, stderr io.Writer) error {
 	result, err := vault.Validate(vaultPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("validate vault: %w", err)
 	}
 	for _, warning := range result.Warnings {
 		fmt.Fprintf(stderr, "warning: %s\n", warning)
 	}
 	if len(result.Errors) > 0 {
-		for _, validationErr := range result.Errors {
-			fmt.Fprintf(stderr, "error: %s\n", validationErr)
-		}
-		return fmt.Errorf("validation failed: %d error(s)", len(result.Errors))
+		return fmt.Errorf(
+			"validate vault: %d error(s): %s",
+			len(result.Errors),
+			strings.Join(result.Errors, "; "),
+		)
 	}
-	fmt.Fprintf(stdout, "ok: %d markdown file(s) validated\n", result.FilesChecked)
-	return nil
+	return writeTOON(stdout, toon.NewObject(
+		toon.Field{Key: "resource", Value: "vault"},
+		toon.Field{Key: "status", Value: "valid"},
+		toon.Field{Key: "files_checked", Value: result.FilesChecked},
+		toon.Field{Key: "warnings", Value: len(result.Warnings)},
+	))
 }

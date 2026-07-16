@@ -7,63 +7,80 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	toon "github.com/toon-format/toon-go"
 	"gnosis/internal/vault"
 )
 
-func newSearchCommand(stdout io.Writer) *cobra.Command {
+func newSearchCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
 	command := &cobra.Command{
-		Use:   "search",
-		Short: "Search vault resources",
-		Args:  cobra.NoArgs,
+		Use:     "search",
+		Short:   "Search vault resources",
+		Args:    cobra.NoArgs,
+		GroupID: "knowledge",
+		Example: "gnosis search knowledge \"<question>\" --backend lexical\n" +
+			"gnosis search knowledge \"<question>\" --fields uri,title,score",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return newUsageError(errors.New("search: missing resource"))
+		},
 	}
-	command.AddCommand(newSearchKnowledgeCommand(stdout))
+	command.AddCommand(newSearchKnowledgeCommand(options, stdout))
 	return command
 }
 
-func newSearchKnowledgeCommand(stdout io.Writer) *cobra.Command {
-	var vaultPath, backend string
+func newSearchKnowledgeCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
+	var backend, fields string
 	var top, maxRead, depth int
-	var jsonOutput bool
 	command := &cobra.Command{
-		Use:   "knowledge [flags] <question>",
+		Use:   "knowledge <question> [flags]",
 		Short: "Find relevant vault pages for a question",
 		Args:  questionArgs("search knowledge"),
+		Example: "gnosis search knowledge \"<question>\" --backend lexical\n" +
+			"gnosis search knowledge \"<question>\" --fields uri,title,score",
 		RunE: func(command *cobra.Command, args []string) error {
 			if err := validateQueryOptions(top, maxRead, depth); err != nil {
-				return fmt.Errorf("search knowledge: %w", err)
+				return newUsageError(fmt.Errorf("search knowledge: %w", err))
 			}
-			options := vault.QueryOptions{Top: top, MaxRead: maxRead, MaxDepth: depth}
+			selector, err := parseFields(
+				fields,
+				[]string{"uri", "title", "type", "score"},
+				[]string{"uri", "type", "title", "description", "revision", "score"},
+			)
+			if err != nil {
+				return newUsageError(err)
+			}
+			queryOptions := vault.QueryOptions{Top: top, MaxRead: maxRead, MaxDepth: depth}
 			var result vault.QueryResult
-			var err error
 			switch backend {
 			case "vector":
-				config, configErr := vault.SemanticConfigFromEnv(vaultPath)
+				config, configErr := vault.SemanticConfigFromEnv(options.vaultPath)
 				if configErr != nil {
 					return configErr
 				}
-				result, err = vault.QuerySemanticKnowledge(command.Context(), vaultPath, args[0], options, config)
+				result, err = vault.QuerySemanticKnowledge(
+					command.Context(), options.vaultPath, args[0], queryOptions, config,
+				)
 			case "lexical":
-				result, err = vault.QueryKnowledge(vaultPath, args[0], options)
+				result, err = vault.QueryKnowledge(options.vaultPath, args[0], queryOptions)
 			default:
-				return fmt.Errorf("search knowledge: unknown backend %q", backend)
+				return newUsageError(fmt.Errorf("search knowledge: unknown backend %q", backend))
 			}
 			if err != nil {
-				return err
+				return fmt.Errorf("search knowledge: %w", err)
 			}
-			if jsonOutput {
-				return writeJSON(stdout, result)
-			}
-			writeQueryText(stdout, result)
-			return nil
+			return writeSearchResult(stdout, selector, result)
 		},
 	}
 	flags := command.Flags()
-	flags.StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
 	flags.StringVar(&backend, "backend", "vector", "retrieval backend: vector or lexical")
 	flags.IntVar(&top, "top", 3, "number of candidate pages to return")
 	flags.IntVar(&maxRead, "max-read", 3, "maximum number of pages to recommend reading")
 	flags.IntVar(&depth, "depth", 3, "maximum graph traversal depth")
-	flags.BoolVar(&jsonOutput, "json", false, "emit indented machine-readable JSON")
+	flags.StringVar(
+		&fields,
+		"fields",
+		"",
+		"candidate fields: uri, type, title, description, revision, score",
+	)
 	return command
 }
 
@@ -80,43 +97,59 @@ func validateQueryOptions(top, maxRead, depth int) error {
 	return nil
 }
 
-func writeQueryText(output io.Writer, result vault.QueryResult) {
-	fmt.Fprintf(output, "answer_type: %s\n", result.AnswerType)
-	fmt.Fprintf(output, "index_only: %t\n", result.IndexOnly)
-	if len(result.Candidates) == 0 {
-		fmt.Fprintln(output, "no matches")
-		return
-	}
-	fmt.Fprintln(output, "candidates:")
+func writeSearchResult(output io.Writer, selector fieldSelector, result vault.QueryResult) error {
+	rows := make([]toon.Object, 0, len(result.Candidates))
 	for _, candidate := range result.Candidates {
-		fmt.Fprintf(output, "- %s (%s)", candidate.Title, candidate.URI)
-		if candidate.Description != "" {
-			fmt.Fprintf(output, " - %s", candidate.Description)
-		}
-		fmt.Fprintln(output)
+		rows = append(rows, selector.object(func(name string) (any, bool) {
+			switch name {
+			case "uri":
+				return candidate.URI, true
+			case "type":
+				return candidate.Type, true
+			case "title":
+				return candidate.Title, true
+			case "description":
+				return candidate.Description, true
+			case "revision":
+				return candidate.Revision, true
+			case "score":
+				return candidate.Score, true
+			default:
+				return nil, false
+			}
+		}))
 	}
-	if len(result.Path) > 0 {
-		fmt.Fprintln(output, "path:")
-		fmt.Fprintln(output, strings.Join(result.Path, " -> "))
+	fields := []toon.Field{
+		{Key: "answer_type", Value: string(result.AnswerType)},
+		{Key: "count", Value: len(rows)},
+		{Key: "candidates", Value: rows},
+		{Key: "path", Value: result.Path},
+		{Key: "should_read", Value: result.ShouldRead},
+		{Key: "index_only", Value: result.IndexOnly},
 	}
-	if len(result.ShouldRead) > 0 {
-		fmt.Fprintln(output, "should_read:")
-		for _, page := range result.ShouldRead {
-			fmt.Fprintf(output, "- %s\n", page)
-		}
+	if len(rows) == 0 {
+		fields = append(fields,
+			toon.Field{Key: "message", Value: "0 matching pages found"},
+			toon.Field{Key: "help", Value: []string{
+				"Try broader terms or `--backend lexical` for exact local matching",
+			}},
+		)
 	}
+	return writeTOON(output, toon.NewObject(fields...))
 }
 
 func questionArgs(command string) cobra.PositionalArgs {
 	return func(_ *cobra.Command, args []string) error {
 		if len(args) == 0 {
-			return fmt.Errorf("%s: missing question", command)
+			return newUsageError(fmt.Errorf("%s: missing question", command))
 		}
 		if len(args) > 1 {
-			return fmt.Errorf("%s: unexpected argument(s): %s", command, strings.Join(args[1:], " "))
+			return newUsageError(fmt.Errorf(
+				"%s: unexpected argument(s): %s", command, strings.Join(args[1:], " "),
+			))
 		}
 		if strings.TrimSpace(args[0]) == "" {
-			return fmt.Errorf("%s: question must not be empty", command)
+			return newUsageError(fmt.Errorf("%s: question must not be empty", command))
 		}
 		return nil
 	}

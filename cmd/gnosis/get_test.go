@@ -2,36 +2,15 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 
-	"gnosis/internal/vault"
+	toon "github.com/toon-format/toon-go"
 )
 
-func TestRootUsesResourceCommands(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	if err := run([]string{"help"}, &stdout, &stderr); err != nil {
-		t.Fatal(err)
-	}
-	for _, command := range []string{"get", "search", "index"} {
-		if !strings.Contains(stdout.String(), "  "+command+" ") {
-			t.Fatalf("help does not contain %q:\n%s", command, stdout.String())
-		}
-	}
-	for _, command := range []string{"vaults", "concepts", "query"} {
-		stdout.Reset()
-		stderr.Reset()
-		if err := run([]string{command}, &stdout, &stderr); err == nil {
-			t.Fatalf("removed command %q succeeded", command)
-		}
-	}
-}
-
-func TestGetVaultsListsEffectiveVaultsAsJSON(t *testing.T) {
+func TestGetVaultsListsEffectiveVaultsAsTOON(t *testing.T) {
 	workspace := t.TempDir()
 	imported := filepath.Join(workspace, "imported")
 	if err := os.Mkdir(imported, 0o755); err != nil {
@@ -51,20 +30,22 @@ vault_root = "."
 `)
 
 	var stdout, stderr bytes.Buffer
-	if err := run([]string{"get", "vaults", "--vault", workspace, "--json"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"--vault", workspace, "get", "vaults"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
-	var catalog vault.VaultCatalog
-	if err := json.Unmarshal(stdout.Bytes(), &catalog); err != nil {
-		t.Fatal(err)
+	if _, err := toon.Decode(stdout.Bytes()); err != nil {
+		t.Fatalf("decode output: %v\n%s", err, stdout.String())
 	}
-	want := []vault.Origin{
-		{Vault: "workspace", Kind: vault.OriginLocal, Root: workspace, Precedence: 0},
-		{Vault: "imported", Kind: vault.OriginImport, Root: imported, Precedence: 1},
-		{Vault: "core", Kind: vault.OriginBundle, Precedence: 2},
-	}
-	if !reflect.DeepEqual(catalog.Vaults, want) {
-		t.Fatalf("vaults = %+v, want %+v", catalog.Vaults, want)
+	for _, value := range []string{
+		"count: 3",
+		"vaults[3]{vault,kind,root}",
+		"workspace,local",
+		"imported,import",
+		"core,bundle",
+	} {
+		if !strings.Contains(stdout.String(), value) {
+			t.Fatalf("output = %q, missing %q", stdout.String(), value)
+		}
 	}
 }
 
@@ -76,20 +57,16 @@ vault_root = "."
 `)
 
 	var stdout, stderr bytes.Buffer
-	if err := run([]string{"get", "vaults", "--vault", workspace, "--json"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"--vault", workspace, "get", "vaults"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
-	var catalog vault.VaultCatalog
-	if err := json.Unmarshal(stdout.Bytes(), &catalog); err != nil {
-		t.Fatal(err)
-	}
-	want := []vault.Origin{{Vault: "core", Kind: vault.OriginLocal, Root: workspace, Precedence: 0}}
-	if !reflect.DeepEqual(catalog.Vaults, want) {
-		t.Fatalf("vaults = %+v, want %+v", catalog.Vaults, want)
+	if !strings.Contains(stdout.String(), "count: 1") ||
+		!strings.Contains(stdout.String(), "core,local") {
+		t.Fatalf("output = %q", stdout.String())
 	}
 }
 
-func TestGetConceptsAcceptsOnePositionalType(t *testing.T) {
+func TestGetConceptsAcceptsOnePositionalTypeAndFields(t *testing.T) {
 	workspace := commandVault(t)
 	writeCommandFile(t, workspace, "decision.md", `---
 type: Decision
@@ -99,15 +76,14 @@ description: Prefer the smallest adequate design.
 `)
 
 	var stdout, stderr bytes.Buffer
-	if err := run([]string{"get", "concepts", "Decision", "--vault", workspace, "--json"}, &stdout, &stderr); err != nil {
+	if err := run([]string{
+		"--vault", workspace, "get", "concepts", "Decision", "--fields", "title,uri",
+	}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
-	var catalog vault.ConceptRecordCatalog
-	if err := json.Unmarshal(stdout.Bytes(), &catalog); err != nil {
-		t.Fatal(err)
-	}
-	if got := catalog["concepts"]; len(got) != 1 || got[0]["title"] != "Keep it small" {
-		t.Fatalf("catalog = %#v", catalog)
+	if !strings.Contains(stdout.String(), "concepts[1]{title,uri}") ||
+		!strings.Contains(stdout.String(), "Keep it small") {
+		t.Fatalf("output = %q", stdout.String())
 	}
 
 	for _, args := range [][]string{
@@ -119,6 +95,69 @@ description: Prefer the smallest adequate design.
 		if err := run(args, &stdout, &stderr); err == nil {
 			t.Fatalf("run(%q) succeeded", args)
 		}
+	}
+}
+
+func TestGetPagePreviewAndFullContent(t *testing.T) {
+	workspace := commandVault(t)
+	body := strings.Repeat("界", detailPreviewLimit+1)
+	writeCommandFile(t, workspace, "long.md", "---\n"+
+		"type: Decision\n"+
+		"title: Long decision\n"+
+		"description: Exercises bounded output.\n"+
+		"---\n\n"+body)
+	uri := "gnosis://test/long.md"
+
+	var preview, stderr bytes.Buffer
+	if err := run([]string{"--vault", workspace, "get", "pages", uri}, &preview, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(preview.String(), "truncated: true") ||
+		!strings.Contains(preview.String(), "--full") {
+		t.Fatalf("preview = %q", preview.String())
+	}
+
+	var full bytes.Buffer
+	if err := run([]string{"--vault", workspace, "get", "pages", uri, "--full"}, &full, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(full.String(), "truncated: false") ||
+		strings.Contains(full.String(), "help[") {
+		t.Fatalf("full = %q", full.String())
+	}
+}
+
+func TestGetProceduresListsAndBoundsExecutionContract(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	workspace := t.TempDir()
+	var listed, stderr bytes.Buffer
+	if err := run([]string{
+		"--vault", workspace, "get", "procedures", "--tags", "gnosis,development",
+	}, &listed, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(listed.String(), "procedures[") ||
+		!strings.Contains(listed.String(), "implementing-directive") {
+		t.Fatalf("list = %q", listed.String())
+	}
+
+	uri := "gnosis://core/procedures/development/implementing-directive.md"
+	var preview bytes.Buffer
+	if err := run([]string{"--vault", workspace, "get", "procedures", uri}, &preview, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(preview.String(), "truncated: true") ||
+		!strings.Contains(preview.String(), "--full") {
+		t.Fatalf("preview = %q", preview.String())
+	}
+
+	var full bytes.Buffer
+	if err := run([]string{"--vault", workspace, "get", "procedures", uri, "--full"}, &full, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(full.String(), "truncated: false") ||
+		strings.Contains(full.String(), "help[") {
+		t.Fatalf("full = %q", full.String())
 	}
 }
 

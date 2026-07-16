@@ -23,18 +23,21 @@ const defaultHTTPAddress = "127.0.0.1:8080"
 //go:embed ui.html
 var uiHTML []byte
 
-func newServeHTTPCommand() *cobra.Command {
-	var address, vaultPath string
+func newServeHTTPCommand(options *rootOptions) *cobra.Command {
+	var address string
 	command := &cobra.Command{
 		Use:   "http [flags]",
 		Short: "Serve the gnosis API, document UI, and MCP over HTTP",
 		Args:  cobra.NoArgs,
+		Example: "gnosis serve http --address 127.0.0.1:8080\n" +
+			"gnosis --vault <path> serve http",
 		RunE: func(command *cobra.Command, _ []string) error {
-			return serveHTTP(command.Context(), address, vaultPath, command.ErrOrStderr())
+			return serveHTTP(
+				command.Context(), address, options.vaultPath, command.ErrOrStderr(),
+			)
 		},
 	}
 	command.Flags().StringVar(&address, "address", defaultHTTPAddress, "HTTP listen address")
-	command.Flags().StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
 	return command
 }
 

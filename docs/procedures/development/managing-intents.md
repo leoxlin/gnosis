@@ -26,8 +26,8 @@ invocation: model
    - **Create:** Gather discoverable facts, resolve author-owned choices, reject duplicate identity, and build the minimum complete record. Obtain explicit author confirmation when the type requires it. If the type delegates creation to another procedure, invoke that procedure with the request and current knowledge bindings instead of writing directly.
    - **Update:** Classify the change as semantic, non-semantic, or a lifecycle transition before writing. Preserve applicable unknown metadata. Apply the type's in-place, supersession, replanning, history, confirmation, and evidence rules; invoke any procedure that owns the required transition. Reject a transition or mutation the type does not allow.
    - **Delete:** Trace inbound links and type-specific history. Prefer the type's correction, supersession, or retention path. Delete only the exact confirmed local origin when the Concept Type permits it, after explicit author approval and repair or intentional removal of every inbound reference. Report imported or bundled targets to their owning vault.
-4. Persist direct creation or in-place correction with `gnosis write '<record URI>' --filename <draft-file>`. For deletion, remove only the confirmed local origin file identified by the exact JSON read. A delegated procedure persists the changes it owns.
-5. When `vault_index` is enabled, run `gnosis index vault --vault <root>`. Run `gnosis validate --vault <root>` after every write or deletion.
+4. Persist direct creation or in-place correction with `gnosis apply page '<record URI>' --filename <draft-file>`. For deletion, remove only the confirmed local origin file identified by the exact page detail. A delegated procedure persists the changes it owns.
+5. When `vault_index` is enabled, run `gnosis index vault --vault <root>`. Run `gnosis validate vault --vault <root>` after every write or deletion.
 
 ## Completion
 

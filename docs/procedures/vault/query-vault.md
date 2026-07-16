@@ -22,8 +22,8 @@ invocation: model
 2. Before opening concept pages, run `gnosis search knowledge --backend lexical --vault <root> "<question>"`.
    - If `index_only` is true and a candidate exists, answer from its description and cite its page without opening the body.
    - For a non-empty `path`, use the returned chain and open only the listed `should_read` pages when the link structure alone does not explain the relationship.
-   - For an exact relationship question, use `gnosis graph neighbors --vault <root> --uri '<URI>'` or `gnosis graph path --vault <root> --from '<URI>' --to '<URI>'`.
-   - Otherwise, inspect only the returned `should_read` pages with `gnosis read '<URI>'`.
+   - For an exact relationship question, use `gnosis graph neighbors '<URI>' --vault <root>` or `gnosis graph path '<FROM_URI>' '<TO_URI>' --vault <root>`.
+   - Otherwise, inspect only the returned `should_read` pages with `gnosis get pages '<URI>' --full`.
    - If no candidates are returned, report the knowledge gap instead of scanning every page.
 3. If the `gnosis` command is unavailable, fall back to the vault index when `vault_index` is enabled, then search titles, descriptions, tags, and filenames before opening pages.
 4. Answer from recorded knowledge and cited sources. Label synthesis, conflicts, and missing evidence clearly.

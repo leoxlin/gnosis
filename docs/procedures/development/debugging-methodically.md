@@ -23,7 +23,7 @@ Debugging methodically finds and verifies root cause before planning or changing
 2. **Pattern analysis:** Find a working analogue, read the applicable reference completely, enumerate every difference, and identify the dependencies and assumptions the broken path requires.
 3. **Hypothesis testing:** State one specific causal hypothesis and its evidence. Test it with the smallest possible change, varying only one variable. A failed test produces a new hypothesis, not a stack of speculative fixes.
 4. For diagnosis or planning, return the evidence-backed cause, regression boundary, constraints, and reproduction without changing production behavior. Otherwise, create the smallest failing reproduction, observe it fail for the intended reason, implement only the source-level fix needed to make it pass, refactor while green, then run focused and relevant surrounding verification. When debugging was invoked by an active directive procedure, return this evidence to that same directive and task.
-5. After three failed fix attempts, stop and question the architecture with the author. Invoke `gnosis procedure invoke --uri 'gnosis://_/procedures/development/planning-directives.md'` with the existing evidence before changing the design.
+5. After three failed fix attempts, stop and question the architecture with the author. Invoke `gnosis get procedures 'gnosis://_/procedures/development/planning-directives.md' --full` with the existing evidence before changing the design.
 6. If evidence shows an external or timing-dependent cause, record what was ruled out in the task evidence, add appropriate handling and observability, and verify that behavior.
 
 ## Completion

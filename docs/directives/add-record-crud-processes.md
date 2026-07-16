@@ -22,8 +22,8 @@ Create `docs/procedures/records/manage-decisions.md` and `docs/procedures/record
 # Implementation plan
 
 1. Apply the exact process-record additions and migration below.
-2. Run `gnosis validate --vault .`; expect a successful validation summary covering the configured `docs` vault with no errors.
-3. Run `go run ./cmd/gnosis procedure discovery`; expect `manage-decisions` and `manage-purpose` at their `records/` URIs and no `refine-purpose` entry from the current source tree.
+2. Run `gnosis validate vault --vault .`; expect a successful validation summary covering the configured `docs` vault with no errors.
+3. Run `go run ./cmd/gnosis get procedures`; expect `manage-decisions` and `manage-purpose` at their `records/` URIs and no `refine-purpose` entry from the current source tree.
 4. Run `go test ./...`; expect every package to pass.
 
 # Exact patch
@@ -62,8 +62,8 @@ relationships:
    - **Create:** Establish the non-obvious choice, material alternatives, rationale, and constraints. Resolve every author-owned choice, obtain explicit confirmation, reject duplicate identity, and build the minimum complete Decision record.
    - **Update:** Classify the change before writing. Apply a non-semantic correction in place while preserving unknown metadata. For any changed choice, rationale, or constraint, obtain explicit author confirmation and create a new Decision whose `supersedes` field links the prior Decision; preserve the prior record unchanged.
    - **Delete:** Trace inbound links and supersession history. Prefer correction or supersession whenever the record has governed work. Delete only a confirmed local duplicate or invalid record after the author explicitly approves the exact deletion and every inbound reference is repaired or intentionally removed. Report imported or bundled targets to their owning vault instead of deleting them.
-4. Persist each created or corrected record with `gnosis write '<decision URI>' --filename <draft-file>`. For deletion, remove only the confirmed local origin file identified by the exact JSON read.
-5. When `vault_index` is enabled, run `gnosis index --vault <root>`. Run `gnosis validate --vault <root>` after every write or deletion.
+4. Persist each created or corrected record with `gnosis apply page '<decision URI>' --filename <draft-file>`. For deletion, remove only the confirmed local origin file identified by the exact page detail.
+5. When `vault_index` is enabled, run `gnosis index vault --vault <root>`. Run `gnosis validate vault --vault <root>` after every write or deletion.
 
 ## Completion
 
@@ -103,8 +103,8 @@ relationships:
    - **Read:** Return the current outcome, beneficiaries, sub-purposes, boundaries, provenance, conflicts, and gaps. Make no vault change and stop.
    - **Create or update:** Gather discoverable facts and distinguish them from author-owned intent. Ask exactly one author-owned question at a time, recommend an answer with rationale, and wait before asking a dependent question. Explore every material branch of the outcome, beneficiaries, sub-purposes, and boundaries until no unresolved author-owned choice remains. Summarize the proposed Purpose and obtain explicit confirmation of shared understanding.
    - **Delete:** Trace every inbound link. Explain the resulting loss of repository intent, obtain explicit author confirmation that the vault should no longer contain a Purpose record, and repair or intentionally remove every inbound reference. Delete only a confirmed local origin; report an imported or bundled target to its owning vault instead.
-3. For creation or update, build the single Purpose record in the required shape, preserve applicable unknown metadata, and persist it with `gnosis write '<purpose URI>' --filename <draft-file>`. For deletion, remove only the confirmed local origin file identified by the exact JSON read.
-4. When `vault_index` is enabled, run `gnosis index --vault <root>`. Run `gnosis validate --vault <root>` after every write or deletion.
+3. For creation or update, build the single Purpose record in the required shape, preserve applicable unknown metadata, and persist it with `gnosis apply page '<purpose URI>' --filename <draft-file>`. For deletion, remove only the confirmed local origin file identified by the exact page detail.
+4. When `vault_index` is enabled, run `gnosis index vault --vault <root>`. Run `gnosis validate vault --vault <root>` after every write or deletion.
 
 ## Completion
 
@@ -122,4 +122,4 @@ Delete `docs/procedures/vault/refine-purpose.md` after the replacement process c
 - `manage-decisions` covers create, read, update, and delete while preserving decision history through supersession for semantic changes.
 - `manage-purpose` covers create, read, update, and delete and contains the author-confirmed understanding safeguards formerly owned by `refine-purpose`.
 - No live reference or discoverable process identity remains for `vault/refine-purpose.md`.
-- `gnosis validate --vault .` and relevant tests pass.
+- `gnosis validate vault --vault .` and relevant tests pass.

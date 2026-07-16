@@ -2,11 +2,10 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"strings"
 	"testing"
 
-	"gnosis/internal/vault"
+	toon "github.com/toon-format/toon-go"
 )
 
 func TestSearchKnowledgeDefaultsToVector(t *testing.T) {
@@ -16,13 +15,13 @@ func TestSearchKnowledgeDefaultsToVector(t *testing.T) {
 	t.Setenv("GNOSIS_EMBEDDING_MODEL", "")
 
 	var stdout, stderr bytes.Buffer
-	err := run([]string{"search", "knowledge", "what is gnosis?", "--vault", workspace}, &stdout, &stderr)
+	err := run([]string{"--vault", workspace, "search", "knowledge", "what is gnosis?"}, &stdout, &stderr)
 	if err == nil || !strings.Contains(err.Error(), "GNOSIS_DATABASE_URL") {
 		t.Fatalf("error = %v, want vector configuration error", err)
 	}
 }
 
-func TestSearchKnowledgeLexicalUsesLiveVault(t *testing.T) {
+func TestSearchKnowledgeLexicalUsesLiveVaultAndFields(t *testing.T) {
 	workspace := commandVault(t)
 	writeCommandFile(t, workspace, "retrieval.md", `---
 type: Concept
@@ -35,25 +34,25 @@ Semantic retrieval returns bounded candidates.
 
 	var stdout, stderr bytes.Buffer
 	err := run([]string{
-		"search", "knowledge", "semantic retrieval", "--backend", "lexical",
-		"--vault", workspace, "--json",
+		"--vault", workspace, "search", "knowledge", "semantic retrieval",
+		"--backend", "lexical", "--fields", "uri,title,score",
 	}, &stdout, &stderr)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var result vault.QueryResult
-	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
-		t.Fatal(err)
+	if _, err := toon.Decode(stdout.Bytes()); err != nil {
+		t.Fatalf("decode output: %v\n%s", err, stdout.String())
 	}
-	if len(result.Candidates) == 0 || result.Candidates[0].URI != "gnosis://test/retrieval.md" {
-		t.Fatalf("result = %+v", result)
+	if !strings.Contains(stdout.String(), "candidates[1]{uri,title,score}") ||
+		!strings.Contains(stdout.String(), "gnosis://test/retrieval.md") {
+		t.Fatalf("output = %q", stdout.String())
 	}
 }
 
-func TestSearchKnowledgeRejectsUnknownBackend(t *testing.T) {
+func TestSearchKnowledgeRejectsUnknownBackendAsUsage(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	err := run([]string{"search", "knowledge", "question", "--backend", "other"}, &stdout, &stderr)
-	if err == nil || !strings.Contains(err.Error(), "backend") {
-		t.Fatalf("error = %v, want backend error", err)
+	if err == nil || !strings.Contains(err.Error(), "backend") || exitCode(err) != 2 {
+		t.Fatalf("error = %v, exit = %d", err, exitCode(err))
 	}
 }

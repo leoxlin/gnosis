@@ -1,90 +1,102 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	toon "github.com/toon-format/toon-go"
 	"gnosis/internal/vault"
 )
 
-func newIndexCommand(stdout io.Writer) *cobra.Command {
+func newIndexCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
 	command := &cobra.Command{
-		Use:   "index",
-		Short: "Index vault resources",
-		Args:  cobra.NoArgs,
+		Use:     "index",
+		Short:   "Build derived indexes",
+		Args:    cobra.NoArgs,
+		GroupID: "knowledge",
+		Example: "gnosis index vault\n" +
+			"gnosis index knowledge",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return fmt.Errorf("index: missing resource")
+			return newUsageError(errors.New("index: missing resource"))
 		},
 	}
-	command.AddCommand(newIndexVaultCommand(stdout), newIndexKnowledgeCommand(stdout))
+	command.AddCommand(
+		newIndexVaultCommand(options, stdout),
+		newIndexKnowledgeCommand(options, stdout),
+	)
 	return command
 }
 
-func newIndexVaultCommand(stdout io.Writer) *cobra.Command {
-	var vaultPath string
-	command := &cobra.Command{
-		Use:   "vault [flags]",
+func newIndexVaultCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
+	return &cobra.Command{
+		Use:   "vault",
 		Short: "Generate vault indexes",
 		Args:  cobra.NoArgs,
+		Example: "gnosis index vault\n" +
+			"gnosis --vault <path> index vault",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return runIndex(vaultPath, stdout)
+			return runIndex(options.vaultPath, stdout)
 		},
 	}
-	command.Flags().StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
-	return command
 }
 
-func newIndexKnowledgeCommand(stdout io.Writer) *cobra.Command {
-	var vaultPath string
-	var jsonOutput bool
-	command := &cobra.Command{
-		Use:   "knowledge [flags]",
+func newIndexKnowledgeCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
+	return &cobra.Command{
+		Use:   "knowledge",
 		Short: "Synchronize the semantic knowledge index",
 		Args:  cobra.NoArgs,
+		Example: "gnosis index knowledge\n" +
+			"gnosis --vault <path> index knowledge",
 		RunE: func(command *cobra.Command, _ []string) error {
-			config, err := vault.SemanticConfigFromEnv(vaultPath)
+			config, err := vault.SemanticConfigFromEnv(options.vaultPath)
 			if err != nil {
 				return err
 			}
-			result, err := vault.SyncSemanticIndex(command.Context(), vaultPath, config)
+			result, err := vault.SyncSemanticIndex(command.Context(), options.vaultPath, config)
 			if err != nil {
 				return err
 			}
-			return writeSemanticIndexResult(stdout, result, jsonOutput)
+			return writeSemanticIndexResult(stdout, result)
 		},
 	}
-	flags := command.Flags()
-	flags.StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
-	flags.BoolVar(&jsonOutput, "json", false, "emit indented machine-readable JSON")
-	return command
 }
 
-func writeSemanticIndexResult(output io.Writer, result vault.SemanticIndexResult, jsonOutput bool) error {
-	if jsonOutput {
-		return writeJSON(output, result)
-	}
-	fmt.Fprintf(output, "documents: %d\n", result.Documents)
-	fmt.Fprintf(output, "chunks: %d\n", result.Chunks)
-	fmt.Fprintf(output, "scope: %s\n", result.Scope)
-	fmt.Fprintf(output, "fingerprint: %s\n", result.Fingerprint)
-	return nil
+func writeSemanticIndexResult(output io.Writer, result vault.SemanticIndexResult) error {
+	return writeTOON(output, toon.NewObject(
+		toon.Field{Key: "action", Value: "index"},
+		toon.Field{Key: "resource", Value: "knowledge"},
+		toon.Field{Key: "status", Value: "synchronized"},
+		toon.Field{Key: "documents", Value: result.Documents},
+		toon.Field{Key: "chunks", Value: result.Chunks},
+		toon.Field{Key: "scope", Value: result.Scope},
+		toon.Field{Key: "fingerprint", Value: result.Fingerprint},
+	))
 }
 
 func runIndex(vaultPath string, stdout io.Writer) error {
-	root := vaultPath
-	written, enabled, err := vault.GenerateWorkspaceIndexes(root, vault.IndexOptions{Overwrite: true})
+	root := filepath.Clean(vaultPath)
+	written, enabled, err := vault.GenerateWorkspaceIndexes(
+		root,
+		vault.IndexOptions{Overwrite: true},
+	)
 	if err != nil {
-		return err
+		return fmt.Errorf("index vault: %w", err)
 	}
+	status := "generated"
 	if !enabled {
-		fmt.Fprintf(stdout, "ok: index disabled under %s\n", filepath.Clean(root))
-		return nil
+		status = "disabled"
+	} else if len(written) == 0 {
+		status = "no-op"
 	}
-	for _, path := range written {
-		fmt.Fprintln(stdout, path)
-	}
-	fmt.Fprintf(stdout, "ok: index generated under %s\n", filepath.Clean(root))
-	return nil
+	return writeTOON(stdout, toon.NewObject(
+		toon.Field{Key: "action", Value: "index"},
+		toon.Field{Key: "resource", Value: "vault"},
+		toon.Field{Key: "status", Value: status},
+		toon.Field{Key: "path", Value: root},
+		toon.Field{Key: "changed", Value: len(written) > 0},
+		toon.Field{Key: "files", Value: written},
+	))
 }

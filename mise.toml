@@ -85,5 +85,5 @@ go vet ./...
 go test ./... -count=1
 go test -race ./... -count=1
 go build ./...
-go run ./cmd/gnosis validate
+go run ./cmd/gnosis validate vault
 '''

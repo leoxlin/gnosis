@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -127,26 +128,31 @@ func searchMCPKnowledge(ctx context.Context, vaultPath string, input searchKnowl
 	}
 }
 
-func newServeCommand() *cobra.Command {
+func newServeCommand(options *rootOptions) *cobra.Command {
 	command := &cobra.Command{
-		Use:   "serve",
-		Short: "Serve gnosis over a protocol transport",
-		Args:  cobra.NoArgs,
+		Use:     "serve",
+		Short:   "Serve gnosis over a protocol transport",
+		Args:    cobra.NoArgs,
+		GroupID: "workspace",
+		Example: "gnosis serve http --address 127.0.0.1:8080\n" +
+			"gnosis serve mcp",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return newUsageError(errors.New("serve: missing transport"))
+		},
 	}
-	command.AddCommand(newServeHTTPCommand(), newServeMCPCommand())
+	command.AddCommand(newServeHTTPCommand(options), newServeMCPCommand(options))
 	return command
 }
 
-func newServeMCPCommand() *cobra.Command {
-	var vaultPath string
-	command := &cobra.Command{
+func newServeMCPCommand(options *rootOptions) *cobra.Command {
+	return &cobra.Command{
 		Use:   "mcp [flags]",
 		Short: "Serve read-only gnosis tools over MCP stdio",
 		Args:  cobra.NoArgs,
+		Example: "gnosis serve mcp\n" +
+			"gnosis --vault <path> serve mcp",
 		RunE: func(command *cobra.Command, _ []string) error {
-			return newMCPServer(vaultPath).Run(command.Context(), &mcp.StdioTransport{})
+			return newMCPServer(options.vaultPath).Run(command.Context(), &mcp.StdioTransport{})
 		},
 	}
-	command.Flags().StringVar(&vaultPath, "vault", defaultVault, "path to the OKF vault")
-	return command
 }
