@@ -226,7 +226,7 @@ func resolveVaultRoot(config Config, root string) (string, error) {
 }
 
 func isCanonicalVaultName(name string) bool {
-	if name == "" || name != strings.TrimSpace(name) {
+	if name == "" || name == anyVaultAuthority || name != strings.TrimSpace(name) {
 		return false
 	}
 	probe := documentURI(name, "probe.md")

@@ -16,6 +16,8 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
+const anyVaultAuthority = "_"
+
 // Link represents an internal Markdown destination found in a document.
 type Link struct {
 	Raw      string
@@ -406,8 +408,13 @@ func (r *documentResolver) resolve(root, sourcePath, logicalSourcePath string, l
 	resolution := documentResolution{}
 	if link.URI != "" {
 		resolution.document = true
-		if _, exists := r.pagesByURI[link.URI]; exists {
-			resolution.uri = link.URI
+		targetURI := link.URI
+		vaultName, pagePath, _ := canonicalGnosisParts(link.URI)
+		if vaultName == anyVaultAuthority {
+			targetURI = r.uriByLogical[pagePath]
+		}
+		if _, exists := r.pagesByURI[targetURI]; exists {
+			resolution.uri = targetURI
 		}
 		return resolution, nil
 	}

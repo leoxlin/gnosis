@@ -122,6 +122,57 @@ title: Start
 	}
 }
 
+func TestAnyVaultLinksResolveToConcreteEffectiveURIs(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, `[vault]
+vault_name = "test"
+vault_root = "."
+vault_index = false
+vault_log = false
+`)
+	write(t, root, "body-target.md", "---\ntype: Note\ntitle: Body target\n---\n")
+	write(t, root, "relationship-target.md", "---\ntype: Note\ntitle: Relationship target\n---\n")
+	write(t, root, "source.md", `---
+type: Note
+title: Source
+relationships:
+  - type: uses
+    target: gnosis://_/relationship-target.md
+---
+
+[Body](gnosis://_/body-target.md?view=full#part)
+`)
+
+	page, err := ReadPage(root, "gnosis://_/source.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(page.Markdown, "gnosis://test/body-target.md?view=full#part") {
+		t.Fatalf("rendered page = %q", page.Markdown)
+	}
+
+	neighbors, err := TraceNeighbors(root, "gnosis://_/source.md", DirectionOut, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(neighbors.Edges) != 2 {
+		t.Fatalf("edges = %+v", neighbors.Edges)
+	}
+	wantURIs := map[string]bool{
+		"gnosis://test/body-target.md":         true,
+		"gnosis://test/relationship-target.md": true,
+	}
+	for _, edge := range neighbors.Edges {
+		if !wantURIs[edge.To.URI] {
+			t.Fatalf("unexpected concrete edge: %+v", edge)
+		}
+		delete(wantURIs, edge.To.URI)
+	}
+	if len(wantURIs) != 0 {
+		t.Fatalf("missing concrete edge URIs: %v", wantURIs)
+	}
+}
+
 func TestCanonicalLinksShareGraphRenderAndValidationSemantics(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]

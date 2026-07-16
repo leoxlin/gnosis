@@ -258,11 +258,15 @@ func TracePath(root, fromSelector, toSelector string, direction Direction, relat
 }
 
 func selectPage(pages []*effectivePage, selector string) (*effectivePage, bool) {
-	canonical, ok := canonicalGnosisURI(selector)
+	vaultName, pagePath, ok := canonicalGnosisParts(selector)
 	if !ok {
 		return nil, false
 	}
+	canonical := documentURI(vaultName, pagePath)
 	for _, page := range pages {
+		if vaultName == anyVaultAuthority && page.document.Path == pagePath {
+			return page, true
+		}
 		if page.document.URI == canonical {
 			return page, true
 		}

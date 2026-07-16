@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-// WriteDocument writes content into the local vault configured directly under
-// root. The target URI must identify a page in that local vault.
+// WriteDocument writes content into the vault selected by the target URI.
+// Concrete authorities remain restricted to the current local vault.
 func WriteDocument(root, uri string, content []byte, update bool) (string, error) {
 	parsed, err := parsePage(content)
 	if err != nil {
@@ -26,12 +26,28 @@ func WriteDocument(root, uri string, content []byte, update bool) (string, error
 	if err != nil {
 		return "", fmt.Errorf("write: resolve current directory: %w", err)
 	}
-	localRoot, hasLocalRoot := vault.localRoot()
-	if !hasLocalRoot {
+	targetVault, _, ok := canonicalGnosisParts(uri)
+	if !ok {
+		return "", fmt.Errorf("write: target URI: must be a canonical gnosis URI")
+	}
+	targetRoot, hasLocalRoot := vault.localRoot()
+	targetVaultName := vault.config.Vault.Name
+	targetKind := OriginLocal
+	if targetVault == anyVaultAuthority {
+		if len(vault.sources) == 0 {
+			return "", fmt.Errorf("write: no configured vault is writable in the current directory")
+		}
+		target := vault.sources[0]
+		targetRoot = target.path
+		targetVaultName = target.config.Vault.Name
+		if target.vaultRoot != vault.root {
+			targetKind = OriginImport
+		}
+	} else if !hasLocalRoot {
 		return "", fmt.Errorf("write: no local vault is defined in the current directory")
 	}
-	localRoot = filepath.Clean(localRoot)
-	destination, destinationPath, err := writeURIDestination(uri, vault.config.Vault.Name, localRoot)
+	targetRoot = filepath.Clean(targetRoot)
+	destination, destinationPath, err := writeURIDestination(uri, targetVaultName, targetRoot)
 	if err != nil {
 		return "", fmt.Errorf("write: target URI: %w", err)
 	}
@@ -49,7 +65,7 @@ func WriteDocument(root, uri string, content []byte, update bool) (string, error
 	if err != nil {
 		return "", fmt.Errorf("write: Concept Type %q %w", metadata.conceptType, err)
 	}
-	destinationDirectory, err := writeDestinationDirectory(localRoot, directory)
+	destinationDirectory, err := writeDestinationDirectory(targetRoot, directory)
 	if err != nil {
 		return "", fmt.Errorf("write: Concept Type %q path: %w", metadata.conceptType, err)
 	}
@@ -60,13 +76,13 @@ func WriteDocument(root, uri string, content []byte, update bool) (string, error
 	if relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
 		return "", fmt.Errorf("write: target path is outside Concept Type %q path", metadata.conceptType)
 	}
-	if !update && hasExternalCollision(pages, localRoot, destinationPath) {
-		return "", fmt.Errorf("write: document already exists outside the current vault; rerun with --update")
+	if !update && hasExternalCollision(pages, targetRoot, destinationPath) {
+		return "", fmt.Errorf("write: document already exists outside the selected vault; rerun with --update")
 	}
-	candidate, err := buildEffectivePage(localRoot, destination, content, Origin{
-		Vault:      vault.config.Vault.Name,
-		Kind:       OriginLocal,
-		Root:       localRoot,
+	candidate, err := buildEffectivePage(targetRoot, destination, content, Origin{
+		Vault:      targetVaultName,
+		Kind:       targetKind,
+		Root:       targetRoot,
 		Path:       destination,
 		Precedence: 0,
 	}, parsed, metadata)
@@ -95,7 +111,7 @@ func writeURIDestination(rawURI, vaultName, localRoot string) (string, string, e
 	if !ok {
 		return "", "", fmt.Errorf("must be a canonical gnosis URI")
 	}
-	if targetVault != vaultName {
+	if targetVault != vaultName && targetVault != anyVaultAuthority {
 		return "", "", fmt.Errorf("vault %q is not the current local vault %q", targetVault, vaultName)
 	}
 	if filepath.Ext(decodedPath) != ".md" {

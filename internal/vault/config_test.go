@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -474,15 +475,14 @@ vault_root = "."
 }
 
 func TestLoadEffectiveVaultRejectsNoncanonicalVaultName(t *testing.T) {
-	root := t.TempDir()
-	writeConfig(t, root, `[vault]
-vault_name = "bad name"
-vault_root = "."
-`)
+	for _, name := range []string{"bad name", "_"} {
+		root := t.TempDir()
+		writeConfig(t, root, "[vault]\nvault_name = "+strconv.Quote(name)+"\nvault_root = \".\"\n")
 
-	_, err := loadEffectiveVault(root)
-	if err == nil || !strings.Contains(err.Error(), "canonical gnosis URI authority") {
-		t.Fatalf("invalid vault name error = %v", err)
+		_, err := loadEffectiveVault(root)
+		if err == nil || !strings.Contains(err.Error(), "canonical gnosis URI authority") {
+			t.Fatalf("vault name %q error = %v", name, err)
+		}
 	}
 }
 
