@@ -46,7 +46,7 @@ mise run localbin    # writes ~/.local/bin/gnosis
 Create a vault with the reusable core concept definitions:
 
 ```bash
-gnosis scaffold --vault knowledge --name knowledge --concepts
+gnosis create vault --vault knowledge --name knowledge --concepts
 cd knowledge
 ```
 
@@ -54,10 +54,10 @@ The generated vault is usable as plain Markdown immediately. You can also work
 with it through the CLI:
 
 ```bash
-gnosis concepts
-gnosis read gnosis://knowledge/concepts/decision.md
-gnosis query search "How are decisions recorded?"
-gnosis validate
+gnosis get concepts
+gnosis get pages gnosis://knowledge/concepts/decision.md --full
+gnosis search knowledge "How are decisions recorded?" --backend lexical
+gnosis validate vault
 ```
 
 A document URI combines a vault name with its path:
@@ -67,17 +67,17 @@ gnosis://knowledge/decisions/store-data-as-markdown.md
          ^ vault     ^ path within the vault
 ```
 
-Write a typed Markdown document from a file:
+Apply a typed Markdown document from a file:
 
 ```bash
-gnosis write \
+gnosis apply page \
   gnosis://knowledge/decisions/store-data-as-markdown.md \
   --filename ./store-data-as-markdown.md
 ```
 
 The document must contain YAML frontmatter with a recognized `type` and a
-`title`. `gnosis write` checks the document before placing it at the path named
-by the URI.
+`title`. `gnosis apply page` checks the document before placing it at the path
+named by the URI.
 
 ## Core model
 
@@ -97,21 +97,26 @@ built-in version while remaining ordinary Markdown under version control.
 
 ## CLI
 
+Commands follow a `gnosis <verb> <resource>` structure. Successful results,
+help, and errors use compact TOON output for agents and shell tooling.
+
 | Command | Purpose |
 | --- | --- |
-| `gnosis scaffold` | Create a new vault. |
-| `gnosis setup` | Configure a workspace that imports local vaults. |
-| `gnosis read` | Read one exact `gnosis://` document. |
-| `gnosis write` | Validate and write one typed Markdown document. |
-| `gnosis concepts` | List known types or records of an exact type. |
-| `gnosis query search` | Find relevant pages for a question. |
-| `gnosis query graph` | Return graph-aware query results as JSON. |
+| `gnosis create vault` | Create a new vault. |
+| `gnosis apply workspace` | Configure a workspace that imports other vaults. |
+| `gnosis apply page` | Validate and apply one typed Markdown document. |
+| `gnosis get vaults` | List effective vaults and their precedence. |
+| `gnosis get concepts` | List known types or records of an exact type. |
+| `gnosis get pages` | List effective pages or read one exact page. |
+| `gnosis get procedures` | List executable procedures or read one execution contract. |
+| `gnosis search knowledge` | Find relevant pages for a question. |
 | `gnosis graph neighbors` | Inspect typed links adjacent to a page. |
 | `gnosis graph path` | Find a typed path between two pages. |
-| `gnosis procedure discovery` | List model-invocable procedures. |
-| `gnosis procedure invoke` | Load one procedure's execution contract. |
-| `gnosis index` | Regenerate Markdown indexes. |
-| `gnosis validate` | Validate vault structure and links. |
+| `gnosis index vault` | Regenerate Markdown vault indexes. |
+| `gnosis index knowledge` | Synchronize the semantic knowledge index. |
+| `gnosis validate vault` | Validate vault structure and links. |
+| `gnosis serve http` | Serve the API, document UI, and MCP over HTTP. |
+| `gnosis serve mcp` | Serve read-only gnosis tools over MCP stdio. |
 
 Run `gnosis <command> --help` for flags and examples supported by the installed
 version.
@@ -121,8 +126,7 @@ version.
 A workspace can expose several local vaults through one configuration:
 
 ```bash
-gnosis setup \
-  --vault ./workspace \
+gnosis apply workspace --vault ./workspace \
   --import ../team-knowledge \
   --import ../project-knowledge
 ```
@@ -133,11 +137,11 @@ layout:
 
 ```bash
 cd workspace
-gnosis read gnosis://team-knowledge/purpose.md
+gnosis get pages gnosis://team-knowledge/purpose.md --full
 ```
 
 Imports are resolved in configuration order. Local records can override
-imported or built-in records when written with `gnosis write --update`.
+imported or built-in records when applied with `gnosis apply page --update`.
 
 ## Agent integration
 
