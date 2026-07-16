@@ -44,9 +44,8 @@ type DeclaredVaultConfig struct {
 	Root string `toml:"vault_root"`
 }
 
-// DefaultConfig returns the default gnosis configuration.
-func DefaultConfig() Config {
-	return Config{
+func defaultConfig(root string) Config {
+	config := Config{
 		Vault: VaultConfig{
 			LinkFormat:       string(LinkFormatRelative),
 			LinkFormatStrict: false,
@@ -54,6 +53,55 @@ func DefaultConfig() Config {
 			VaultLog:         true,
 		},
 	}
+	if withinGitRepository(root) {
+		config.Vault.Root = "docs"
+		config.Vault.LinkFormatStrict = true
+		config.Vault.VaultIndex = false
+		config.Vault.VaultLog = false
+	}
+	return config
+}
+
+func withinGitRepository(root string) bool {
+	root, err := filepath.Abs(root)
+	if err != nil {
+		return false
+	}
+	for {
+		if isGitWorkTree(root) {
+			return true
+		}
+		parent := filepath.Dir(root)
+		if parent == root {
+			return false
+		}
+		root = parent
+	}
+}
+
+func isGitWorkTree(root string) bool {
+	gitPath := filepath.Join(root, ".git")
+	info, err := os.Stat(gitPath)
+	if err != nil {
+		return false
+	}
+	if info.IsDir() {
+		_, err = os.Stat(filepath.Join(gitPath, "HEAD"))
+		return err == nil
+	}
+	data, err := os.ReadFile(gitPath)
+	if err != nil {
+		return false
+	}
+	gitDir, found := strings.CutPrefix(strings.TrimSpace(string(data)), "gitdir: ")
+	if !found {
+		return false
+	}
+	if !filepath.IsAbs(gitDir) {
+		gitDir = filepath.Join(root, gitDir)
+	}
+	_, err = os.Stat(filepath.Join(gitDir, "HEAD"))
+	return err == nil
 }
 
 func (c Config) LinkFormatValue() LinkFormat {
@@ -97,7 +145,7 @@ func loadConfig(root string) (Config, error) {
 }
 
 func loadConfigPath(path string) (Config, error) {
-	config := DefaultConfig()
+	config := defaultConfig(filepath.Dir(path))
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return config, fmt.Errorf("read %s: %w", path, err)

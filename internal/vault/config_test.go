@@ -16,8 +16,8 @@ func TestLoadEffectiveVaultUsesDefaultsWithoutConfiguration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(vault.config, DefaultConfig()) {
-		t.Fatalf("config = %#v, want defaults %#v", vault.config, DefaultConfig())
+	if !reflect.DeepEqual(vault.config, defaultConfig(root)) {
+		t.Fatalf("config = %#v, want defaults %#v", vault.config, defaultConfig(root))
 	}
 	if got, want := vault.sources, []vaultSource(nil); !reflect.DeepEqual(got, want) {
 		t.Fatalf("sources = %v, want none", got)
@@ -51,6 +51,44 @@ func TestLoadEffectiveVaultWithEmptyFileHasNoSources(t *testing.T) {
 	}
 	if len(vault.sources) != 0 {
 		t.Fatalf("sources = %v, want none", vault.sources)
+	}
+}
+
+func TestLoadEffectiveVaultUsesGitRepositoryDefaults(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	repository := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repository, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repository, ".git", "HEAD"), []byte("ref: refs/heads/main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	root := filepath.Join(repository, "nested")
+	if err := os.MkdirAll(filepath.Join(root, "docs"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeConfig(t, root, `[vault]
+vault_name = "repo"
+`)
+
+	vault, err := loadEffectiveVault(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := vault.config.Vault.Root, "docs"; got != want {
+		t.Fatalf("vault root = %q, want %q", got, want)
+	}
+	if got := vault.config.LinkFormatValue(); got != LinkFormatRelative {
+		t.Fatalf("link format = %q, want %q", got, LinkFormatRelative)
+	}
+	if !vault.config.IsStrict() {
+		t.Fatal("link format strict = false, want true")
+	}
+	if vault.config.IndexEnabled() || vault.config.LogEnabled() {
+		t.Fatalf("navigation settings = %+v, want disabled", vault.config.Vault)
+	}
+	if got, want := sourcePaths(vault), []string{filepath.Join(root, "docs")}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("vault roots = %v, want %v", got, want)
 	}
 }
 
@@ -310,8 +348,8 @@ vault_root = "."
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(vault.config, DefaultConfig()) {
-		t.Fatalf("config = %#v, want defaults %#v", vault.config, DefaultConfig())
+	if !reflect.DeepEqual(vault.config, defaultConfig(root)) {
+		t.Fatalf("config = %#v, want defaults %#v", vault.config, defaultConfig(root))
 	}
 }
 
