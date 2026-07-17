@@ -81,7 +81,7 @@ func indexDirectories(root string) ([]string, error) {
 		if !entry.IsDir() {
 			return nil
 		}
-		if path != root && ignoredVaultDir(entry.Name()) {
+		if path != root && (ignoredVaultDir(entry.Name()) || exemptVaultDir(root, path)) {
 			return filepath.SkipDir
 		}
 		dirs = append(dirs, path)
@@ -158,7 +158,7 @@ func indexEntries(root, dir string) ([]indexEntry, []indexEntry, error) {
 	for _, entry := range entries {
 		name := entry.Name()
 		if entry.IsDir() {
-			if ignoredVaultDir(name) {
+			if ignoredVaultDir(name) || exemptVaultDir(root, filepath.Join(dir, name)) {
 				continue
 			}
 			child := filepath.Join(dir, name)
@@ -206,6 +206,16 @@ func ignoredVaultDir(name string) bool {
 	default:
 		return false
 	}
+}
+
+// documentationDirName is the reserved vault-root directory whose subtree is
+// project documentation, not vault knowledge.
+const documentationDirName = "documentation"
+
+// exemptVaultDir reports whether path is the vault root's reserved
+// documentation directory.
+func exemptVaultDir(root, path string) bool {
+	return path == filepath.Join(root, documentationDirName)
 }
 
 func writeParentIndexLink(buf *strings.Builder, dir string) {

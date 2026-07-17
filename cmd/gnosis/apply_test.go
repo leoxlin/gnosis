@@ -114,3 +114,60 @@ func TestCreateVaultAcknowledgesRepeatAsNoOp(t *testing.T) {
 		t.Fatalf("second create = %q", stdout.String())
 	}
 }
+
+func TestApplyPageAcknowledgesRepeatWithBodyLinksAsNoOp(t *testing.T) {
+	workspace := commandVault(t)
+	dir := t.TempDir()
+	target := filepath.Join(dir, "target.md")
+	targetContent := `---
+type: Decision
+title: Link target
+description: The linked record.
+---
+`
+	if err := os.WriteFile(target, []byte(targetContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var targetOut, targetErr bytes.Buffer
+	if err := run([]string{
+		"--vault", workspace, "apply", "page",
+		"gnosis://test/decisions/repeat-safely.md", "--filename", target,
+	}, &targetOut, &targetErr); err != nil {
+		t.Fatal(err)
+	}
+	input := filepath.Join(dir, "decision.md")
+	content := `---
+type: Decision
+title: Link repeat
+description: A repeat apply with body links is a no-op.
+---
+
+# Decision
+
+See [Repeat safely](repeat-safely.md).
+`
+	if err := os.WriteFile(input, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	args := []string{
+		"--vault", workspace, "apply", "page",
+		"gnosis://test/decisions/link-repeat.md", "--filename", input,
+	}
+
+	var stdout, stderr bytes.Buffer
+	if err := run(args, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), "changed: true") {
+		t.Fatalf("first apply = %q", stdout.String())
+	}
+
+	stdout.Reset()
+	if err := run(args, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), "status: no-op") ||
+		!strings.Contains(stdout.String(), "changed: false") {
+		t.Fatalf("second apply = %q", stdout.String())
+	}
+}

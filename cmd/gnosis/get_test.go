@@ -183,3 +183,48 @@ func writeCommandFile(t *testing.T, root, relative, content string) {
 		t.Fatal(err)
 	}
 }
+
+func TestGetDirectivesListsStatusAndDerivedProgress(t *testing.T) {
+	workspace := commandVault(t)
+	writeCommandFile(t, workspace, "directives/alpha.md", `---
+type: Directive
+title: Alpha
+description: First.
+status: open
+---
+
+# Goal
+
+G.
+
+# Scope
+
+S.
+
+# Implementation plan
+
+### Task 1: Work
+
+- [x] done step
+- [ ] open step
+- [ ] another open step
+
+# Acceptance criteria
+
+A.
+`)
+
+	var stdout, stderr bytes.Buffer
+	if err := run([]string{"--vault", workspace, "get", "directives"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	for _, value := range []string{
+		"directives[1]{uri,title,status,tasks_done,tasks_total}",
+		"Alpha",
+		"open,1,3",
+	} {
+		if !strings.Contains(stdout.String(), value) {
+			t.Fatalf("output = %q, missing %q", stdout.String(), value)
+		}
+	}
+}

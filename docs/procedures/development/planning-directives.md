@@ -32,7 +32,7 @@ Diagnosis is complete, or evidence-backed requirements are routed by exact proce
 
 - The exact requirements packet and its purpose/decision URI-revisions.
 - Requirement-linked or query-selected code, tests, docs, conventions, dependencies, and existing directive records.
-- Required directive contract: `draft` status, Goal, Scope, evidence-bearing Acceptance criteria, and an Implementation plan for multi-step work.
+- Required directive contract: `draft` status, Goal, Scope, evidence-bearing Acceptance criteria (`#### Scenario:` blocks with `**WHEN**`/`**THEN**` bullets for behavior), an Implementation plan of `### Task N:` sections with checkbox steps for multi-step work, and `## Added`/`## Modified`/`## Removed` deltas under Purpose/Decision Changes whenever the work changes Purpose or Decision records.
 
 ### Process
 
@@ -74,7 +74,7 @@ The latest draft revision has separate purpose/decision and engineering verdicts
 ### Inputs
 
 - Exact draft URI/revisions or one unpersisted simple draft; frozen requirements; immutable review reports and dispositions; latest purpose/decision revisions.
-- Required directive contract: status, Goal, Scope, evidence-bearing Acceptance criteria, an Implementation plan for multi-step work, and linked revision-bound contracts for prerequisites.
+- Required directive contract: status, Goal, Scope, evidence-bearing Acceptance criteria (scenario blocks for behavior), an Implementation plan with checkbox tasks for multi-step work, Added/Modified/Removed deltas for Purpose/Decision changes, and linked revision-bound contracts for prerequisites.
 
 ### Process
 

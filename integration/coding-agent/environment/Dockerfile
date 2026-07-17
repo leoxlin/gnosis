@@ -8,7 +8,6 @@ WORKDIR /app
 
 COPY gnosis-real /usr/local/bin/gnosis-real
 COPY gnosis /usr/local/bin/gnosis
-COPY .gnosis-core .gnosis-core
 COPY workspace .
 
 RUN chmod +x /usr/local/bin/gnosis /usr/local/bin/gnosis-real \

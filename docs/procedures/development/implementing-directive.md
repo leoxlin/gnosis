@@ -57,7 +57,7 @@ The selected directive has one author-approved workspace with known ownership an
 
 ### Process
 
-1. Execute only the selected directive's tasks, in order, with at most one task active. In delegated mode, give the current task to one fresh implementer with its exact goal, scope, evidence, constraints, decisions, allowed files, inherited interfaces, required verification, report contract, and governing procedure URIs.
+1. Execute only the selected directive's tasks, in order, with at most one task active. In delegated mode, give the current task to one fresh implementer with its exact goal, scope, evidence, constraints, decisions, allowed files, inherited interfaces, required verification, report contract, and governing procedure URIs. When a task completes, mark its checkbox steps `- [x]` in the local directive file and persist with `gnosis apply page '<directive URI>' --filename <directive-file>` before starting the next task; derived progress must always match completed work.
 2. For every task, invoke each governing procedure by exact URI with `gnosis get procedures '<procedure URI>' --full`. Require its completion evidence and the task's focused and surrounding verification before advancing.
 3. Parallelize only independent domains inside the current task. Before dispatch, prove that no domain needs another's result and that their files and mutable resources cannot overlap. Modifying agents use separate workspaces; read-only investigators may share a checkout. Never dispatch work from another task or directive. Require each agent to report its evidence or implementation, unresolved concerns, changed or inspected paths, commands, and results; the controller reviews every artifact and owns all directive changes.
 4. For each behavior change, use red-green-refactor:
@@ -101,7 +101,7 @@ The selected directive's complete implementation has current review evidence, ev
 
 ### Process
 
-1. Translate every acceptance criterion and prospective success claim into the exact command or observation that would prove it against the current state.
+1. Translate every acceptance criterion and prospective success claim into the exact command or observation that would prove it against the current state. Map each `#### Scenario:` block to its **WHEN** setup and **THEN** observation and prove each one.
 2. Run every complete verification command, including the required full suite, build, and documentation checks. Read the full output, exit status, failure counts, warnings, and scope.
 3. Inspect delegated changes and claims independently. Compare evidence line by line with the directive and decisions; passing tests do not prove untested requirements or another layer's behavior.
 4. For a regression test, retain evidence that it failed for the broken behavior and passes for the corrected behavior. A test observed only in the passing state does not prove that it detects the regression.

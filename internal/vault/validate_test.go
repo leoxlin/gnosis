@@ -422,3 +422,79 @@ func writeConfig(t *testing.T, root, content string) {
 		t.Fatal(err)
 	}
 }
+
+func TestValidateDirectiveRejectsContractViolations(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, "[vault]\nvault_index = false\nvault_log = false\n")
+	write(t, root, "directives/bad.md", `---
+type: Directive
+title: Bad
+status: pending
+---
+
+# Goal
+
+G.
+`)
+	result, err := Validate(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(result.Errors, "; ")
+	for _, want := range []string{"status", "Scope", "Acceptance criteria"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("errors = %v, want %q", result.Errors, want)
+		}
+	}
+}
+
+func TestValidateDirectiveAcceptsValidDirective(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, "[vault]\nvault_index = false\nvault_log = false\n")
+	write(t, root, "directives/good.md", `---
+type: Directive
+title: Good
+description: A valid directive.
+status: draft
+---
+
+# Goal
+
+G.
+
+# Scope
+
+S.
+
+# Acceptance criteria
+
+- It works — run the suite; expect ok.
+`)
+	result, err := Validate(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Errors) != 0 {
+		t.Fatalf("errors = %v", result.Errors)
+	}
+}
+
+func TestValidateSkipsRootDocumentationDir(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, "[vault]\nvault_index = false\nvault_log = false\n")
+	write(t, root, "documentation/guide.md", "# Guide\n\nBroken [link](missing.md) and no frontmatter.\n")
+	write(t, root, "notes/documentation/thing.md", "---\ntitle: No type\n---\n")
+	result, err := Validate(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, problem := range append(result.Errors, result.Warnings...) {
+		if strings.Contains(problem, "documentation/guide.md") {
+			t.Fatalf("documentation file validated: %v", problem)
+		}
+	}
+	joined := strings.Join(result.Errors, "; ")
+	if !strings.Contains(joined, "notes/documentation/thing.md") {
+		t.Fatalf("nested documentation file skipped: %v", result.Errors)
+	}
+}

@@ -20,7 +20,6 @@ tmp=$(mktemp -d "${TMPDIR:-/tmp}/gnosis-harbor-integration.XXXXXX")
 trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 task=$tmp/task
 cp -R "$repo/integration/coding-agent/." "$task"
-cp -R "$repo/docs" "$task/environment/.gnosis-core"
 cp "$gnosis" "$task/environment/gnosis-real"
 
 if [ -z "${OPENAI_API_KEY:-}" ] && [ -z "${CODEX_AUTH_JSON_PATH:-}" ]; then

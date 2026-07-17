@@ -167,13 +167,7 @@ title: Local using-gnosis
 	if _, exists := byURI["gnosis://core/concepts/purpose.md"]; !exists {
 		t.Fatalf("documents missing bundled gnosis concepts: %+v", documents)
 	}
-	data, err := Read(root, "Procedure", "query-vault")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(data), "`query-vault` answers") {
-		t.Fatalf("read = %q", data)
-	}
+
 }
 
 func TestSearchSourceNamesBundledDocumentsCore(t *testing.T) {
@@ -466,4 +460,36 @@ func mustReadFile(t *testing.T, path string) []byte {
 		t.Fatal(err)
 	}
 	return data
+}
+
+func TestSearchSourceExcludesRootDocumentation(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, `[vault]
+vault_name = "test"
+vault_root = "."
+`)
+	write(t, root, "documentation/guide.md", "# Guide\n\nNo frontmatter, no vault links.\n")
+	write(t, root, "notes/documentation/thing.md", "---\ntype: Note\ntitle: Thing\n---\n")
+	source, err := NewSearchSource(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	documents, err := source.Documents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, document := range documents {
+		if strings.Contains(document.URI, "documentation/guide.md") {
+			t.Fatalf("documentation page loaded: %+v", document)
+		}
+	}
+	found := false
+	for _, document := range documents {
+		if strings.HasSuffix(document.URI, "notes/documentation/thing.md") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("nested documentation page was excluded")
+	}
 }

@@ -30,6 +30,7 @@ func newGetCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
 		newGetConceptsCommand(options, stdout),
 		newGetPagesCommand(options, stdout),
 		newGetProceduresCommand(options, stdout),
+		newGetDirectivesCommand(options, stdout),
 	)
 	return command
 }
@@ -477,4 +478,64 @@ func documentObject(document vault.DocumentRef) toon.Object {
 		)},
 		toon.Field{Key: "revision", Value: document.Revision},
 	)
+}
+
+func newGetDirectivesCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
+	var fields string
+	command := &cobra.Command{
+		Use:   "directives [flags]",
+		Short: "List directives with derived task progress",
+		Args:  cobra.NoArgs,
+		Example: "gnosis get directives\n" +
+			"gnosis get directives --fields uri,status,tasks_done,tasks_total",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			selector, err := parseFields(
+				fields,
+				[]string{"uri", "title", "status", "tasks_done", "tasks_total"},
+				[]string{"uri", "title", "status", "tasks_done", "tasks_total", "revision"},
+			)
+			if err != nil {
+				return newUsageError(err)
+			}
+			directives, err := vault.Directives(options.vaultPath)
+			if err != nil {
+				return fmt.Errorf("get directives: %w", err)
+			}
+			rows := make([]toon.Object, 0, len(directives))
+			for _, directive := range directives {
+				rows = append(rows, selector.object(func(name string) (any, bool) {
+					switch name {
+					case "uri":
+						return directive.URI, true
+					case "title":
+						return directive.Title, true
+					case "status":
+						return directive.Status, true
+					case "tasks_done":
+						return directive.TasksDone, true
+					case "tasks_total":
+						return directive.TasksTotal, true
+					case "revision":
+						return directive.Revision, true
+					default:
+						return nil, false
+					}
+				}))
+			}
+			return writeTOON(stdout, listOutput(
+				"directives",
+				len(rows),
+				rows,
+				"0 directives found in the current vault",
+				[]string{"Run `gnosis get pages <uri> --full` to read one directive"},
+			))
+		},
+	}
+	command.Flags().StringVar(
+		&fields,
+		"fields",
+		"",
+		"comma-separated fields: uri, title, status, tasks_done, tasks_total, revision",
+	)
+	return command
 }

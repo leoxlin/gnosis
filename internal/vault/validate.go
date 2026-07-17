@@ -62,7 +62,7 @@ func Validate(root string) (Result, error) {
 				return nil
 			}
 			if entry.IsDir() {
-				if path != source.path && ignoredVaultDir(entry.Name()) {
+				if path != source.path && (ignoredVaultDir(entry.Name()) || exemptVaultDir(source.path, path)) {
 					return filepath.SkipDir
 				}
 				if source.config.IndexEnabled() {
@@ -163,6 +163,11 @@ func validateFile(root, path string, config Config, resolver *documentResolver, 
 			}
 			if isProcedureType(conceptType) {
 				validateProcessRecord(path, fields, body, result)
+			}
+			if conceptType == DirectiveType {
+				for _, problem := range parseDirective(fields, body) {
+					result.Errors = append(result.Errors, fmt.Sprintf("%s: %s", path, problem))
+				}
 			}
 		}
 	}

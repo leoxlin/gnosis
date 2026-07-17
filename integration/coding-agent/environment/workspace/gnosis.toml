@@ -5,7 +5,3 @@ link_format = "relative"
 link_format_strict = false
 vault_index = false
 vault_log = false
-
-[[vaults]]
-vault_name = "core"
-vault_root = ".gnosis-core"
