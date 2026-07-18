@@ -75,6 +75,19 @@ func TestHTTPAPIAndUI(t *testing.T) {
 		t.Fatalf("page = %+v", page)
 	}
 
+	var rendered struct {
+		HTML string `json:"html"`
+	}
+	if status := getHTTPJSON(t, pageURL, &rendered); status != http.StatusOK {
+		t.Fatalf("GET page html status = %d", status)
+	}
+	if !strings.Contains(rendered.HTML, `<a href="gnosis://test/procedure.md">implementation procedure</a>`) {
+		t.Fatalf("page html = %q", rendered.HTML)
+	}
+	if strings.Contains(rendered.HTML, "type: Note") {
+		t.Fatalf("page html leaked frontmatter = %q", rendered.HTML)
+	}
+
 	var concepts conceptsOutput
 	if status := getHTTPJSON(t, server.URL+"/api/v1/concepts?type=Note", &concepts); status != http.StatusOK {
 		t.Fatalf("GET concepts status = %d", status)

@@ -10,6 +10,13 @@ run = [
 ]
 description = "Build the gnosis binary into dist/"
 
+[tasks.ui]
+description = "Build the document UI bundle into cmd/gnosis/ui.html"
+run = [
+  "npm --prefix ui ci --no-audit --no-fund",
+  "npm --prefix ui run build",
+]
+
 [tasks.localbin]
 description = "Install gnosis to ~/.local/bin/gnosis"
 run = [
@@ -99,6 +106,16 @@ go vet ./...
 go test ./... -count=1
 go test -race ./... -count=1
 go build ./...
+
+ui_before=$(sha256sum ui/ui.html | cut -d' ' -f1)
+npm --prefix ui ci --no-audit --no-fund
+npm --prefix ui run build
+ui_after=$(sha256sum ui/ui.html | cut -d' ' -f1)
+if [ "$ui_before" != "$ui_after" ]; then
+  printf 'ui/ui.html is stale; rebuild it with: mise run ui\n' >&2
+  exit 1
+fi
+
 go run ./cmd/gnosis validate vault
 (cd docs/openspec && go run ../../cmd/gnosis validate vault)
 '''

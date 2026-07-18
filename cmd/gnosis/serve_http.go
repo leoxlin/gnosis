@@ -1,8 +1,8 @@
 package main
 
 import (
+	"bytes"
 	"context"
-	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,13 +15,16 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/extension"
 	"gnosis/internal/vault"
+	"gnosis/ui"
+	"go.yaml.in/yaml/v4"
+
+	"github.com/adrg/frontmatter"
 )
 
 const defaultHTTPAddress = "127.0.0.1:8080"
-
-//go:embed ui.html
-var uiHTML []byte
 
 func newServeHTTPCommand(options *rootOptions) *cobra.Command {
 	var address string
@@ -98,7 +101,7 @@ func serveUI(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.WriteHeader(http.StatusOK)
-	if _, err := w.Write(uiHTML); err != nil {
+	if _, err := w.Write(ui.HTML); err != nil {
 		return
 	}
 }
@@ -148,8 +151,45 @@ func servePage(vaultPath string) http.HandlerFunc {
 			writeHTTPError(w, http.StatusNotFound, err)
 			return
 		}
-		writeHTTPJSON(w, http.StatusOK, page)
+		html, err := renderPageMarkdown(page.Markdown)
+		if err != nil {
+			writeHTTPError(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeHTTPJSON(w, http.StatusOK, pageResponse{Page: page, HTML: html})
 	}
+}
+
+// pageResponse adds a rendered HTML view of the Markdown source to the page
+// payload so the document UI can present pages as documents instead of text.
+type pageResponse struct {
+	vault.Page
+	HTML string `json:"html"`
+}
+
+// pageMarkdown renders vault Markdown with GFM extensions and goldmark's
+// default safe HTML handling, which escapes raw HTML in the source.
+var pageMarkdown = goldmark.New(goldmark.WithExtensions(extension.GFM))
+
+var pageFrontmatter = frontmatter.NewFormat("---", "---", yaml.Unmarshal)
+
+func renderPageMarkdown(markdown string) (string, error) {
+	var output bytes.Buffer
+	if err := pageMarkdown.Convert([]byte(markdownBody(markdown)), &output); err != nil {
+		return "", fmt.Errorf("render page markdown: %w", err)
+	}
+	return output.String(), nil
+}
+
+// markdownBody drops the YAML frontmatter block from a canonical page record;
+// records without frontmatter render as-is.
+func markdownBody(markdown string) string {
+	fields := map[string]any{}
+	body, err := frontmatter.MustParse(strings.NewReader(markdown), &fields, pageFrontmatter)
+	if err != nil {
+		return markdown
+	}
+	return string(body)
 }
 
 func serveGraph(vaultPath string) http.HandlerFunc {

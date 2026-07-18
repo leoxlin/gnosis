@@ -1,11 +1,12 @@
 # Code architecture
 
-gnosis is a small Go module with two packages and no framework beyond cobra.
+gnosis is a small Go module with three packages and no framework beyond cobra.
 
 ## Layout
 
-- `cmd/gnosis/` — the CLI. Verb-resource commands, TOON output (AXI conventions), the atlas UI (`ui.html`), and HTTP/MCP servers.
+- `cmd/gnosis/` — the CLI. Verb-resource commands, TOON output (AXI conventions), and HTTP/MCP servers.
 - `internal/vault/` — the vault library: configuration (`config.go`), page model and frontmatter (`page.go`), multi-vault composition (`search.go`, `vaults.go`, `bundle.go`), lexical retrieval (`retrieval.go`), pgvector semantics (`semantic.go`), graph (`agent.go`, `links.go`), procedure contracts (`procedure.go`), writes (`write.go`), indexes (`index.go`), validation (`validate.go`), scaffolding (`scaffold.go`), backends (`backend.go`).
+- `ui/` — the atlas document UI. Alpine.js source (`src/`) bundled by esbuild (`build.mjs`) into the committed single-file `ui.html`, embedded via `embed.go`; rebuild with `mise run ui`.
 - `docs/` — the project's own vault and the embedded core bundle (`embed.go` bundles concept types and procedures into the binary).
 - `plugins/gnosis/` — the agent plugin manifests and vault gateway skill.
 
@@ -19,4 +20,4 @@ gnosis is a small Go module with two packages and no framework beyond cobra.
 
 ## Testing
 
-Every Go file has a sibling test; `mise run checks` is the full gate: gofmt, vet, tests with the race detector, build, and vault validation.
+Every Go file has a sibling test; `mise run checks` is the full gate: gofmt, vet, tests with the race detector, build, UI bundle freshness, and vault validation.

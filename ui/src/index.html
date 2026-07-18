@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>gnosis atlas</title>
+  <!-- build:style -->
+</head>
+<body x-data x-cloak>
+  <div class="shell">
+    <aside>
+      <div class="brand">
+        <h1>gnosis atlas</h1>
+        <div class="mark" aria-hidden="true">◎</div>
+      </div>
+      <nav aria-label="Views">
+        <template x-for="item in [
+          { name: 'graph', label: 'Graph' },
+          { name: 'pages', label: 'Pages' },
+          { name: 'concepts', label: 'Concepts' },
+          { name: 'search', label: 'Search' },
+          { name: 'vaults', label: 'Vaults' },
+        ]" :key="item.name">
+          <a
+            :href="'#/' + item.name"
+            :aria-current="$store.app.is(item.name) ? 'page' : 'false'"
+            x-text="item.label"
+          ></a>
+        </template>
+      </nav>
+      <div class="endpoints">
+        <span class="pill">REST /api/v1</span>
+        <span class="pill">MCP /mcp</span>
+      </div>
+    </aside>
+
+    <main>
+      <section x-show="$store.app.is('graph')" x-data="graphView" class="view" aria-label="Knowledge graph">
+        <div class="toolbar">
+          <input type="search" placeholder="Filter documents…" autocomplete="off" x-model.debounce.150ms="query" @input="draw()">
+          <select x-model="type" @change="draw()" aria-label="Concept type">
+            <option value="">All concept types</option>
+            <template x-for="name in types" :key="name">
+              <option :value="name" x-text="name"></option>
+            </template>
+          </select>
+          <span class="stats" x-text="`${visible().length} of ${nodes.length} documents · ${edges.length} links`"></span>
+        </div>
+        <div class="split">
+          <ul class="records" aria-label="Documents">
+            <template x-for="node in visible()" :key="node.uri">
+              <li>
+                <button type="button" @click="$store.app.openPage(node.uri)">
+                  <span class="record-title" x-text="node.title"></span>
+                  <span class="record-meta"><i class="dot" :style="'background:' + color(node.type)"></i><span x-text="node.type"></span></span>
+                </button>
+              </li>
+            </template>
+            <li x-show="loaded && visible().length === 0" class="empty-line">No documents match.</li>
+          </ul>
+          <div class="graph">
+            <canvas x-ref="canvas" role="img" aria-label="Connected gnosis documents" @click="pick($event)"></canvas>
+            <div class="hint">select a node to open the document</div>
+            <div class="empty error" x-show="error" x-text="error"></div>
+          </div>
+        </div>
+      </section>
+
+      <section x-show="$store.app.is('pages')" x-data="pagesView" class="view" aria-label="Pages">
+        <div class="toolbar">
+          <input type="search" placeholder="Filter pages…" autocomplete="off" x-model.debounce.150ms="query">
+          <select x-model="type" aria-label="Concept type">
+            <option value="">All concept types</option>
+            <template x-for="name in types()" :key="name">
+              <option :value="name" x-text="name"></option>
+            </template>
+          </select>
+          <span class="stats" x-text="`${visible().length} of ${pages.length} pages`"></span>
+        </div>
+        <div class="empty" x-show="error"><span class="error" x-text="error"></span></div>
+        <div class="cards">
+          <template x-for="page in visible()" :key="page.uri">
+            <button type="button" class="card" @click="$store.app.openPage(page.uri)">
+              <span class="record-title" x-text="page.title"></span>
+              <span class="record-description" x-text="page.description || 'No description.'"></span>
+              <span class="record-meta">
+                <span class="badge" x-text="page.type"></span>
+                <span x-text="page.uri"></span>
+              </span>
+            </button>
+          </template>
+        </div>
+        <div class="empty" x-show="loaded && !error && visible().length === 0">No pages match.</div>
+      </section>
+
+      <section x-show="$store.app.is('concepts')" x-data="conceptsView" class="view" aria-label="Concepts">
+        <div class="split">
+          <ul class="records" aria-label="Concept types">
+            <template x-for="concept in types" :key="concept.type">
+              <li>
+                <button type="button" :aria-current="selected === concept.type" @click="choose(concept.type)">
+                  <span class="record-title" x-text="concept.type"></span>
+                  <span class="record-meta" x-text="concept.description || 'No description.'"></span>
+                </button>
+              </li>
+            </template>
+          </ul>
+          <div class="panel">
+            <div class="empty" x-show="error"><span class="error" x-text="error"></span></div>
+            <div class="empty" x-show="!selected && !error">Select a concept type to list its records.</div>
+            <div class="empty" x-show="loading">Loading records…</div>
+            <div class="cards" x-show="selected && !loading">
+              <template x-for="record in records" :key="record.uri">
+                <button type="button" class="card" @click="$store.app.openPage(record.uri)">
+                  <span class="record-title" x-text="record.title || record.name || record.uri"></span>
+                  <span class="record-description" x-text="record.description || record.summary || ''"></span>
+                  <span class="record-meta"><span x-text="record.uri"></span></span>
+                </button>
+              </template>
+              <div class="empty" x-show="records.length === 0">No records of this type.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section x-show="$store.app.is('search')" x-data="searchView" class="view" aria-label="Search knowledge">
+        <form class="toolbar search-bar" @submit.prevent="run()">
+          <input type="search" placeholder="Ask the vault a question…" autocomplete="off" x-model="question" required>
+          <select x-model="backend" aria-label="Retrieval backend">
+            <option value="lexical">lexical</option>
+            <option value="vector">vector</option>
+          </select>
+          <button type="submit" class="action" :disabled="searching" x-text="searching ? 'Searching…' : 'Search'"></button>
+        </form>
+        <div class="empty" x-show="error"><span class="error" x-text="error"></span></div>
+        <div class="empty" x-show="!result && !error && !searching">Search results cite exact pages you can open and read.</div>
+        <div x-show="result" class="results">
+          <div class="toolbar">
+            <span class="badge" x-text="result ? result.answer_type : ''"></span>
+            <span class="stats" x-text="result ? `${result.candidates.length} candidates` : ''"></span>
+            <template x-if="result && result.should_read.length > 0">
+              <span class="stats">recommended reads:
+                <template x-for="uri in result.should_read" :key="uri">
+                  <a href="#" class="inline-link" @click.prevent="$store.app.openPage(uri)" x-text="uri.split('/').pop()"></a>
+                </template>
+              </span>
+            </template>
+          </div>
+          <div class="cards">
+            <template x-for="candidate in result ? result.candidates : []" :key="candidate.uri">
+              <button type="button" class="card" @click="$store.app.openPage(candidate.uri)">
+                <span class="record-title" x-text="candidate.title"></span>
+                <span class="record-description" x-text="candidate.description || 'No description.'"></span>
+                <span class="record-meta">
+                  <span class="badge" x-text="candidate.type"></span>
+                  <span x-text="candidate.uri"></span>
+                  <span x-text="'score ' + candidate.score.toFixed(2)"></span>
+                </span>
+              </button>
+            </template>
+          </div>
+        </div>
+      </section>
+
+      <section x-show="$store.app.is('vaults')" x-data="vaultsView" class="view" aria-label="Vaults">
+        <div class="empty" x-show="error"><span class="error" x-text="error"></span></div>
+        <table class="table" x-show="vaults.length > 0">
+          <thead>
+            <tr><th>Vault</th><th>Origin</th><th>Precedence</th><th>Root</th></tr>
+          </thead>
+          <tbody>
+            <template x-for="vault in vaults" :key="vault.vault + vault.precedence">
+              <tr>
+                <td x-text="vault.vault"></td>
+                <td><span class="badge" x-text="vault.kind"></span></td>
+                <td x-text="vault.precedence"></td>
+                <td class="path" x-text="vault.root || vault.path || '—'"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </section>
+
+      <section x-show="$store.app.is('page')" x-data="readerView" class="view" aria-label="Document">
+        <div class="empty" x-show="loading">Loading document…</div>
+        <div class="empty" x-show="error"><span class="error" x-text="error"></span></div>
+        <article x-show="page" class="document">
+          <header class="detail-head" x-show="page">
+            <div class="detail-title-row">
+              <h3 x-text="page ? page.document.title : ''"></h3>
+              <button type="button" class="action subtle" @click="raw = !raw" x-text="raw ? 'Rendered' : 'Source'"></button>
+            </div>
+            <p x-text="page && page.document.description ? page.document.description : 'No description.'"></p>
+            <div class="metadata" x-show="page">
+              <span><strong>type:</strong> <span x-text="page ? page.document.type : ''"></span></span>
+              <span><strong>vault:</strong> <span x-text="page ? page.document.origin.vault : ''"></span></span>
+              <span><strong>origin:</strong> <span x-text="page ? page.document.origin.kind : ''"></span></span>
+              <span><strong>revision:</strong> <span x-text="page ? shorten(page.document.revision) : ''"></span></span>
+            </div>
+            <div class="metadata" x-show="page">
+              <span class="uri" x-text="page ? page.document.uri : ''"></span>
+            </div>
+          </header>
+          <div x-show="page && !raw" class="md" @click="follow($event)" x-html="page ? page.html : ''"></div>
+          <pre x-show="page && raw" x-text="page ? page.markdown : ''"></pre>
+        </article>
+      </section>
+    </main>
+  </div>
+  <!-- build:script -->
+</body>
+</html>

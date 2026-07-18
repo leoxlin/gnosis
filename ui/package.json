@@ -1,0 +1,16 @@
+{
+  "name": "gnosis-ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Document UI for gnosis serve http; builds the embedded ui/ui.html",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "alpinejs": "^3.15.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}
