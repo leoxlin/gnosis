@@ -214,42 +214,6 @@ func (v *effectiveVault) resolvedPages() ([]*effectivePage, error) {
 	return pages, nil
 }
 
-// Read returns the complete Markdown document with an exact type and title.
-func Read(root, conceptType, title string) ([]byte, error) {
-	vault, err := loadEffectiveVault(root)
-	if err != nil {
-		return nil, err
-	}
-	pages, err := vault.pages()
-	if err != nil {
-		return nil, err
-	}
-
-	matches := make([]*effectivePage, 0, 1)
-	for _, page := range pages {
-		if page.document.Type == conceptType && page.document.Title == title {
-			matches = append(matches, page)
-		}
-	}
-	switch len(matches) {
-	case 0:
-		return nil, fmt.Errorf("no document found with type %q and title %q", conceptType, title)
-	case 1:
-		markdown, err := renderDocumentLinks(matches[0], pages)
-		if err != nil {
-			return nil, err
-		}
-		return []byte(markdown), nil
-	default:
-		paths := make([]string, 0, len(matches))
-		for _, page := range matches {
-			paths = append(paths, page.document.URI)
-		}
-		sort.Strings(paths)
-		return nil, fmt.Errorf("multiple documents found with type %q and title %q: %s", conceptType, title, strings.Join(paths, ", "))
-	}
-}
-
 func (v *effectiveVault) pages() ([]*effectivePage, error) {
 	return v.loadPages(false)
 }
@@ -269,7 +233,7 @@ func (v *effectiveVault) loadPages(tolerateInvalid bool) ([]*effectivePage, erro
 				return walkErr
 			}
 			if entry.IsDir() {
-				if path != source.path && ignoredVaultDir(entry.Name()) {
+				if path != source.path && (ignoredVaultDir(entry.Name()) || exemptVaultDir(source.path, path)) {
 					return filepath.SkipDir
 				}
 				return nil

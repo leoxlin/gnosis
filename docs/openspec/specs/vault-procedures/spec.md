@@ -25,7 +25,7 @@ gnosis SHALL invoke a Procedure only by canonical gnosis URI, apply effective-va
 - **THEN** discovery and invocation use that effective page and report its concrete provenance
 
 ### Requirement: The core procedure bundle is vault-only
-gnosis SHALL bundle the Procedure Concept Type and the `create-concept-type`, `ingest-knowledge`, `maintain-vault`, `query-vault`, and `refining-procedure` workflows, and SHALL NOT bundle repository planning, implementation, intent, or delivery workflows.
+gnosis SHALL bundle the Procedure Concept Type and the `create-concept-type`, `ingest-knowledge`, `link-pages`, `maintain-vault`, `query-vault`, `recall`, `refining-procedure`, and `remember` workflows, and SHALL NOT bundle repository planning, implementation, intent, or delivery workflows.
 
 #### Scenario: Query the retired development family
 - **WHEN** a clean vault lists bundled procedures with tags `gnosis,development`

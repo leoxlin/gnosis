@@ -139,16 +139,21 @@ func newApplyPageCommand(
 			if err != nil {
 				return err
 			}
-			if existing, readErr := vault.ReadPage(options.vaultPath, uri); readErr == nil &&
-				bytes.Equal([]byte(existing.Markdown), content) {
-				return writeTOON(stdout, toon.NewObject(
-					toon.Field{Key: "action", Value: "apply"},
-					toon.Field{Key: "resource", Value: "page"},
-					toon.Field{Key: "status", Value: "no-op"},
-					toon.Field{Key: "uri", Value: uri},
-					toon.Field{Key: "path", Value: existing.Document.Origin.Path},
-					toon.Field{Key: "changed", Value: false},
-				))
+			if existing, readErr := vault.ReadPage(options.vaultPath, uri); readErr == nil {
+				raw, rawErr := os.ReadFile(existing.Document.Origin.Path)
+				if rawErr != nil {
+					raw = []byte(existing.Markdown)
+				}
+				if bytes.Equal(raw, content) {
+					return writeTOON(stdout, toon.NewObject(
+						toon.Field{Key: "action", Value: "apply"},
+						toon.Field{Key: "resource", Value: "page"},
+						toon.Field{Key: "status", Value: "no-op"},
+						toon.Field{Key: "uri", Value: uri},
+						toon.Field{Key: "path", Value: existing.Document.Origin.Path},
+						toon.Field{Key: "changed", Value: false},
+					))
+				}
 			}
 			path, err := vault.WriteDocument(options.vaultPath, uri, content, isUpdate)
 			if err != nil {

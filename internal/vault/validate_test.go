@@ -422,3 +422,23 @@ func writeConfig(t *testing.T, root, content string) {
 		t.Fatal(err)
 	}
 }
+
+func TestValidateSkipsRootDocumentationDir(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, "[vault]\nvault_index = false\nvault_log = false\n")
+	write(t, root, "documentation/guide.md", "# Guide\n\nBroken [link](missing.md) and no frontmatter.\n")
+	write(t, root, "notes/documentation/thing.md", "---\ntitle: No type\n---\n")
+	result, err := Validate(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, problem := range append(result.Errors, result.Warnings...) {
+		if strings.Contains(problem, "documentation/guide.md") {
+			t.Fatalf("documentation file validated: %v", problem)
+		}
+	}
+	joined := strings.Join(result.Errors, "; ")
+	if !strings.Contains(joined, "notes/documentation/thing.md") {
+		t.Fatalf("nested documentation file skipped: %v", result.Errors)
+	}
+}

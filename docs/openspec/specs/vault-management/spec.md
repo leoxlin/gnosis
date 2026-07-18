@@ -20,6 +20,17 @@ gnosis SHALL store authored vault knowledge as human-readable Markdown with YAML
 - **WHEN** an applied page lacks required metadata or violates the effective Concept Type path
 - **THEN** gnosis rejects the write without changing vault content
 
+### Requirement: The core bundle defines a general vault ontology
+gnosis SHALL bundle the Procedure, Concept, Entity, Resource, Event, Memory, Reflection, and Policy Concept Type definitions. gnosis SHALL keep repository-development proposals, requirements, technical choices, and tasks outside this ontology under OpenSpec.
+
+#### Scenario: List bundled concept types
+- **WHEN** a clean vault lists effective Concept Type records
+- **THEN** it finds the eight bundled vault types and no Purpose, Decision, or Directive type
+
+#### Scenario: Scaffold local concept definitions
+- **WHEN** a caller creates a vault with `--concepts`
+- **THEN** gnosis copies the eight bundled definitions so the vault can refine them locally
+
 ### Requirement: Documents have stable gnosis URIs
 gnosis SHALL emit concrete document identities as `gnosis://<vault-name>/<vault-relative-markdown-path>` and SHALL accept `gnosis://_/<path>` only as a precedence-aware selector.
 
@@ -66,3 +77,14 @@ gnosis SHALL validate and generate Markdown indexes and logs only when their eff
 #### Scenario: Validate a repository vault
 - **WHEN** index and log generation are disabled in a repository vault
 - **THEN** validation does not require generated navigation files
+
+### Requirement: Root project documentation is not vault knowledge
+gnosis SHALL exclude the vault-root `documentation/` subtree from page loading, retrieval, graph traversal, index generation, and validation while treating directories with that name below other vault paths normally.
+
+#### Scenario: Keep Diátaxis pages outside the vault
+- **WHEN** a vault contains frontmatter-free project guides under its root `documentation/` directory
+- **THEN** gnosis does not load, search, index, graph, or validate those guides as knowledge pages
+
+#### Scenario: Preserve a nested knowledge directory
+- **WHEN** a typed knowledge path contains a nested directory named `documentation`
+- **THEN** gnosis processes that nested directory as ordinary vault content

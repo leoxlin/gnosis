@@ -62,7 +62,7 @@ func Validate(root string) (Result, error) {
 				return nil
 			}
 			if entry.IsDir() {
-				if path != source.path && ignoredVaultDir(entry.Name()) {
+				if path != source.path && (ignoredVaultDir(entry.Name()) || exemptVaultDir(source.path, path)) {
 					return filepath.SkipDir
 				}
 				if source.config.IndexEnabled() {

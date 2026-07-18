@@ -307,31 +307,55 @@ type markdownSection struct {
 	Body  string
 }
 
+// fenceState tracks an open code fence for line-oriented markdown scans.
+// Fences follow CommonMark: the closing fence uses the same character with a
+// run at least as long as the opening run, so a four-backtick fence may
+// contain three-backtick fences.
+type fenceState struct {
+	char   byte
+	length int
+	open   bool
+}
+
+// advance updates the state for one line and reports whether the line counts
+// as fenced content, including the fence lines themselves.
+func (state *fenceState) advance(line string) bool {
+	trimmed := strings.TrimSpace(line)
+	if trimmed != "" && (trimmed[0] == '`' || trimmed[0] == '~') {
+		marker := trimmed[0]
+		run := 0
+		for run < len(trimmed) && trimmed[run] == marker {
+			run++
+		}
+		if run >= 3 {
+			switch {
+			case !state.open:
+				state.open = true
+				state.char = marker
+				state.length = run
+				return true
+			case marker == state.char && run >= state.length:
+				state.open = false
+				return true
+			}
+		}
+	}
+	return state.open
+}
+
 func markdownSectionBlocks(markdown string, level int) []markdownSection {
 	prefix := strings.Repeat("#", level) + " "
 	blocks := []markdownSection{}
 	current := ""
 	var content []string
-	inFence := false
-	fence := ""
+	fence := fenceState{}
 	flush := func() {
 		if current != "" {
 			blocks = append(blocks, markdownSection{Title: current, Body: strings.TrimSpace(strings.Join(content, "\n"))})
 		}
 	}
 	for _, line := range strings.Split(markdown, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
-			marker := trimmed[:3]
-			if !inFence {
-				inFence = true
-				fence = marker
-			} else if marker == fence {
-				inFence = false
-				fence = ""
-			}
-		}
-		if !inFence && strings.HasPrefix(line, prefix) {
+		if !fence.advance(line) && strings.HasPrefix(line, prefix) {
 			flush()
 			current = strings.TrimSpace(strings.TrimPrefix(line, prefix))
 			content = nil

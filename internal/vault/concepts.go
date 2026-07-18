@@ -2,7 +2,6 @@ package vault
 
 import (
 	"fmt"
-	"io"
 	"sort"
 	"strings"
 )
@@ -84,29 +83,6 @@ func Concepts(root, conceptType string) (ConceptCatalog, error) {
 	return ConceptCatalog{Type: conceptType, Concepts: matching}, nil
 }
 
-// ListConcepts writes concept type previews, or concepts of an exact type,
-// from the vault rooted at root.
-func ListConcepts(root, conceptType string, output io.Writer) error {
-	catalog, err := Concepts(root, conceptType)
-	if err != nil {
-		return err
-	}
-	if catalog.Type == "" {
-		writeConceptTypePreviews(output, catalog.ConceptTypes)
-		return nil
-	}
-	if len(catalog.Concepts) == 0 {
-		fmt.Fprintf(output, "no concepts with type %q\n", catalog.Type)
-		return nil
-	}
-	for _, document := range catalog.Concepts {
-		fmt.Fprintf(output, "Title: %s\n", document.Title)
-		fmt.Fprintf(output, "Description: %s\n", document.Description)
-		fmt.Fprintf(output, "Link: %s\n\n", document.URI)
-	}
-	return nil
-}
-
 func conceptTypeSummaries(documents []Document) []ConceptTypeSummary {
 	descriptions := make(map[string]string)
 	uris := make(map[string]string)
@@ -139,18 +115,4 @@ func conceptTypeSummaries(documents []Document) []ConceptTypeSummary {
 		return previews[i].Type < previews[j].Type
 	})
 	return previews
-}
-
-func writeConceptTypePreviews(output io.Writer, previews []ConceptTypeSummary) {
-	if len(previews) == 0 {
-		fmt.Fprintln(output, "no concept types")
-		return
-	}
-	for _, preview := range previews {
-		fmt.Fprintf(output, "Type: %s\nDescription: %s\n", preview.Type, preview.Description)
-		if preview.URI != "" {
-			fmt.Fprintf(output, "Link: %s\n", preview.URI)
-		}
-		fmt.Fprintln(output)
-	}
 }

@@ -19,7 +19,7 @@ invocation: model
 ## Process
 
 1. List exact types with `gnosis get concepts`, then read only the applicable Concept Type definitions with `gnosis get pages '<concept-type URI>' --full`. Read candidate identity matches returned by `gnosis search knowledge --backend lexical --vault <root> '<identity question>'`.
-2. Treat the input as evidence. Extract durable claims, relationships, uncertainties, and citations; separate sourced facts from agent inference. When the request identifies one concept, retain exactly one concept identity.
+2. Treat the input as evidence. Extract durable claims, relationships, uncertainties, and citations; separate sourced facts from agent inference and tag claims inline: unmarked for extracted, `^[inferred]` for agent generalizations, `^[ambiguous]` for unresolved source disagreement. When the request identifies one concept, retain exactly one concept identity.
 3. Integrate by identity. Update matching pages and create only the smallest useful set of new records. When no existing type fits, invoke `gnosis get procedures 'gnosis://_/procedures/vault/create-concept-type.md' --full` and resume after that procedure completes.
 4. Build every record from its Concept Type definition, preserve unknown frontmatter, follow the configured link format, and keep claims traceable. Surface contradictions or ambiguous identity instead of silently choosing a side.
 5. Persist each complete record with `gnosis apply page '<record URI>' --filename <draft-file>`. When `vault_log` is enabled, add one concise newest-first entry to the nearest `log.md`.

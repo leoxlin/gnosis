@@ -167,13 +167,7 @@ title: Local using-gnosis
 	if _, exists := byURI["gnosis://core/procedures/vault/query-vault.md"]; !exists {
 		t.Fatalf("documents missing bundled gnosis vault procedures: %+v", documents)
 	}
-	data, err := Read(root, "Procedure", "query-vault")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(data), "`query-vault` answers") {
-		t.Fatalf("read = %q", data)
-	}
+
 }
 
 func TestSearchSourceNamesBundledDocumentsCore(t *testing.T) {
@@ -265,12 +259,22 @@ vault_root = "."
 		byURI[document.URI] = struct{}{}
 	}
 	expected := []string{
+		"gnosis://core/concepts/concept.md",
+		"gnosis://core/concepts/entity.md",
+		"gnosis://core/concepts/event.md",
+		"gnosis://core/concepts/memory.md",
+		"gnosis://core/concepts/policy.md",
 		"gnosis://core/concepts/procedure.md",
+		"gnosis://core/concepts/reflection.md",
+		"gnosis://core/concepts/resource.md",
 		"gnosis://core/procedures/vault/create-concept-type.md",
 		"gnosis://core/procedures/vault/ingest-knowledge.md",
+		"gnosis://core/procedures/vault/link-pages.md",
 		"gnosis://core/procedures/vault/maintain-vault.md",
 		"gnosis://core/procedures/vault/query-vault.md",
+		"gnosis://core/procedures/vault/recall.md",
 		"gnosis://core/procedures/vault/refining-procedure.md",
+		"gnosis://core/procedures/vault/remember.md",
 	}
 	if len(byURI) != len(expected) {
 		t.Fatalf("bundled documents = %+v, want exactly %d", documents, len(expected))
@@ -460,4 +464,36 @@ func mustReadFile(t *testing.T, path string) []byte {
 		t.Fatal(err)
 	}
 	return data
+}
+
+func TestSearchSourceExcludesRootDocumentation(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, `[vault]
+vault_name = "test"
+vault_root = "."
+`)
+	write(t, root, "documentation/guide.md", "# Guide\n\nNo frontmatter, no vault links.\n")
+	write(t, root, "notes/documentation/thing.md", "---\ntype: Note\ntitle: Thing\n---\n")
+	source, err := NewSearchSource(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	documents, err := source.Documents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, document := range documents {
+		if strings.Contains(document.URI, "documentation/guide.md") {
+			t.Fatalf("documentation page loaded: %+v", document)
+		}
+	}
+	found := false
+	for _, document := range documents {
+		if strings.HasSuffix(document.URI, "notes/documentation/thing.md") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("nested documentation page was excluded")
+	}
 }
