@@ -4,7 +4,7 @@ Answer a question from recorded knowledge without scanning the vault.
 
 ## Steps
 
-Follow `query-vault` (`gnosis get procedures gnosis://_/procedures/vault/query-vault.md --full`), which applies this cost ladder:
+Follow `query-vault` (`gnosis get procedures gnosis://_/procedures/query-vault.md --full`), which applies this cost ladder:
 
 1. **Catalog** — read the root `index.md` when `vault_index` is enabled.
 2. **Lexical** — `gnosis search knowledge --backend lexical "<question>"`. An `index_only` answer needs no page reads; a `path` result answers relationship questions from link structure.

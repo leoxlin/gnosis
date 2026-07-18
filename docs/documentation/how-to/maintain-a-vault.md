@@ -4,7 +4,7 @@ Keep the wiki linked, deduplicated, and fresh.
 
 ## Audit and repair
 
-Run `maintain-vault` (`gnosis get procedures gnosis://_/procedures/vault/maintain-vault.md --full`):
+Run `maintain-vault` (`gnosis get procedures gnosis://_/procedures/maintain-vault.md --full`):
 
 1. Baseline: `gnosis validate vault`.
 2. Audit orphans, near-duplicates, stale pages, contradictions, tag fragmentation, and broken typed relationships.

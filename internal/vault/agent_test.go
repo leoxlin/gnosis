@@ -181,10 +181,10 @@ func TestDiscoverProcessesIncludesAllModelInvocableProceduresByDefault(t *testin
 	foundQuery := false
 	foundRefining := false
 	for _, procedure := range procedures {
-		if procedure["uri"] == "gnosis://core/procedures/vault/query-vault.md" {
+		if procedure["uri"] == "gnosis://core/procedures/query-vault.md" {
 			foundQuery = true
 		}
-		if procedure["uri"] == "gnosis://core/procedures/vault/refining-procedure.md" {
+		if procedure["uri"] == "gnosis://core/procedures/refining-procedure.md" {
 			foundRefining = true
 		}
 	}

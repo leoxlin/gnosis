@@ -8,7 +8,7 @@ A Memory page is one self-contained fact, preference, or observation under a sco
 
 ## Remember a preference
 
-Following the `remember` procedure (read it with `gnosis get procedures gnosis://_/procedures/vault/remember.md --full`):
+Following the `remember` procedure (read it with `gnosis get procedures gnosis://_/procedures/remember.md --full`):
 
 1. Extract the durable statement: "The user prefers tabs over spaces in Go-adjacent YAML."
 2. Compute its hash: `printf '%s' "The user prefers tabs over spaces in Go-adjacent YAML." | sha256sum`.

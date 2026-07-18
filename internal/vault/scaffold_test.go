@@ -45,7 +45,7 @@ func TestScaffoldCreatesBaseVaultWithoutOptionalConcepts(t *testing.T) {
 	}
 	foundVaultProcedure := false
 	for _, procedure := range discovery["procedures"] {
-		if procedure["uri"] == "gnosis://core/procedures/vault/query-vault.md" {
+		if procedure["uri"] == "gnosis://core/procedures/query-vault.md" {
 			foundVaultProcedure = true
 		}
 	}

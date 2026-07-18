@@ -24,7 +24,7 @@ Do not use it for conversation transcripts, working state, or knowledge with its
 
 ## Lifecycle
 
-- Creation, update, and archival go through [remember](../procedures/vault/remember.md), which reconciles each candidate against the nearest existing memories as ADD, UPDATE, DELETE, or NONE; retrieval goes through [recall](../procedures/vault/recall.md).
+- Creation, update, and archival go through [remember](../procedures/remember.md), which reconciles each candidate against the nearest existing memories as ADD, UPDATE, DELETE, or NONE; retrieval goes through [recall](../procedures/recall.md).
 - `status` is `active` while current and `archived` when superseded or deleted; archived memories are retained for audit and negative knowledge, never silently removed.
 - `hash` is the SHA-256 hex of the `# Memory` statement text; exact duplicates are never written.
 - Delete only through the remember procedure's DELETE operation, which archives; physical removal requires explicit author approval after tracing inbound links.

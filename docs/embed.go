@@ -3,5 +3,5 @@ package docs
 
 import "embed"
 
-//go:embed concepts/*.md procedures/*/*.md
+//go:embed concepts/*.md procedures/*.md
 var Content embed.FS

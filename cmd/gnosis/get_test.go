@@ -141,7 +141,7 @@ func TestGetProceduresListsAndBoundsExecutionContract(t *testing.T) {
 		t.Fatalf("list = %q", listed.String())
 	}
 
-	uri := "gnosis://core/procedures/vault/refining-procedure.md"
+	uri := "gnosis://core/procedures/refining-procedure.md"
 	var preview bytes.Buffer
 	if err := run([]string{"--vault", workspace, "get", "procedures", uri}, &preview, &stderr); err != nil {
 		t.Fatal(err)

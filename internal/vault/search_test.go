@@ -164,7 +164,7 @@ title: Local using-gnosis
 	if _, exists := byURI["gnosis://core/documentation/basic-usage.md"]; exists {
 		t.Fatalf("documents include removed bundled documentation: %+v", documents)
 	}
-	if _, exists := byURI["gnosis://core/procedures/vault/query-vault.md"]; !exists {
+	if _, exists := byURI["gnosis://core/procedures/query-vault.md"]; !exists {
 		t.Fatalf("documents missing bundled gnosis vault procedures: %+v", documents)
 	}
 
@@ -267,14 +267,14 @@ vault_root = "."
 		"gnosis://core/concepts/procedure.md",
 		"gnosis://core/concepts/reflection.md",
 		"gnosis://core/concepts/resource.md",
-		"gnosis://core/procedures/vault/create-concept-type.md",
-		"gnosis://core/procedures/vault/ingest-knowledge.md",
-		"gnosis://core/procedures/vault/link-pages.md",
-		"gnosis://core/procedures/vault/maintain-vault.md",
-		"gnosis://core/procedures/vault/query-vault.md",
-		"gnosis://core/procedures/vault/recall.md",
-		"gnosis://core/procedures/vault/refining-procedure.md",
-		"gnosis://core/procedures/vault/remember.md",
+		"gnosis://core/procedures/create-concept-type.md",
+		"gnosis://core/procedures/ingest-knowledge.md",
+		"gnosis://core/procedures/link-pages.md",
+		"gnosis://core/procedures/maintain-vault.md",
+		"gnosis://core/procedures/query-vault.md",
+		"gnosis://core/procedures/recall.md",
+		"gnosis://core/procedures/refining-procedure.md",
+		"gnosis://core/procedures/remember.md",
 	}
 	if len(byURI) != len(expected) {
 		t.Fatalf("bundled documents = %+v, want exactly %d", documents, len(expected))

@@ -18,7 +18,7 @@ type BundledDocument struct {
 func bundledDocuments() ([]BundledDocument, error) {
 	return readBundledDocuments([]string{
 		"concepts/*.md",
-		"procedures/*/*.md",
+		"procedures/*.md",
 	})
 }
 

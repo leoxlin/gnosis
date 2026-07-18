@@ -10,7 +10,7 @@ Each `--import` appends one `[[vaults]]` entry to `gnosis.toml`, naming the vaul
 
 ## Address pages across vaults
 
-Canonical URIs are `gnosis://<vault>/<path>`. The `_` authority (`gnosis://_/procedures/vault/query-vault.md`) matches any vault and is the portable way to reference shared records.
+Canonical URIs are `gnosis://<vault>/<path>`. The `_` authority (`gnosis://_/procedures/query-vault.md`) matches any vault and is the portable way to reference shared records.
 
 ## GitHub wiki backend
 

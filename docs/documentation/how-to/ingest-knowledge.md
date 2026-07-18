@@ -4,7 +4,7 @@ Turn supplied evidence — documents, transcripts, research — into durable con
 
 ## Steps
 
-1. Load the procedure: `gnosis get procedures gnosis://_/procedures/vault/ingest-knowledge.md --full`, and follow it.
+1. Load the procedure: `gnosis get procedures gnosis://_/procedures/ingest-knowledge.md --full`, and follow it.
 2. List exact types with `gnosis get concepts` and read the Concept Type definitions that apply (`gnosis get pages gnosis://_/concepts/<type>.md --full`).
 3. Check identity before creating: `gnosis search knowledge --backend lexical "<the concept>"`. Update the matching page instead of duplicating it.
 4. Write the record from its type's schema. Tag claims inline: unmarked for extracted facts, `^[inferred]` for your generalizations, `^[ambiguous]` for unresolved source disagreement.
