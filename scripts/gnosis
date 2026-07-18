@@ -1,0 +1,5 @@
+#!/bin/sh
+# Dev shim: run gnosis from source via `go run`.
+# Uses the module path so it works from any directory inside the module
+# while keeping the caller's working directory.
+exec go run gnosis/cmd/gnosis "$@"
