@@ -1,7 +1,0 @@
-interface:
-  display_name: "Using gnosis for development"
-  short_description: "Apply gnosis development procedures"
-  default_prompt: "Use $using-gnosis-for-development to select and apply the right development procedures."
-
-policy:
-  allow_implicit_invocation: false

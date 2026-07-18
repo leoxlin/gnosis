@@ -68,8 +68,8 @@ vault_root = "."
 
 func TestGetConceptsAcceptsOnePositionalTypeAndFields(t *testing.T) {
 	workspace := commandVault(t)
-	writeCommandFile(t, workspace, "decision.md", `---
-type: Decision
+	writeCommandFile(t, workspace, "note.md", `---
+type: Note
 title: Keep it small
 description: Prefer the smallest adequate design.
 ---
@@ -77,7 +77,7 @@ description: Prefer the smallest adequate design.
 
 	var stdout, stderr bytes.Buffer
 	if err := run([]string{
-		"--vault", workspace, "get", "concepts", "Decision", "--fields", "title,uri",
+		"--vault", workspace, "get", "concepts", "Note", "--fields", "title,uri",
 	}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
@@ -87,8 +87,8 @@ description: Prefer the smallest adequate design.
 	}
 
 	for _, args := range [][]string{
-		{"get", "concepts", "Decision", "Procedure", "--vault", workspace},
-		{"get", "concepts", "--type", "Decision", "--vault", workspace},
+		{"get", "concepts", "Note", "Procedure", "--vault", workspace},
+		{"get", "concepts", "--type", "Note", "--vault", workspace},
 	} {
 		stdout.Reset()
 		stderr.Reset()
@@ -102,8 +102,8 @@ func TestGetPagePreviewAndFullContent(t *testing.T) {
 	workspace := commandVault(t)
 	body := strings.Repeat("界", detailPreviewLimit+1)
 	writeCommandFile(t, workspace, "long.md", "---\n"+
-		"type: Decision\n"+
-		"title: Long decision\n"+
+		"type: Note\n"+
+		"title: Long note\n"+
 		"description: Exercises bounded output.\n"+
 		"---\n\n"+body)
 	uri := "gnosis://test/long.md"
@@ -132,16 +132,16 @@ func TestGetProceduresListsAndBoundsExecutionContract(t *testing.T) {
 	workspace := t.TempDir()
 	var listed, stderr bytes.Buffer
 	if err := run([]string{
-		"--vault", workspace, "get", "procedures", "--tags", "gnosis,development",
+		"--vault", workspace, "get", "procedures", "--tags", "gnosis,vault",
 	}, &listed, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(listed.String(), "procedures[") ||
-		!strings.Contains(listed.String(), "implementing-directive") {
+		!strings.Contains(listed.String(), "refining-procedure") {
 		t.Fatalf("list = %q", listed.String())
 	}
 
-	uri := "gnosis://core/procedures/development/implementing-directive.md"
+	uri := "gnosis://core/procedures/vault/refining-procedure.md"
 	var preview bytes.Buffer
 	if err := run([]string{"--vault", workspace, "get", "procedures", uri}, &preview, &stderr); err != nil {
 		t.Fatal(err)

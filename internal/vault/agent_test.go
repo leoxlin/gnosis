@@ -82,7 +82,7 @@ tags: [test-planning]
 
 The requirements are exact.
 
-## STEP 2 - creating-directives
+## STEP 2 - creating-records
 
 ### Inputs
 
@@ -90,11 +90,11 @@ The requirements are exact.
 
 ### Process
 
-1. Create the directive.
+1. Create the record.
 
 ### Completion
 
-The directive is open.
+The record is ready.
 `)
 
 	invocation, err := InvokeProcess(root, "gnosis://agent-test/processes/planning.md")
@@ -111,7 +111,7 @@ The directive is open.
 	if first.Number != 1 || first.Name != "refining-requirements" || !strings.Contains(first.Sections.Process, "Refine the requirements") {
 		t.Fatalf("first step = %+v", first)
 	}
-	if second.Number != 2 || second.Name != "creating-directives" || !strings.Contains(second.Sections.Completion, "directive is open") {
+	if second.Number != 2 || second.Name != "creating-records" || !strings.Contains(second.Sections.Completion, "record is ready") {
 		t.Fatalf("second step = %+v", second)
 	}
 	encoded, err := json.Marshal(invocation)
@@ -179,16 +179,16 @@ func TestDiscoverProcessesIncludesAllModelInvocableProceduresByDefault(t *testin
 	}
 	procedures := discovery["procedures"]
 	foundQuery := false
-	foundImplementation := false
+	foundRefining := false
 	for _, procedure := range procedures {
 		if procedure["uri"] == "gnosis://core/procedures/vault/query-vault.md" {
 			foundQuery = true
 		}
-		if procedure["uri"] == "gnosis://core/procedures/development/implementing-directive.md" {
-			foundImplementation = true
+		if procedure["uri"] == "gnosis://core/procedures/vault/refining-procedure.md" {
+			foundRefining = true
 		}
 	}
-	if !foundQuery || !foundImplementation {
+	if !foundQuery || !foundRefining {
 		t.Fatalf("default discovery omitted model-invocable procedures: %+v", procedures)
 	}
 }

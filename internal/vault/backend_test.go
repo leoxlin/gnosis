@@ -29,7 +29,8 @@ func TestGitHubWikiBackendPullsAndPublishes(t *testing.T) {
 
 	runGit(t, "init", "--initial-branch=main", seed)
 	writeTestFile(t, filepath.Join(seed, "Home.md"), "---\ntype: Reference\ntitle: Home\ndescription: first\n---\n\n# Home\n\nfirst\n")
-	runGit(t, "-C", seed, "add", "Home.md")
+	writeTestFile(t, filepath.Join(seed, "concepts", "note.md"), "---\ntype: ConceptType\ntitle: Note\ndescription: A short general-purpose record.\npath: notes\n---\n\n# Note\n")
+	runGit(t, "-C", seed, "add", ".")
 	runGit(t, "-C", seed, "commit", "-m", "initial wiki")
 	runGit(t, "clone", "--bare", seed, remote)
 
@@ -61,13 +62,13 @@ vault_log = false
 		t.Fatalf("updated page = %q, want pulled wiki content", page.Markdown)
 	}
 
-	content := []byte("---\ntype: Directive\ntitle: Added\ndescription: written through gnosis\nstatus: draft\n---\n\n# Goal\n\nAdded\n\n# Scope\n\nTest.\n\n# Acceptance criteria\n\n- Test.\n")
-	if _, err := WriteDocument(workspace, "gnosis://wiki/directives/added.md", content, false); err != nil {
+	content := []byte("---\ntype: Note\ntitle: Added\ndescription: written through gnosis\n---\n\n# Added\n\nTest.\n")
+	if _, err := WriteDocument(workspace, "gnosis://wiki/notes/added.md", content, false); err != nil {
 		t.Fatal(err)
 	}
 	checkout := filepath.Join(root, "checkout")
 	runGit(t, "clone", remote, checkout)
-	got, err := os.ReadFile(filepath.Join(checkout, "directives", "added.md"))
+	got, err := os.ReadFile(filepath.Join(checkout, "notes", "added.md"))
 	if err != nil {
 		t.Fatal(err)
 	}

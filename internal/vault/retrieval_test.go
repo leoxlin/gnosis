@@ -38,8 +38,8 @@ func TestSearchPrefersExactMetadataOverBodyMatches(t *testing.T) {
 func TestSearchUsesDescriptionTagsBodyAndTechnicalTokens(t *testing.T) {
 	engine := New([]Document{
 		{
-			Path:        "decisions/navigation.md",
-			URI:         "gnosis://test/decisions/navigation.md",
+			Path:        "references/navigation.md",
+			URI:         "gnosis://test/references/navigation.md",
 			Title:       "Navigation Settings",
 			Description: "Controls optional vault indexes.",
 			Tags:        []string{"vault_index", "configuration"},
@@ -56,8 +56,8 @@ func TestSearchUsesDescriptionTagsBodyAndTechnicalTokens(t *testing.T) {
 		query string
 		want  string
 	}{
-		{query: "vault index", want: "gnosis://test/decisions/navigation.md"},
-		{query: "optional indexes", want: "gnosis://test/decisions/navigation.md"},
+		{query: "vault index", want: "gnosis://test/references/navigation.md"},
+		{query: "optional indexes", want: "gnosis://test/references/navigation.md"},
 		{query: "semantic recall", want: "gnosis://test/references/query.md"},
 	} {
 		t.Run(test.query, func(t *testing.T) {

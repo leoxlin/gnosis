@@ -205,6 +205,9 @@ type effectivePage struct {
 func newTolerantEffectivePage(root, path string, data []byte, origin Origin) (*effectivePage, error) {
 	parsed, err := parsePage(data)
 	if err != nil {
+		if projected, metadata, ok := projectedOpenSpecPage(root, path, data); ok {
+			return buildEffectivePage(root, path, data, origin, projected, metadata)
+		}
 		page, identityErr := newEffectivePageIdentity(root, path, data, origin)
 		if identityErr != nil {
 			return nil, identityErr
@@ -224,6 +227,9 @@ func newTolerantEffectivePage(root, path string, data []byte, origin Origin) (*e
 func newEffectivePage(root, path string, data []byte, origin Origin) (*effectivePage, error) {
 	parsed, err := parsePage(data)
 	if err != nil {
+		if projected, metadata, ok := projectedOpenSpecPage(root, path, data); ok {
+			return buildEffectivePage(root, path, data, origin, projected, metadata)
+		}
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 

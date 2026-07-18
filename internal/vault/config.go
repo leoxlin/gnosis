@@ -64,17 +64,22 @@ func defaultConfig(root string) Config {
 }
 
 func withinGitRepository(root string) bool {
+	_, found := gitRepositoryRoot(root)
+	return found
+}
+
+func gitRepositoryRoot(root string) (string, bool) {
 	root, err := filepath.Abs(root)
 	if err != nil {
-		return false
+		return "", false
 	}
 	for {
 		if isGitWorkTree(root) {
-			return true
+			return filepath.Clean(root), true
 		}
 		parent := filepath.Dir(root)
 		if parent == root {
-			return false
+			return "", false
 		}
 		root = parent
 	}
@@ -125,20 +130,46 @@ func findConfigPath(root string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("find home directory: %w", err)
 	}
-	for _, path := range []string{
-		filepath.Join(root, "gnosis.local.toml"),
-		filepath.Join(root, "gnosis.toml"),
-		filepath.Join(home, ".config", "gnosis.toml"),
-	} {
-		info, err := os.Stat(path)
-		if err == nil && !info.IsDir() {
-			return path, nil
-		}
-		if err != nil && !os.IsNotExist(err) {
-			return "", fmt.Errorf("stat %s: %w", path, err)
+
+	searchRoots := []string{filepath.Clean(root)}
+	if repositoryRoot, found := gitRepositoryRoot(root); found {
+		for current := filepath.Clean(root); current != repositoryRoot; {
+			current = filepath.Dir(current)
+			searchRoots = append(searchRoots, current)
 		}
 	}
+	for _, searchRoot := range searchRoots {
+		for _, name := range []string{"gnosis.local.toml", "gnosis.toml"} {
+			path := filepath.Join(searchRoot, name)
+			info, err := os.Stat(path)
+			if err == nil && !info.IsDir() {
+				return path, nil
+			}
+			if err != nil && !os.IsNotExist(err) {
+				return "", fmt.Errorf("stat %s: %w", path, err)
+			}
+		}
+	}
+
+	globalPath := filepath.Join(home, ".config", "gnosis.toml")
+	info, err := os.Stat(globalPath)
+	if err == nil && !info.IsDir() {
+		return globalPath, nil
+	}
+	if err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("stat %s: %w", globalPath, err)
+	}
+	if err == nil && info.IsDir() {
+		return "", nil
+	}
 	return "", nil
+}
+
+func implicitVaultRoot(start string) string {
+	if repositoryRoot, found := gitRepositoryRoot(start); found {
+		return repositoryRoot
+	}
+	return start
 }
 
 func loadConfig(root string) (Config, error) {

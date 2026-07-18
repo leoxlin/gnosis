@@ -1,4 +1,0 @@
-#!/bin/sh
-
-printf '%s\n' "$*" >>/app/.gnosis-calls
-exec /usr/local/bin/gnosis-real "$@"

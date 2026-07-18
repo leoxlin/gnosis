@@ -1,0 +1,40 @@
+schema: spec-driven
+
+context: |
+  gnosis is a Go 1.25 agent-facing CLI and local-first knowledge system.
+  Authored knowledge is typed Markdown with YAML frontmatter and stable
+  gnosis:// URIs. OpenSpec is repository-development tooling and the source
+  of truth for proposals, requirements, technical decisions, implementation
+  tasks, and change history.
+
+  The canonical OpenSpec tree is physically stored at docs/openspec so its
+  native Markdown is part of the gnosis vault. The repository-root openspec
+  path is a relative symlink for OpenSpec 1.6 compatibility. Run OpenSpec
+  lifecycle commands from the repository root so its project scope includes
+  code as well as docs.
+
+  Preserve compact deterministic TOON output, the resource-oriented CLI
+  grammar, ordinary Markdown storage, and safe non-destructive Git behavior.
+  Use lower case "gnosis" for the project name. Prefer complete removal of
+  obsolete behavior and references over compatibility aliases.
+
+  The bundled Procedure system is only for vault work. Repository development
+  uses OpenSpec directly. gnosis may project standard OpenSpec Markdown paths
+  as read-only typed knowledge, but the binary must not execute, proxy, embed,
+  or require OpenSpec at runtime.
+
+rules:
+  proposal:
+    - Identify breaking removals explicitly.
+    - Separate new capabilities from modified capabilities.
+    - State runtime and tooling impact.
+  specs:
+    - Describe observable behavior with SHALL or MUST requirements.
+    - Give every requirement at least one WHEN/THEN scenario.
+    - Keep requirements independent of implementation where practical.
+  design:
+    - Record material choices, rejected alternatives, risks, and migration.
+    - Consolidate durable rationale instead of duplicating historical records.
+  tasks:
+    - Order tasks by dependency.
+    - Make every task independently verifiable in one implementation session.

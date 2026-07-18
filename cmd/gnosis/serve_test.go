@@ -46,7 +46,7 @@ func TestHTTPAPIAndUI(t *testing.T) {
 	if status := getHTTPJSON(t, server.URL+"/api/v1/graph", &graph); status != http.StatusOK {
 		t.Fatalf("GET graph status = %d", status)
 	}
-	if len(graph.Nodes) < 2 || !hasGraphEdge(graph.Edges, "gnosis://test/decision.md", "gnosis://test/procedure.md") {
+	if len(graph.Nodes) < 2 || !hasGraphEdge(graph.Edges, "gnosis://test/note.md", "gnosis://test/procedure.md") {
 		t.Fatalf("graph = %+v", graph)
 	}
 	var catalog vault.VaultCatalog
@@ -67,19 +67,19 @@ func TestHTTPAPIAndUI(t *testing.T) {
 	}
 
 	var page vault.Page
-	pageURL := server.URL + "/api/v1/page?uri=" + url.QueryEscape("gnosis://test/decision.md")
+	pageURL := server.URL + "/api/v1/page?uri=" + url.QueryEscape("gnosis://test/note.md")
 	if status := getHTTPJSON(t, pageURL, &page); status != http.StatusOK {
 		t.Fatalf("GET page status = %d", status)
 	}
-	if page.Document.URI != "gnosis://test/decision.md" || !strings.Contains(page.Markdown, "gnosis://test/procedure.md") {
+	if page.Document.URI != "gnosis://test/note.md" || !strings.Contains(page.Markdown, "gnosis://test/procedure.md") {
 		t.Fatalf("page = %+v", page)
 	}
 
 	var concepts conceptsOutput
-	if status := getHTTPJSON(t, server.URL+"/api/v1/concepts?type=Decision", &concepts); status != http.StatusOK {
+	if status := getHTTPJSON(t, server.URL+"/api/v1/concepts?type=Note", &concepts); status != http.StatusOK {
 		t.Fatalf("GET concepts status = %d", status)
 	}
-	if concepts.Type != "Decision" || len(concepts.Concepts) != 1 {
+	if concepts.Type != "Note" || len(concepts.Concepts) != 1 {
 		t.Fatalf("concepts = %+v", concepts)
 	}
 
@@ -88,7 +88,7 @@ func TestHTTPAPIAndUI(t *testing.T) {
 	if status := getHTTPJSON(t, searchURL, &search); status != http.StatusOK {
 		t.Fatalf("GET search status = %d", status)
 	}
-	if len(search.Candidates) != 1 || search.Candidates[0].URI != "gnosis://test/decision.md" {
+	if len(search.Candidates) != 1 || search.Candidates[0].URI != "gnosis://test/note.md" {
 		t.Fatalf("search = %+v", search)
 	}
 
@@ -126,11 +126,11 @@ func TestHTTPMCP(t *testing.T) {
 		t.Fatalf("tools = %d, want 4", len(listed.Tools))
 	}
 	result := callMCPTool(t, session, "get_page", map[string]any{
-		"uri": "gnosis://test/decision.md",
+		"uri": "gnosis://test/note.md",
 	})
 	var page vault.Page
 	decodeMCPResult(t, result, &page)
-	if page.Document.URI != "gnosis://test/decision.md" {
+	if page.Document.URI != "gnosis://test/note.md" {
 		t.Fatalf("page = %+v", page)
 	}
 }
@@ -187,22 +187,22 @@ func TestMCPTools(t *testing.T) {
 		t.Fatalf("vault catalog = %+v", catalog)
 	}
 
-	conceptsResult := callMCPTool(t, session, "get_concepts", map[string]any{"type": "Decision"})
+	conceptsResult := callMCPTool(t, session, "get_concepts", map[string]any{"type": "Note"})
 	var concepts conceptsOutput
 	decodeMCPResult(t, conceptsResult, &concepts)
-	if concepts.Type != "Decision" || len(concepts.Concepts) != 1 {
+	if concepts.Type != "Note" || len(concepts.Concepts) != 1 {
 		t.Fatalf("concepts = %+v", concepts)
 	}
-	if concepts.Concepts[0]["uri"] != "gnosis://test/decision.md" {
+	if concepts.Concepts[0]["uri"] != "gnosis://test/note.md" {
 		t.Fatalf("concept = %+v", concepts.Concepts[0])
 	}
 
 	pageResult := callMCPTool(t, session, "get_page", map[string]any{
-		"uri": "gnosis://test/decision.md",
+		"uri": "gnosis://test/note.md",
 	})
 	var page vault.Page
 	decodeMCPResult(t, pageResult, &page)
-	if page.Document.URI != "gnosis://test/decision.md" || page.Document.Revision == "" {
+	if page.Document.URI != "gnosis://test/note.md" || page.Document.Revision == "" {
 		t.Fatalf("page = %+v", page)
 	}
 
@@ -215,7 +215,7 @@ func TestMCPTools(t *testing.T) {
 	})
 	var query vault.QueryResult
 	decodeMCPResult(t, searchResult, &query)
-	if len(query.Candidates) != 1 || query.Candidates[0].URI != "gnosis://test/decision.md" {
+	if len(query.Candidates) != 1 || query.Candidates[0].URI != "gnosis://test/note.md" {
 		t.Fatalf("query = %+v", query)
 	}
 	if query.Candidates[0].Revision == "" || query.Candidates[0].Origin.Vault != "test" {
@@ -337,14 +337,14 @@ func TestMCPSubprocess(t *testing.T) {
 
 	pageResult, err := session.CallTool(ctx, &mcp.CallToolParams{
 		Name:      "get_page",
-		Arguments: map[string]any{"uri": "gnosis://test/decision.md"},
+		Arguments: map[string]any{"uri": "gnosis://test/note.md"},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	var page vault.Page
 	decodeMCPResult(t, pageResult, &page)
-	if page.Document.URI != "gnosis://test/decision.md" || page.Document.Revision == "" {
+	if page.Document.URI != "gnosis://test/note.md" || page.Document.Revision == "" {
 		t.Fatalf("page = %+v", page)
 	}
 
@@ -360,7 +360,7 @@ func TestMCPSubprocess(t *testing.T) {
 	}
 	var query vault.QueryResult
 	decodeMCPResult(t, searchResult, &query)
-	if len(query.Candidates) == 0 || query.Candidates[0].URI != "gnosis://test/decision.md" {
+	if len(query.Candidates) == 0 || query.Candidates[0].URI != "gnosis://test/note.md" {
 		t.Fatalf("query = %+v", query)
 	}
 
@@ -428,8 +428,8 @@ func mcpResultText(result *mcp.CallToolResult) string {
 func mcpTestVault(t *testing.T) string {
 	t.Helper()
 	workspace := commandVault(t)
-	writeCommandFile(t, workspace, "decision.md", `---
-type: Decision
+	writeCommandFile(t, workspace, "note.md", `---
+type: Note
 title: Keep it small
 description: Prefer the smallest adequate design.
 ---
@@ -442,8 +442,8 @@ Use the simplest design that satisfies the current requirement.
 func httpTestVault(t *testing.T) string {
 	t.Helper()
 	workspace := commandVault(t)
-	writeCommandFile(t, workspace, "decision.md", `---
-type: Decision
+	writeCommandFile(t, workspace, "note.md", `---
+type: Note
 title: Keep it small
 description: Prefer the smallest adequate design.
 ---
@@ -452,11 +452,11 @@ Follow the [implementation procedure](procedure.md).
 `)
 	writeCommandFile(t, workspace, "procedure.md", `---
 type: Procedure
-title: Implement the decision
+title: Apply the note
 description: Apply the selected design.
 ---
 
-Build only what the decision requires.
+Build only what the note requires.
 `)
 	return workspace
 }

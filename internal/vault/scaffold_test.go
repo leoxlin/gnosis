@@ -36,7 +36,7 @@ func TestScaffoldCreatesBaseVaultWithoutOptionalConcepts(t *testing.T) {
 			t.Fatalf("expected %s to exist: %v", rel, err)
 		}
 	}
-	if fileExists(filepath.Join(root, "concepts", "purpose.md")) {
+	if fileExists(filepath.Join(root, "concepts", "procedure.md")) {
 		t.Fatal("optional concept files should not be created by default")
 	}
 	discovery, err := DiscoverProcesses(root, nil)
@@ -132,13 +132,13 @@ func TestGenerateIndexesWritesFolderIndexes(t *testing.T) {
 
 * Entry.
 `)
-	write(t, root, "concepts/purpose.md", `---
+	write(t, root, "concepts/topic.md", `---
 type: ConceptType
-title: Purpose
-description: Definition of a reusable purpose record.
+title: Topic
+description: Definition of a reusable topic record.
 ---
 
-# Purpose
+# Topic
 `)
 
 	written, err := GenerateIndexes(root, IndexOptions{Overwrite: true})
@@ -157,7 +157,7 @@ description: Definition of a reusable purpose record.
 	if !strings.Contains(rootText, "[Concepts](concepts/index.md)") {
 		t.Fatalf("root index missing concepts subindex link:\n%s", rootText)
 	}
-	if strings.Contains(rootText, "purpose.md") {
+	if strings.Contains(rootText, "topic.md") {
 		t.Fatalf("root index should not list individual pages:\n%s", rootText)
 	}
 
@@ -169,7 +169,7 @@ description: Definition of a reusable purpose record.
 	if !strings.Contains(conceptsText, "[Parent Index](../index.md)") {
 		t.Fatalf("subindex missing parent link:\n%s", conceptsText)
 	}
-	if !strings.Contains(conceptsText, "[Purpose](purpose.md) - Definition of a reusable purpose record.") {
+	if !strings.Contains(conceptsText, "[Topic](topic.md) - Definition of a reusable topic record.") {
 		t.Fatalf("subindex missing page metadata:\n%s", conceptsText)
 	}
 	if strings.HasSuffix(conceptsText, "\n\n") {

@@ -4,12 +4,12 @@
     "name": "Leo Xuzhang Lin",
     "email": "me@leoxlin.com"
   },
-  "description": "gnosis plugin for knowledge management and knowledge-driven software development.",
+  "description": "gnosis plugin for portable vault knowledge and procedures.",
   "plugins": [
     {
       "name": "gnosis",
       "source": "./plugins/gnosis",
-      "description": "Select and apply canonical vault and repository processes through gnosis."
+      "description": "Select and apply canonical vault procedures through gnosis."
     }
   ]
 }

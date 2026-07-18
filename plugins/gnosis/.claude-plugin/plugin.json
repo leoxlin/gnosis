@@ -2,13 +2,13 @@
   "name": "gnosis",
   "displayName": "gnosis",
   "version": "0.1.0",
-  "description": "Discover, invoke, and trace gnosis vault and repository processes.",
+  "description": "Discover, invoke, and trace gnosis vault procedures.",
   "author": {
     "name": "Leo Xuzhang Lin",
     "url": "https://github.com/leoxlin"
   },
   "homepage": "https://github.com/leoxlin/gnosis",
   "repository": "https://github.com/leoxlin/gnosis",
-  "keywords": ["gnosis", "knowledge", "vault", "repository", "processes"],
+  "keywords": ["gnosis", "knowledge", "vault", "procedures", "markdown"],
   "skills": "./skills/"
 }

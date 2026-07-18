@@ -64,7 +64,7 @@ func TestSemanticChunks(t *testing.T) {
 	document := Document{
 		URI:         "gnosis://test/concepts/vector.md",
 		Title:       "Vector search",
-		Type:        "Decision",
+		Type:        "Reference",
 		Description: "Choose semantic retrieval.",
 		Body:        strings.Repeat("a", 4_000) + "\n\n" + strings.Repeat("b", 3_000),
 	}

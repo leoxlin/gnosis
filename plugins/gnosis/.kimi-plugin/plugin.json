@@ -1,19 +1,19 @@
 {
   "name": "gnosis",
   "version": "0.1.0",
-  "description": "Discover, invoke, and trace gnosis vault and repository processes.",
+  "description": "Discover, invoke, and trace gnosis vault procedures.",
   "author": {
     "name": "Leo Xuzhang Lin",
     "url": "https://github.com/leoxlin"
   },
   "homepage": "https://github.com/leoxlin/gnosis",
   "repository": "https://github.com/leoxlin/gnosis",
-  "keywords": ["gnosis", "knowledge", "vault", "repository", "processes"],
+  "keywords": ["gnosis", "knowledge", "vault", "procedures", "markdown"],
   "skills": "./skills/",
   "interface": {
     "displayName": "gnosis",
-    "shortDescription": "Apply vault and repository knowledge.",
-    "longDescription": "A gateway skill and MCP tools that discover, invoke, read, and trace canonical gnosis process records.",
+    "shortDescription": "Apply vault knowledge and procedures.",
+    "longDescription": "A gateway skill that discovers, invokes, reads, and traces canonical gnosis vault procedures.",
     "developerName": "Leo Xuzhang Lin",
     "websiteURL": "https://github.com/leoxlin/gnosis"
   }

@@ -60,9 +60,18 @@ func TestApplyWorkspaceRejectsInvalidFlagCombinations(t *testing.T) {
 
 func TestApplyPageAcknowledgesRepeatAsNoOp(t *testing.T) {
 	workspace := commandVault(t)
-	input := filepath.Join(t.TempDir(), "decision.md")
+	writeCommandFile(t, workspace, "concepts/note.md", `---
+type: ConceptType
+title: Note
+description: A short general-purpose record.
+path: notes
+---
+
+# Note
+`)
+	input := filepath.Join(t.TempDir(), "note.md")
 	content := `---
-type: Decision
+type: Note
 title: Repeat safely
 description: Repeating the same apply changes nothing.
 ---
@@ -72,7 +81,7 @@ description: Repeating the same apply changes nothing.
 	}
 	args := []string{
 		"--vault", workspace, "apply", "page",
-		"gnosis://test/decisions/repeat-safely.md", "--filename", input,
+		"gnosis://test/notes/repeat-safely.md", "--filename", input,
 	}
 
 	var stdout, stderr bytes.Buffer

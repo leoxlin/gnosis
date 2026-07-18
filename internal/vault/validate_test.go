@@ -175,14 +175,14 @@ vault_index = true
 vault_log = false
 `,
 			files: map[string]string{
-				"index.md": "# Index\n\n[Purpose](purpose.md)\n",
-				"purpose.md": `---
-type: Purpose
-title: Purpose
-description: Test purpose.
+				"index.md": "# Index\n\n[Note](note.md)\n",
+				"note.md": `---
+type: Note
+title: Note
+description: Test note.
 ---
 
-# Purpose
+# Note
 `,
 			},
 		},

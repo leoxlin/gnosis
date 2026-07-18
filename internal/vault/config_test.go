@@ -64,17 +64,20 @@ func TestLoadEffectiveVaultUsesGitRepositoryDefaultsWithoutConfiguration(t *test
 	if err := os.WriteFile(filepath.Join(repository, ".git", "HEAD"), []byte("ref: refs/heads/main\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	root := filepath.Join(repository, "nested")
-	if err := os.MkdirAll(filepath.Join(root, "docs"), 0o755); err != nil {
+	root := filepath.Join(repository, "nested", "work")
+	if err := os.MkdirAll(root, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "docs", "purpose.md"), []byte(`---
-type: Purpose
-title: Repository purpose
+	if err := os.MkdirAll(filepath.Join(repository, "docs"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repository, "docs", "note.md"), []byte(`---
+type: Note
+title: Repository note
 description: Verify git repository defaults.
 ---
 
-# Repository purpose
+# Repository note
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +101,10 @@ description: Verify git repository defaults.
 	if vault.config.IndexEnabled() || vault.config.LogEnabled() {
 		t.Fatalf("navigation settings = %+v, want disabled", vault.config.Vault)
 	}
-	if got, want := sourcePaths(vault), []string{filepath.Join(root, "docs")}; !reflect.DeepEqual(got, want) {
+	if got, want := vault.root, repository; got != want {
+		t.Fatalf("vault root = %q, want repository root %q", got, want)
+	}
+	if got, want := sourcePaths(vault), []string{filepath.Join(repository, "docs")}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("vault roots = %v, want %v", got, want)
 	}
 	documents, err := (&SearchSource{vault: vault}).Documents()
@@ -107,12 +113,12 @@ description: Verify git repository defaults.
 	}
 	found := false
 	for _, document := range documents {
-		if document.URI == "gnosis://local/purpose.md" {
+		if document.URI == "gnosis://local/note.md" {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatalf("documents = %+v, want gnosis://local/purpose.md", documents)
+		t.Fatalf("documents = %+v, want gnosis://local/note.md", documents)
 	}
 	result, err := Validate(root)
 	if err != nil {
@@ -123,6 +129,34 @@ description: Verify git repository defaults.
 	}
 	if got, want := result.FilesChecked, 1; got != want {
 		t.Fatalf("files checked = %d, want %d", got, want)
+	}
+}
+
+func TestLoadEffectiveVaultFindsRepositoryConfigurationFromDescendant(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	repository := t.TempDir()
+	write(t, repository, ".git/HEAD", "ref: refs/heads/main\n")
+	writeConfig(t, repository, `[vault]
+vault_name = "repository"
+vault_root = "knowledge"
+vault_index = false
+vault_log = false
+`)
+	write(t, repository, "knowledge/note.md", "---\ntype: Note\ntitle: Repository note\n---\n")
+	descendant := filepath.Join(repository, "docs", "openspec", "changes")
+	if err := os.MkdirAll(descendant, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	vault, err := loadEffectiveVault(descendant)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := vault.root, repository; got != want {
+		t.Fatalf("vault root = %q, want %q", got, want)
+	}
+	if got, want := sourcePaths(vault), []string{filepath.Join(repository, "knowledge")}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("vault roots = %v, want %v", got, want)
 	}
 }
 

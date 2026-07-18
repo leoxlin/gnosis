@@ -42,7 +42,8 @@ func loadEffectiveVault(root string) (*effectiveVault, error) {
 	if err != nil {
 		return nil, err
 	}
-	vault := &effectiveVault{root: start, config: defaultConfig(start)}
+	implicitRoot := implicitVaultRoot(start)
+	vault := &effectiveVault{root: implicitRoot, config: defaultConfig(implicitRoot)}
 	if configPath != "" {
 		vault.root = filepath.Dir(configPath)
 		vault.config, err = loadConfigPath(configPath)

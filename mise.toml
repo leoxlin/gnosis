@@ -1,5 +1,7 @@
 [tools]
 go = "1.25"
+node = "22.12.0"
+"npm:@fission-ai/openspec" = "1.6.0"
 
 [tasks.build]
 run = [
@@ -63,17 +65,29 @@ done
 description = "Run all Go tests"
 run = "go test ./..."
 
-[tasks.integration]
-description = "Run the Harbor coding-agent integration"
-depends = ["build"]
-run = "./integration/coding-agent.sh"
-
 [tasks.checks]
-description = "Run formatting, vet, tests, build, and documentation validation"
+description = "Run layout, OpenSpec, Go, build, and gnosis vault validation"
 run = '''
 #!/bin/sh
 
 set -eu
+
+if [ ! -L openspec ] || [ "$(readlink openspec)" != "docs/openspec" ]; then
+  printf 'openspec must be a relative symlink to docs/openspec\n' >&2
+  exit 1
+fi
+
+openspec_context=$(openspec context --json)
+case "$openspec_context" in
+  *'"path": "'"$PWD"'"'*) ;;
+  *)
+    printf 'openspec did not resolve the repository root\n' >&2
+    exit 1
+    ;;
+esac
+
+openspec validate --all --strict --no-interactive
+openspec doctor
 
 unformatted=$(gofmt -l .)
 if [ -n "$unformatted" ]; then
@@ -86,4 +100,5 @@ go test ./... -count=1
 go test -race ./... -count=1
 go build ./...
 go run ./cmd/gnosis validate vault
+(cd docs/openspec && go run ../../cmd/gnosis validate vault)
 '''

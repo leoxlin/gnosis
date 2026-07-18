@@ -11,6 +11,14 @@ import (
 // WriteDocument writes content into the vault selected by the target URI.
 // Concrete authorities remain restricted to the current local vault.
 func WriteDocument(root, uri string, content []byte, update bool) (string, error) {
+	targetVault, targetPath, ok := canonicalGnosisParts(uri)
+	if !ok {
+		return "", fmt.Errorf("write: target URI: must be a canonical gnosis URI")
+	}
+	if _, openSpecArtifact := openSpecArtifactMetadata(targetPath); openSpecArtifact {
+		return "", fmt.Errorf("write: OpenSpec artifacts are read-only through gnosis; use OpenSpec to update %q", targetPath)
+	}
+
 	parsed, err := parsePage(content)
 	if err != nil {
 		return "", fmt.Errorf("write: parse input: %w", err)
@@ -25,10 +33,6 @@ func WriteDocument(root, uri string, content []byte, update bool) (string, error
 	vault, err := loadEffectiveVault(root)
 	if err != nil {
 		return "", fmt.Errorf("write: resolve current directory: %w", err)
-	}
-	targetVault, _, ok := canonicalGnosisParts(uri)
-	if !ok {
-		return "", fmt.Errorf("write: target URI: must be a canonical gnosis URI")
 	}
 	targetRoot, hasLocalRoot := vault.localRoot()
 	targetVaultName := vault.config.Vault.Name

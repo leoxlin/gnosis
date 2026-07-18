@@ -101,8 +101,8 @@ func newGetConceptsCommand(options *rootOptions, stdout io.Writer) *cobra.Comman
 		Short: "List concept types or concepts of one exact type",
 		Args:  cobra.MaximumNArgs(1),
 		Example: "gnosis get concepts\n" +
-			"gnosis get concepts Directive\n" +
-			"gnosis get concepts Directive --fields uri,title,revision",
+			"gnosis get concepts Note\n" +
+			"gnosis get concepts Note --fields uri,title,revision",
 		RunE: func(_ *cobra.Command, args []string) error {
 			conceptType := ""
 			if len(args) == 1 {
