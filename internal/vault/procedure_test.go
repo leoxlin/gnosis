@@ -2,13 +2,12 @@ package vault
 
 import (
 	"encoding/json"
-	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestReadAndInvokeProcessRoundTrip(t *testing.T) {
-	root := agentTestVault(t)
+func TestReadAndInvokeProcedureRoundTrip(t *testing.T) {
+	root := apiTestVault(t)
 
 	processURI := "gnosis://agent-test/processes/query-vault.md"
 	invocation, err := InvokeProcess(root, processURI)
@@ -58,7 +57,7 @@ func TestReadAndInvokeProcessRoundTrip(t *testing.T) {
 }
 
 func TestInvokeMultiStepProcess(t *testing.T) {
-	root := agentTestVault(t)
+	root := apiTestVault(t)
 	write(t, root, "docs/processes/planning.md", `---
 type: Procedure
 title: planning
@@ -138,7 +137,7 @@ The record is ready.
 }
 
 func TestDiscoverProcessesFiltersByAllTags(t *testing.T) {
-	root := agentTestVault(t)
+	root := apiTestVault(t)
 	write(t, root, "docs/processes/planning.md", `---
 type: Procedure
 title: planning
@@ -194,7 +193,7 @@ func TestDiscoverProcessesIncludesAllModelInvocableProceduresByDefault(t *testin
 }
 
 func TestDiscoverProcessesIncludesAllFamiliesAndOmitsExplicit(t *testing.T) {
-	root := agentTestVault(t)
+	root := apiTestVault(t)
 	write(t, root, "docs/processes/enabled.md", `---
 type: Procedure
 title: enabled
@@ -321,7 +320,7 @@ aliases:
 }
 
 func TestDiscoverProcessesRejectsMalformedEnabledProcedure(t *testing.T) {
-	root := agentTestVault(t)
+	root := apiTestVault(t)
 	write(t, root, "docs/processes/malformed.md", `---
 type: Procedure
 title: malformed
@@ -341,7 +340,7 @@ aliases:
 }
 
 func TestProcedureValidationAndInvocationShareContract(t *testing.T) {
-	root := agentTestVault(t)
+	root := apiTestVault(t)
 	write(t, root, "docs/processes/missing-tags.md", `---
 type: Procedure
 title: missing-tags
@@ -377,239 +376,12 @@ The work is complete.
 }
 
 func TestInvokeProcessReportsSelectedFrontmatterError(t *testing.T) {
-	root := agentTestVault(t)
+	root := apiTestVault(t)
 	write(t, root, "docs/processes/broken.md", "---\ntype: [\n---\n")
 
 	_, err := InvokeProcess(root, "gnosis://agent-test/processes/broken.md")
 	if err == nil || !strings.Contains(err.Error(), "invalid YAML frontmatter") {
 		t.Fatalf("invocation error = %v", err)
-	}
-}
-
-func TestReadPageAcceptsOnlyCanonicalGnosisURIs(t *testing.T) {
-	root := agentTestVault(t)
-	canonical := "gnosis://agent-test/processes/query-vault.md"
-
-	page, err := ReadPage(root, canonical)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if page.Document.URI != canonical {
-		t.Fatalf("URI = %q, want %q", page.Document.URI, canonical)
-	}
-
-	if _, err := ReadPage(root, "  "+canonical+"  "); err == nil {
-		t.Fatal("ReadPage accepted a noncanonical whitespace-padded URI")
-	}
-}
-
-func TestAnyVaultSelectorResolvesEffectivePageByPrecedence(t *testing.T) {
-	workspace := t.TempDir()
-	imported := filepath.Join(workspace, "imported")
-	writeConfig(t, workspace, `[vault]
-vault_name = "workspace"
-vault_root = "local"
-
-[[vaults]]
-vault_name = "imported"
-vault_root = "imported"
-`)
-	writeConfig(t, imported, `[vault]
-vault_name = "imported"
-vault_root = "."
-`)
-	write(t, workspace, "local/shared.md", "---\ntype: Note\ntitle: Local\n---\n")
-	write(t, imported, "shared.md", "---\ntype: Note\ntitle: Imported\n---\n")
-	write(t, imported, "imported-only.md", "---\ntype: Note\ntitle: Imported only\n---\n")
-
-	for _, test := range []struct {
-		selector string
-		wantURI  string
-	}{
-		{"gnosis://_/shared.md", "gnosis://workspace/shared.md"},
-		{"gnosis://_/imported-only.md", "gnosis://imported/imported-only.md"},
-	} {
-		page, err := ReadPage(workspace, test.selector)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if page.Document.URI != test.wantURI {
-			t.Fatalf("ReadPage(%q) URI = %q, want %q", test.selector, page.Document.URI, test.wantURI)
-		}
-	}
-}
-
-func TestTraceLinksReturnsDirectedTypedEdges(t *testing.T) {
-	root := agentTestVault(t)
-
-	neighbors, err := TraceNeighbors(root, "gnosis://agent-test/processes/query-vault.md", DirectionOut, []string{"links_to"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(neighbors.Edges) != 1 {
-		t.Fatalf("edges = %+v", neighbors.Edges)
-	}
-	edge := neighbors.Edges[0]
-	if edge.From.URI != "gnosis://agent-test/processes/query-vault.md" || edge.To.URI != "gnosis://agent-test/concepts/provenance.md" || edge.Relation != "links_to" {
-		t.Fatalf("edge = %+v", edge)
-	}
-
-	path, err := TracePath(root, "gnosis://agent-test/processes/query-vault.md", "gnosis://agent-test/concepts/provenance.md", DirectionOut, []string{"links_to"}, 2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if path.Status != PathFound || len(path.Edges) != 1 || len(path.Nodes) != 2 {
-		t.Fatalf("path = %+v", path)
-	}
-
-	reverse, err := TracePath(root, "gnosis://agent-test/concepts/provenance.md", "gnosis://agent-test/processes/query-vault.md", DirectionOut, []string{"links_to"}, 2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if reverse.Status != PathDisconnected {
-		t.Fatalf("reverse path = %+v", reverse)
-	}
-
-	incoming, err := TracePath(root, "gnosis://agent-test/concepts/provenance.md", "gnosis://agent-test/processes/query-vault.md", DirectionIn, []string{"links_to"}, 2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if incoming.Status != PathFound {
-		t.Fatalf("incoming path = %+v", incoming)
-	}
-}
-
-func TestTraceLinksResolvesLogicalImportedTargets(t *testing.T) {
-	workspace := t.TempDir()
-	imported := filepath.Join(workspace, "imported")
-	writeConfig(t, workspace, `[vault]
-vault_name = "workspace"
-vault_root = "docs"
-vault_index = false
-vault_log = false
-
-[[vaults]]
-vault_name = "shared"
-vault_root = "imported"
-`)
-	writeConfig(t, imported, `[vault]
-vault_name = "shared"
-vault_root = "docs"
-vault_index = false
-vault_log = false
-`)
-	write(t, workspace, "docs/processes/start.md", `---
-type: Procedure
-title: start
-description: Start with shared knowledge.
-tags: [test-vault]
----
-
-# start
-
-## Inputs
-
-- [Shared](../shared/end.md)
-
-## Process
-
-1. Read shared knowledge.
-
-## Completion
-
-Shared knowledge is read.
-`)
-	write(t, imported, "docs/shared/end.md", `---
-type: Concept
-title: Shared End
-description: Imported shared knowledge.
----
-
-# Shared End
-`)
-
-	path, err := TracePath(workspace, "gnosis://workspace/processes/start.md", "gnosis://shared/shared/end.md", DirectionOut, []string{"links_to"}, 2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if path.Status != PathFound || len(path.Nodes) != 2 {
-		t.Fatalf("path = %+v", path)
-	}
-	if path.Nodes[1].Origin.Kind != OriginImport || path.Nodes[1].Origin.Vault != "shared" {
-		t.Fatalf("imported origin = %+v", path.Nodes[1].Origin)
-	}
-	validation, err := Validate(workspace)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(validation.Errors) != 0 {
-		t.Fatalf("validation errors = %v", validation.Errors)
-	}
-}
-
-func TestTracePathDistinguishesUnknownDisconnectedAndDepthExceeded(t *testing.T) {
-	root := agentTestVault(t)
-	write(t, root, "docs/concepts/middle.md", `---
-type: Concept
-title: Middle
-description: A middle node.
-relationships:
-  - type: links_to
-    target: end.md
----
-
-# Middle
-`)
-	write(t, root, "docs/concepts/end.md", `---
-type: Concept
-title: End
-description: An end node.
----
-
-# End
-`)
-	write(t, root, "docs/concepts/disconnected.md", `---
-type: Concept
-title: Disconnected
-description: A disconnected node.
----
-
-# Disconnected
-`)
-	write(t, root, "docs/concepts/provenance.md", `---
-type: Concept
-title: Provenance
-description: Source identity and history.
-relationships:
-  - type: links_to
-    target: middle.md
----
-
-# Provenance
-`)
-
-	unknown, err := TracePath(root, "gnosis://agent-test/missing.md", "gnosis://agent-test/concepts/end.md", DirectionOut, nil, 3)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if unknown.Status != PathUnknownSource {
-		t.Fatalf("unknown path = %+v", unknown)
-	}
-
-	disconnected, err := TracePath(root, "gnosis://agent-test/concepts/provenance.md", "gnosis://agent-test/concepts/disconnected.md", DirectionOut, nil, 3)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if disconnected.Status != PathDisconnected {
-		t.Fatalf("disconnected path = %+v", disconnected)
-	}
-
-	limited, err := TracePath(root, "gnosis://agent-test/concepts/provenance.md", "gnosis://agent-test/concepts/end.md", DirectionOut, nil, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if limited.Status != PathDepthExceeded {
-		t.Fatalf("limited path = %+v", limited)
 	}
 }
 
@@ -769,7 +541,7 @@ relationships:
 	}
 }
 
-func agentTestVault(t *testing.T) string {
+func apiTestVault(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]

@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	toon "github.com/toon-format/toon-go"
-	"gnosis/internal/vault"
+	"gnosis/internal/search"
 )
 
 func newSearchCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
@@ -48,19 +48,19 @@ func newSearchKnowledgeCommand(options *rootOptions, stdout io.Writer) *cobra.Co
 			if err != nil {
 				return newUsageError(err)
 			}
-			queryOptions := vault.QueryOptions{Top: top, MaxRead: maxRead, MaxDepth: depth}
-			var result vault.QueryResult
+			queryOptions := search.QueryOptions{Top: top, MaxRead: maxRead, MaxDepth: depth}
+			var result search.QueryResult
 			switch backend {
 			case "vector":
-				config, configErr := vault.SemanticConfigFromEnv(options.vaultPath)
+				config, configErr := search.SemanticConfigFromEnv(options.vaultPath)
 				if configErr != nil {
 					return configErr
 				}
-				result, err = vault.QuerySemanticKnowledge(
+				result, err = search.QuerySemantic(
 					command.Context(), options.vaultPath, args[0], queryOptions, config,
 				)
 			case "lexical":
-				result, err = vault.QueryKnowledge(options.vaultPath, args[0], queryOptions)
+				result, err = search.QueryLexical(options.vaultPath, args[0], queryOptions)
 			default:
 				return newUsageError(fmt.Errorf("search knowledge: unknown backend %q", backend))
 			}
@@ -97,7 +97,7 @@ func validateQueryOptions(top, maxRead, depth int) error {
 	return nil
 }
 
-func writeSearchResult(output io.Writer, selector fieldSelector, result vault.QueryResult) error {
+func writeSearchResult(output io.Writer, selector fieldSelector, result search.QueryResult) error {
 	rows := make([]toon.Object, 0, len(result.Candidates))
 	for _, candidate := range result.Candidates {
 		rows = append(rows, selector.object(func(name string) (any, bool) {

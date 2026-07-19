@@ -107,7 +107,7 @@ description: Verify git repository defaults.
 	if got, want := sourcePaths(vault), []string{filepath.Join(repository, "docs")}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("vault roots = %v, want %v", got, want)
 	}
-	documents, err := (&SearchSource{vault: vault}).Documents()
+	documents, err := LoadDocuments(root)
 	if err != nil {
 		t.Fatal(err)
 	}

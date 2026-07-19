@@ -44,11 +44,7 @@ The system SHALL expose an atlas.
 `)
 	nested := filepath.Join(repository, "docs", "openspec", "changes", "add-atlas")
 
-	source, err := NewSearchSource(nested)
-	if err != nil {
-		t.Fatal(err)
-	}
-	documents, err := source.Documents()
+	documents, err := LoadDocuments(nested)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,11 +89,6 @@ The system SHALL expose an atlas.
 		records["concepts"][0]["type"] != openSpecProposalType ||
 		records["concepts"][0]["uri"] != "gnosis://local/openspec/changes/add-atlas/proposal.md" {
 		t.Fatalf("records = %+v", records)
-	}
-
-	hits := New(documents).Search("unique quasar marker", 1)
-	if len(hits) != 1 || hits[0].Document.URI != "gnosis://local/openspec/changes/add-atlas/proposal.md" {
-		t.Fatalf("hits = %+v", hits)
 	}
 
 	result, err := Validate(nested)

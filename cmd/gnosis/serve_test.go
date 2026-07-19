@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	knowledge "gnosis/internal/search"
 	"gnosis/internal/vault"
 )
 
@@ -96,7 +97,7 @@ func TestHTTPAPIAndUI(t *testing.T) {
 		t.Fatalf("concepts = %+v", concepts)
 	}
 
-	var search vault.QueryResult
+	var search knowledge.QueryResult
 	searchURL := server.URL + "/api/v1/search?backend=lexical&question=small+adequate+design&top=1"
 	if status := getHTTPJSON(t, searchURL, &search); status != http.StatusOK {
 		t.Fatalf("GET search status = %d", status)
@@ -226,7 +227,7 @@ func TestMCPTools(t *testing.T) {
 		"max_read": 1,
 		"depth":    1,
 	})
-	var query vault.QueryResult
+	var query knowledge.QueryResult
 	decodeMCPResult(t, searchResult, &query)
 	if len(query.Candidates) != 1 || query.Candidates[0].URI != "gnosis://test/note.md" {
 		t.Fatalf("query = %+v", query)
@@ -371,7 +372,7 @@ func TestMCPSubprocess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var query vault.QueryResult
+	var query knowledge.QueryResult
 	decodeMCPResult(t, searchResult, &query)
 	if len(query.Candidates) == 0 || query.Candidates[0].URI != "gnosis://test/note.md" {
 		t.Fatalf("query = %+v", query)

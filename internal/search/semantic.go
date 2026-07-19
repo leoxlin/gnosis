@@ -1,4 +1,4 @@
-package vault
+package search
 
 import (
 	"bytes"
@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"gnosis/internal/vault"
 )
 
 const (
@@ -48,7 +49,7 @@ type SemanticIndexResult struct {
 }
 
 type semanticChunk struct {
-	document Document
+	document vault.Document
 	index    int
 	content  string
 }
@@ -99,11 +100,7 @@ func SyncSemanticIndex(
 	if err := validateSemanticConfig(config); err != nil {
 		return SemanticIndexResult{}, err
 	}
-	source, err := NewSearchSource(root)
-	if err != nil {
-		return SemanticIndexResult{}, fmt.Errorf("semantic index: load source: %w", err)
-	}
-	documents, err := source.Documents()
+	documents, err := vault.LoadDocuments(root)
 	if err != nil {
 		return SemanticIndexResult{}, fmt.Errorf("semantic index: load documents: %w", err)
 	}
@@ -211,9 +208,9 @@ func SyncSemanticIndex(
 	}, nil
 }
 
-// QuerySemanticKnowledge retrieves distinct pages from the current derived
-// semantic index and preserves the stable query result contract.
-func QuerySemanticKnowledge(
+// QuerySemantic retrieves distinct pages from the current derived semantic
+// index and preserves the stable query result contract.
+func QuerySemantic(
 	ctx context.Context,
 	root string,
 	question string,
@@ -226,11 +223,7 @@ func QuerySemanticKnowledge(
 	if err := validateSemanticConfig(config); err != nil {
 		return QueryResult{}, err
 	}
-	source, err := NewSearchSource(root)
-	if err != nil {
-		return QueryResult{}, fmt.Errorf("semantic query: load source: %w", err)
-	}
-	documents, err := source.Documents()
+	documents, err := vault.LoadDocuments(root)
 	if err != nil {
 		return QueryResult{}, fmt.Errorf("semantic query: load documents: %w", err)
 	}
@@ -364,7 +357,7 @@ func validateSemanticConfig(config SemanticConfig) error {
 	return nil
 }
 
-func semanticChunks(document Document) []semanticChunk {
+func semanticChunks(document vault.Document) []semanticChunk {
 	prefix := "Title: " + document.Title + "\nType: " + document.Type
 	if document.Description != "" {
 		prefix += "\nDescription: " + document.Description
@@ -434,7 +427,7 @@ func splitSemanticBody(body string) []string {
 	return chunks
 }
 
-func documentFingerprint(documents []Document) string {
+func documentFingerprint(documents []vault.Document) string {
 	references := make([]string, 0, len(documents))
 	for _, document := range documents {
 		references = append(references, document.URI+"\x00"+document.Revision)

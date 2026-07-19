@@ -8,6 +8,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
+	"gnosis/internal/search"
 	"gnosis/internal/vault"
 )
 
@@ -60,7 +61,7 @@ func newMCPServer(vaultPath string) *mcp.Server {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "search_knowledge",
 		Description: "Search gnosis knowledge using vector or lexical retrieval",
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, input searchKnowledgeInput) (*mcp.CallToolResult, vault.QueryResult, error) {
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input searchKnowledgeInput) (*mcp.CallToolResult, search.QueryResult, error) {
 		result, err := searchMCPKnowledge(ctx, vaultPath, input)
 		return nil, result, err
 	})
@@ -95,8 +96,8 @@ func getMCPConcepts(vaultPath, conceptType string) (*mcp.CallToolResult, concept
 	return nil, conceptsOutput{Type: conceptType, Concepts: records["concepts"]}, nil
 }
 
-func searchMCPKnowledge(ctx context.Context, vaultPath string, input searchKnowledgeInput) (vault.QueryResult, error) {
-	options := vault.QueryOptions{Top: 3, MaxRead: 3, MaxDepth: 3}
+func searchMCPKnowledge(ctx context.Context, vaultPath string, input searchKnowledgeInput) (search.QueryResult, error) {
+	options := search.QueryOptions{Top: 3, MaxRead: 3, MaxDepth: 3}
 	if input.Top != nil {
 		options.Top = *input.Top
 	}
@@ -107,7 +108,7 @@ func searchMCPKnowledge(ctx context.Context, vaultPath string, input searchKnowl
 		options.MaxDepth = *input.Depth
 	}
 	if err := validateQueryOptions(options.Top, options.MaxRead, options.MaxDepth); err != nil {
-		return vault.QueryResult{}, fmt.Errorf("search knowledge: %w", err)
+		return search.QueryResult{}, fmt.Errorf("search knowledge: %w", err)
 	}
 
 	backend := input.Backend
@@ -116,15 +117,15 @@ func searchMCPKnowledge(ctx context.Context, vaultPath string, input searchKnowl
 	}
 	switch backend {
 	case "vector":
-		config, err := vault.SemanticConfigFromEnv(vaultPath)
+		config, err := search.SemanticConfigFromEnv(vaultPath)
 		if err != nil {
-			return vault.QueryResult{}, err
+			return search.QueryResult{}, err
 		}
-		return vault.QuerySemanticKnowledge(ctx, vaultPath, input.Question, options, config)
+		return search.QuerySemantic(ctx, vaultPath, input.Question, options, config)
 	case "lexical":
-		return vault.QueryKnowledge(vaultPath, input.Question, options)
+		return search.QueryLexical(vaultPath, input.Question, options)
 	default:
-		return vault.QueryResult{}, fmt.Errorf("search knowledge: unknown backend %q", backend)
+		return search.QueryResult{}, fmt.Errorf("search knowledge: unknown backend %q", backend)
 	}
 }
 

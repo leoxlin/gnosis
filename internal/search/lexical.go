@@ -1,12 +1,15 @@
-package vault
+package search
 
 import (
+	"fmt"
 	"math"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 	"unicode"
+
+	"gnosis/internal/vault"
 )
 
 const (
@@ -17,28 +20,10 @@ const (
 	bm25B              = 0.75
 )
 
-// Document is a vault page indexed for retrieval. URI is its sole stable,
-// unique identity. Path is used only to resolve authored relative links.
-type Document struct {
-	Path        string
-	URI         string
-	Title       string
-	Description string
-	Type        string
-	Aliases     []string
-	Tags        []string
-	Body        string
-	Links       []string
-	Edges       []Edge
-	Origin      Origin
-	Revision    string
-}
-
-// Hit is a ranked document match.
-type Hit struct {
-	Document Document
-	Score    float64
-	Exact    bool
+type hit struct {
+	document vault.Document
+	score    float64
+	exact    bool
 	class    matchClass
 }
 
@@ -61,13 +46,13 @@ type QueryOptions struct {
 
 // Candidate is the compact, user-facing representation of a search hit.
 type Candidate struct {
-	URI         string  `json:"uri"`
-	Type        string  `json:"type"`
-	Title       string  `json:"title"`
-	Description string  `json:"description"`
-	Origin      Origin  `json:"origin"`
-	Revision    string  `json:"revision"`
-	Score       float64 `json:"score"`
+	URI         string       `json:"uri"`
+	Type        string       `json:"type"`
+	Title       string       `json:"title"`
+	Description string       `json:"description"`
+	Origin      vault.Origin `json:"origin"`
+	Revision    string       `json:"revision"`
+	Score       float64      `json:"score"`
 }
 
 // QueryResult is the stable response for CLI knowledge queries.
@@ -77,6 +62,18 @@ type QueryResult struct {
 	Path       []string    `json:"path"`
 	ShouldRead []string    `json:"should_read"`
 	IndexOnly  bool        `json:"index_only"`
+}
+
+// QueryLexical performs bounded live lexical retrieval.
+func QueryLexical(root, question string, options QueryOptions) (QueryResult, error) {
+	if strings.TrimSpace(question) == "" {
+		return QueryResult{}, fmt.Errorf("question must not be empty")
+	}
+	documents, err := vault.LoadDocuments(root)
+	if err != nil {
+		return QueryResult{}, err
+	}
+	return newEngine(documents).query(question, options), nil
 }
 
 type field int
@@ -108,27 +105,26 @@ type tokenField struct {
 }
 
 type indexedDocument struct {
-	document Document
+	document vault.Document
 	fields   [fieldCount]tokenField
 }
 
-// Engine is an immutable, in-memory BM25F-style retriever and link graph.
-type Engine struct {
+// engine is an immutable, in-memory BM25F-style retriever and link graph.
+type engine struct {
 	documents         []indexedDocument
-	byURI             map[string]Document
+	byURI             map[string]vault.Document
 	documentFrequency map[string]int
 	averageLength     [fieldCount]float64
 	adjacency         map[string][]string
 }
 
-// New constructs a live in-memory index from documents.
-func New(documents []Document) *Engine {
-	documents = append([]Document(nil), documents...)
+func newEngine(documents []vault.Document) *engine {
+	documents = append([]vault.Document(nil), documents...)
 	sort.Slice(documents, func(i, j int) bool { return documents[i].URI < documents[j].URI })
 
-	engine := &Engine{
+	engine := &engine{
 		documents:         make([]indexedDocument, 0, len(documents)),
-		byURI:             make(map[string]Document, len(documents)),
+		byURI:             make(map[string]vault.Document, len(documents)),
 		documentFrequency: make(map[string]int),
 		adjacency:         make(map[string][]string, len(documents)),
 	}
@@ -180,30 +176,29 @@ func New(documents []Document) *Engine {
 	return engine
 }
 
-// Search returns up to limit relevant documents ordered deterministically.
-func (e *Engine) Search(query string, limit int) []Hit {
+func (e *engine) search(query string, limit int) []hit {
 	if limit <= 0 || len(e.documents) == 0 {
-		return []Hit{}
+		return []hit{}
 	}
 	queryTokens := uniqueTokens(tokenize(query, true))
 	if len(queryTokens) == 0 {
 		queryTokens = uniqueTokens(tokenize(query, false))
 	}
 	if len(queryTokens) == 0 {
-		return []Hit{}
+		return []hit{}
 	}
 
-	hits := make([]Hit, 0, len(e.documents))
+	hits := make([]hit, 0, len(e.documents))
 	for _, indexed := range e.documents {
 		class := classifyMatch(query, indexed.document)
 		score := e.score(indexed, queryTokens)
 		if class == matchNone && score <= 0 {
 			continue
 		}
-		hits = append(hits, Hit{
-			Document: indexed.document,
-			Score:    score,
-			Exact:    class == matchExact,
+		hits = append(hits, hit{
+			document: indexed.document,
+			score:    score,
+			exact:    class == matchExact,
 			class:    class,
 		})
 	}
@@ -212,10 +207,10 @@ func (e *Engine) Search(query string, limit int) []Hit {
 		if hits[i].class != hits[j].class {
 			return hits[i].class > hits[j].class
 		}
-		if hits[i].Score != hits[j].Score {
-			return hits[i].Score > hits[j].Score
+		if hits[i].score != hits[j].score {
+			return hits[i].score > hits[j].score
 		}
-		return hits[i].Document.URI < hits[j].Document.URI
+		return hits[i].document.URI < hits[j].document.URI
 	})
 	if len(hits) > limit {
 		hits = hits[:limit]
@@ -223,8 +218,7 @@ func (e *Engine) Search(query string, limit int) []Hit {
 	return hits
 }
 
-// Query performs retrieval and optional bounded path traversal.
-func (e *Engine) Query(question string, options QueryOptions) QueryResult {
+func (e *engine) query(question string, options QueryOptions) QueryResult {
 	options = normalizedOptions(options)
 	answerType, endpoints := classifyQuestion(question)
 	result := QueryResult{
@@ -234,27 +228,27 @@ func (e *Engine) Query(question string, options QueryOptions) QueryResult {
 		ShouldRead: []string{},
 	}
 
-	var hits []Hit
+	var hits []hit
 	if answerType == AnswerPath && len(endpoints) == 2 {
 		hits = e.pathCandidates(endpoints, options.Top)
-		from := e.Search(endpoints[0], 1)
-		to := e.Search(endpoints[1], 1)
+		from := e.search(endpoints[0], 1)
+		to := e.search(endpoints[1], 1)
 		if len(from) > 0 && len(to) > 0 {
-			result.Path = e.FindPath(from[0].Document.URI, to[0].Document.URI, options.MaxDepth)
+			result.Path = e.findPath(from[0].document.URI, to[0].document.URI, options.MaxDepth)
 		}
 	} else {
-		hits = e.Search(question, options.Top)
+		hits = e.search(question, options.Top)
 	}
 
 	for _, hit := range hits {
 		result.Candidates = append(result.Candidates, Candidate{
-			URI:         hit.Document.URI,
-			Type:        hit.Document.Type,
-			Title:       hit.Document.Title,
-			Description: truncateRunes(hit.Document.Description, maxDescriptionRune),
-			Origin:      hit.Document.Origin,
-			Revision:    hit.Document.Revision,
-			Score:       roundScore(hit.Score),
+			URI:         hit.document.URI,
+			Type:        hit.document.Type,
+			Title:       hit.document.Title,
+			Description: truncateRunes(hit.document.Description, maxDescriptionRune),
+			Origin:      hit.document.Origin,
+			Revision:    hit.document.Revision,
+			Score:       roundScore(hit.score),
 		})
 	}
 
@@ -262,7 +256,7 @@ func (e *Engine) Query(question string, options QueryOptions) QueryResult {
 		result.IndexOnly = true
 		return result
 	}
-	if answerType == AnswerDirect && hits[0].Exact && strings.TrimSpace(hits[0].Document.Description) != "" {
+	if answerType == AnswerDirect && hits[0].exact && strings.TrimSpace(hits[0].document.Description) != "" {
 		result.IndexOnly = true
 		result.Candidates = result.Candidates[:1]
 		return result
@@ -288,9 +282,9 @@ func (e *Engine) Query(question string, options QueryOptions) QueryResult {
 	return result
 }
 
-// FindPath returns the deterministic shortest path between two document URIs,
+// findPath returns the deterministic shortest path between two document URIs,
 // treating directed document links as traversable in both directions.
-func (e *Engine) FindPath(source, target string, maxDepth int) []string {
+func (e *engine) findPath(source, target string, maxDepth int) []string {
 	if maxDepth < 0 {
 		return []string{}
 	}
@@ -332,7 +326,7 @@ func (e *Engine) FindPath(source, target string, maxDepth int) []string {
 	return []string{}
 }
 
-func (e *Engine) score(document indexedDocument, terms []string) float64 {
+func (e *engine) score(document indexedDocument, terms []string) float64 {
 	documentCount := float64(len(e.documents))
 	var score float64
 	for _, term := range terms {
@@ -358,7 +352,7 @@ func (e *Engine) score(document indexedDocument, terms []string) float64 {
 	return score
 }
 
-func (e *Engine) buildAdjacency() {
+func (e *engine) buildAdjacency() {
 	sets := make(map[string]map[string]struct{}, len(e.byURI))
 	for uri := range e.byURI {
 		sets[uri] = make(map[string]struct{})
@@ -383,24 +377,24 @@ func (e *Engine) buildAdjacency() {
 	}
 }
 
-func (e *Engine) pathCandidates(endpoints []string, limit int) []Hit {
-	combined := make([]Hit, 0, limit)
+func (e *engine) pathCandidates(endpoints []string, limit int) []hit {
+	combined := make([]hit, 0, limit)
 	seen := make(map[string]struct{})
-	appendHits := func(hits []Hit) {
+	appendHits := func(hits []hit) {
 		for _, hit := range hits {
 			if len(combined) >= limit {
 				return
 			}
-			if _, exists := seen[hit.Document.URI]; exists {
+			if _, exists := seen[hit.document.URI]; exists {
 				continue
 			}
-			seen[hit.Document.URI] = struct{}{}
+			seen[hit.document.URI] = struct{}{}
 			combined = append(combined, hit)
 		}
 	}
-	appendHits(e.Search(endpoints[0], 1))
-	appendHits(e.Search(endpoints[1], 1))
-	appendHits(e.Search(strings.Join(endpoints, " "), limit))
+	appendHits(e.search(endpoints[0], 1))
+	appendHits(e.search(endpoints[1], 1))
+	appendHits(e.search(strings.Join(endpoints, " "), limit))
 	return combined
 }
 
@@ -426,7 +420,7 @@ const (
 	matchExact
 )
 
-func classifyMatch(query string, document Document) matchClass {
+func classifyMatch(query string, document vault.Document) matchClass {
 	queryCanonical := canonical(query)
 	if queryCanonical == "" {
 		return matchNone

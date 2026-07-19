@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	toon "github.com/toon-format/toon-go"
+	"gnosis/internal/search"
 	"gnosis/internal/vault"
 )
 
@@ -51,11 +52,11 @@ func newIndexKnowledgeCommand(options *rootOptions, stdout io.Writer) *cobra.Com
 		Example: "gnosis index knowledge\n" +
 			"gnosis --vault <path> index knowledge",
 		RunE: func(command *cobra.Command, _ []string) error {
-			config, err := vault.SemanticConfigFromEnv(options.vaultPath)
+			config, err := search.SemanticConfigFromEnv(options.vaultPath)
 			if err != nil {
 				return err
 			}
-			result, err := vault.SyncSemanticIndex(command.Context(), options.vaultPath, config)
+			result, err := search.SyncSemanticIndex(command.Context(), options.vaultPath, config)
 			if err != nil {
 				return err
 			}
@@ -64,7 +65,7 @@ func newIndexKnowledgeCommand(options *rootOptions, stdout io.Writer) *cobra.Com
 	}
 }
 
-func writeSemanticIndexResult(output io.Writer, result vault.SemanticIndexResult) error {
+func writeSemanticIndexResult(output io.Writer, result search.SemanticIndexResult) error {
 	return writeTOON(output, toon.NewObject(
 		toon.Field{Key: "action", Value: "index"},
 		toon.Field{Key: "resource", Value: "knowledge"},

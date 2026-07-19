@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestSearchSourceLoadsConfiguredRootWithStableURIs(t *testing.T) {
+func TestLoadDocumentsLoadsConfiguredRootWithStableURIs(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]
 vault_name = "Test"
@@ -47,11 +47,7 @@ type: Hidden
 ---
 `)
 
-	source, err := NewSearchSource(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	documents, err := source.Documents()
+	documents, err := LoadDocuments(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +82,7 @@ type: Hidden
 	}
 }
 
-func TestSearchSourcePrefersLocalRootOverImportedVaults(t *testing.T) {
+func TestLoadDocumentsPrefersLocalRootOverImportedVaults(t *testing.T) {
 	workspace := t.TempDir()
 	imported := filepath.Join(workspace, "imported")
 	if err := os.MkdirAll(filepath.Join(workspace, "local"), 0o755); err != nil {
@@ -110,11 +106,7 @@ vault_root = "."
 	write(t, workspace, "local/article.md", "---\ntype: Note\ntitle: Local\n---\n")
 	write(t, imported, "article.md", "---\ntype: Note\ntitle: Imported\n---\n")
 
-	source, err := NewSearchSource(workspace)
-	if err != nil {
-		t.Fatal(err)
-	}
-	documents, err := source.Documents()
+	documents, err := LoadDocuments(workspace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +118,7 @@ vault_root = "."
 	t.Fatalf("documents = %+v", documents)
 }
 
-func TestSearchSourceIncludesBundledDocumentsWithVaultPrecedence(t *testing.T) {
+func TestLoadDocumentsIncludesBundledDocumentsWithVaultPrecedence(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]
 vault_name = "Workspace"
@@ -143,11 +135,7 @@ title: Local using-gnosis
 ---
 `)
 
-	source, err := NewSearchSource(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	documents, err := source.Documents()
+	documents, err := LoadDocuments(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,18 +158,14 @@ title: Local using-gnosis
 
 }
 
-func TestSearchSourceNamesBundledDocumentsCore(t *testing.T) {
+func TestLoadDocumentsNamesBundledDocumentsCore(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]
 vault_name = "Workspace"
 vault_root = "."
 `)
 
-	source, err := NewSearchSource(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	documents, err := source.Documents()
+	documents, err := LoadDocuments(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +180,7 @@ vault_root = "."
 	t.Fatal("missing bundled gnosis procedure concept")
 }
 
-func TestSearchSourceLetsImportsOverrideBundledDocuments(t *testing.T) {
+func TestLoadDocumentsLetsImportsOverrideBundledDocuments(t *testing.T) {
 	workspace := t.TempDir()
 	imported := filepath.Join(workspace, "imported")
 	if err := os.MkdirAll(imported, 0o755); err != nil {
@@ -216,11 +200,7 @@ title: Imported query-vault
 ---
 `)
 
-	source, err := NewSearchSource(workspace)
-	if err != nil {
-		t.Fatal(err)
-	}
-	documents, err := source.Documents()
+	documents, err := LoadDocuments(workspace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -236,18 +216,14 @@ title: Imported query-vault
 	t.Fatal("missing query-vault document")
 }
 
-func TestSearchSourceAlwaysIncludesConciseBundledDocuments(t *testing.T) {
+func TestLoadDocumentsAlwaysIncludesConciseBundledDocuments(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]
 vault_name = "Workspace"
 vault_root = "."
 `)
 
-	source, err := NewSearchSource(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	documents, err := source.Documents()
+	documents, err := LoadDocuments(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +269,7 @@ vault_root = "."
 	}
 }
 
-func TestSearchSourceResolvesExtensionlessLinksAndIgnoresBrokenLinks(t *testing.T) {
+func TestLoadDocumentsResolvesExtensionlessLinksAndIgnoresBrokenLinks(t *testing.T) {
 	root := t.TempDir()
 	write(t, root, "a.md", `---
 type: Concept
@@ -312,11 +288,7 @@ title: B
 # B
 `)
 
-	source, err := NewSearchSource(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	documents, err := source.Documents()
+	documents, err := LoadDocuments(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -329,7 +301,7 @@ title: B
 	}
 }
 
-func TestSearchSourceReadsLiveFilesOnEveryLoad(t *testing.T) {
+func TestLoadDocumentsReadsLiveFilesOnEveryLoad(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "page.md")
 	write(t, root, "page.md", `---
@@ -340,11 +312,7 @@ description: Before.
 
 # Page
 `)
-	source, err := NewSearchSource(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	documents, err := source.Documents()
+	documents, err := LoadDocuments(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -360,7 +328,7 @@ description: Before.
 	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	documents, err = source.Documents()
+	documents, err = LoadDocuments(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -373,7 +341,7 @@ description: Before.
 	}
 }
 
-func TestSearchSourceRejectsInvalidConceptFrontmatter(t *testing.T) {
+func TestLoadDocumentsRejectsInvalidConceptFrontmatter(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		content string
@@ -386,11 +354,7 @@ func TestSearchSourceRejectsInvalidConceptFrontmatter(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			root := t.TempDir()
 			write(t, root, "page.md", test.content)
-			source, err := NewSearchSource(root)
-			if err != nil {
-				t.Fatal(err)
-			}
-			_, err = source.Documents()
+			_, err := LoadDocuments(root)
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want %q", err, test.want)
 			}
@@ -437,11 +401,7 @@ vault_root = "../nested"
 	write(t, nested, "nested-only.md", "---\ntype: Note\ntitle: Nested winner\n---\n")
 	write(t, second, "nested-only.md", "---\ntype: Note\ntitle: Later loser\n---\n")
 
-	source, err := NewSearchSource(workspace)
-	if err != nil {
-		t.Fatal(err)
-	}
-	documents, err := source.Documents()
+	documents, err := LoadDocuments(workspace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -466,7 +426,7 @@ func mustReadFile(t *testing.T, path string) []byte {
 	return data
 }
 
-func TestSearchSourceExcludesRootDocumentation(t *testing.T) {
+func TestLoadDocumentsExcludesRootDocumentation(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]
 vault_name = "test"
@@ -474,11 +434,7 @@ vault_root = "."
 `)
 	write(t, root, "documentation/guide.md", "# Guide\n\nNo frontmatter, no vault links.\n")
 	write(t, root, "notes/documentation/thing.md", "---\ntype: Note\ntitle: Thing\n---\n")
-	source, err := NewSearchSource(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	documents, err := source.Documents()
+	documents, err := LoadDocuments(root)
 	if err != nil {
 		t.Fatal(err)
 	}

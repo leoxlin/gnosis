@@ -6,60 +6,6 @@ import (
 	"strings"
 )
 
-// OriginKind identifies where an effective document came from.
-type OriginKind string
-
-const (
-	OriginLocal  OriginKind = "local"
-	OriginImport OriginKind = "import"
-	OriginBundle OriginKind = "bundle"
-)
-
-// Origin preserves the selected source behind an effective vault document.
-type Origin struct {
-	Vault      string     `json:"vault"`
-	Kind       OriginKind `json:"kind"`
-	Root       string     `json:"root,omitempty"`
-	Path       string     `json:"path,omitempty"`
-	Precedence int        `json:"precedence"`
-}
-
-// Edge is one directed relationship from a document to another effective URI.
-type Edge struct {
-	To       string `json:"to"`
-	Relation string `json:"relation"`
-	Raw      string `json:"raw,omitempty"`
-	Source   string `json:"source,omitempty"`
-}
-
-// DocumentRef is the compact agent-facing representation of a document.
-type DocumentRef struct {
-	URI         string `json:"uri"`
-	Type        string `json:"type"`
-	Title       string `json:"title"`
-	Description string `json:"description,omitempty"`
-	Origin      Origin `json:"origin"`
-	Revision    string `json:"revision"`
-}
-
-// Ref returns the agent-facing identity for a document.
-func (d Document) Ref() DocumentRef {
-	return DocumentRef{
-		URI:         d.URI,
-		Type:        d.Type,
-		Title:       d.Title,
-		Description: d.Description,
-		Origin:      d.Origin,
-		Revision:    d.Revision,
-	}
-}
-
-// Page is an exact vault page and its complete Markdown source.
-type Page struct {
-	Document DocumentRef `json:"document"`
-	Markdown string      `json:"markdown"`
-}
-
 // GraphEdge is a resolved, directed edge with exact endpoint identities.
 type GraphEdge struct {
 	From     DocumentRef `json:"from"`
@@ -113,43 +59,9 @@ type GraphPath struct {
 	Edges     []GraphEdge   `json:"edges"`
 }
 
-// QueryKnowledge performs bounded live retrieval for the CLI.
-func QueryKnowledge(root, question string, options QueryOptions) (QueryResult, error) {
-	if strings.TrimSpace(question) == "" {
-		return QueryResult{}, fmt.Errorf("question must not be empty")
-	}
-	source, err := NewSearchSource(root)
-	if err != nil {
-		return QueryResult{}, err
-	}
-	documents, err := source.Documents()
-	if err != nil {
-		return QueryResult{}, err
-	}
-	return New(documents).Query(question, options), nil
-}
-
-// ListPages returns every effective page in deterministic URI order.
-func ListPages(root string) ([]DocumentRef, error) {
-	vault, err := loadEffectiveVault(root)
-	if err != nil {
-		return nil, err
-	}
-	pages, err := vault.pages()
-	if err != nil {
-		return nil, err
-	}
-	result := make([]DocumentRef, 0, len(pages))
-	for _, page := range pages {
-		result = append(result, page.document.Ref())
-	}
-	sort.Slice(result, func(i, j int) bool { return result[i].URI < result[j].URI })
-	return result, nil
-}
-
 // ReadGraph returns every effective page and resolved edge in deterministic order.
 func ReadGraph(root string) (KnowledgeGraph, error) {
-	graph, pages, err := loadAgentGraph(root)
+	graph, pages, err := loadDocumentGraph(root)
 	if err != nil {
 		return KnowledgeGraph{}, err
 	}
@@ -165,34 +77,13 @@ func ReadGraph(root string) (KnowledgeGraph, error) {
 	return KnowledgeGraph{Nodes: nodes, Edges: edges}, nil
 }
 
-// ReadPage reads one exact effective page by gnosis URI.
-func ReadPage(root, selector string) (Page, error) {
-	vault, err := loadEffectiveVault(root)
-	if err != nil {
-		return Page{}, err
-	}
-	pages, err := vault.pages()
-	if err != nil {
-		return Page{}, err
-	}
-	page, ok := selectPage(pages, selector)
-	if !ok {
-		return Page{}, fmt.Errorf("no document found with URI %q", selector)
-	}
-	markdown, err := renderDocumentLinks(page, pages)
-	if err != nil {
-		return Page{}, err
-	}
-	return Page{Document: page.document.Ref(), Markdown: markdown}, nil
-}
-
 // TraceNeighbors returns exact typed edges adjacent to a selected document.
 func TraceNeighbors(root, selector string, direction Direction, relations []string) (GraphNeighbors, error) {
 	direction, err := normalizeDirection(direction)
 	if err != nil {
 		return GraphNeighbors{}, err
 	}
-	graph, pages, err := loadAgentGraph(root)
+	graph, pages, err := loadDocumentGraph(root)
 	if err != nil {
 		return GraphNeighbors{}, err
 	}
@@ -217,7 +108,7 @@ func TracePath(root, fromSelector, toSelector string, direction Direction, relat
 	if maxDepth < 0 {
 		return GraphPath{}, fmt.Errorf("max depth must be zero or greater")
 	}
-	graph, pages, err := loadAgentGraph(root)
+	graph, pages, err := loadDocumentGraph(root)
 	if err != nil {
 		return GraphPath{}, err
 	}
@@ -257,23 +148,6 @@ func TracePath(root, fromSelector, toSelector string, direction Direction, relat
 	return result, nil
 }
 
-func selectPage(pages []*effectivePage, selector string) (*effectivePage, bool) {
-	vaultName, pagePath, ok := canonicalGnosisParts(selector)
-	if !ok {
-		return nil, false
-	}
-	canonical := documentURI(vaultName, pagePath)
-	for _, page := range pages {
-		if vaultName == anyVaultAuthority && page.document.Path == pagePath {
-			return page, true
-		}
-		if page.document.URI == canonical {
-			return page, true
-		}
-	}
-	return nil, false
-}
-
 func normalizeDirection(direction Direction) (Direction, error) {
 	if direction == "" {
 		return DirectionBoth, nil
@@ -300,13 +174,13 @@ func relationSet(relations []string) map[string]struct{} {
 	return result
 }
 
-type agentGraph struct {
+type documentGraph struct {
 	byURI    map[string]Document
 	outgoing map[string][]GraphEdge
 	incoming map[string][]GraphEdge
 }
 
-func loadAgentGraph(root string) (*agentGraph, []*effectivePage, error) {
+func loadDocumentGraph(root string) (*documentGraph, []*effectivePage, error) {
 	vault, err := loadEffectiveVault(root)
 	if err != nil {
 		return nil, nil, err
@@ -315,11 +189,11 @@ func loadAgentGraph(root string) (*agentGraph, []*effectivePage, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return newAgentGraph(pages), pages, nil
+	return newDocumentGraph(pages), pages, nil
 }
 
-func newAgentGraph(pages []*effectivePage) *agentGraph {
-	graph := &agentGraph{
+func newDocumentGraph(pages []*effectivePage) *documentGraph {
+	graph := &documentGraph{
 		byURI:    make(map[string]Document, len(pages)),
 		outgoing: make(map[string][]GraphEdge, len(pages)),
 		incoming: make(map[string][]GraphEdge, len(pages)),
@@ -366,7 +240,7 @@ func sortGraphEdges(edges []GraphEdge) {
 	})
 }
 
-func (g *agentGraph) neighborEdges(uri string, direction Direction, relations map[string]struct{}) []GraphEdge {
+func (g *documentGraph) neighborEdges(uri string, direction Direction, relations map[string]struct{}) []GraphEdge {
 	result := []GraphEdge{}
 	seen := make(map[string]struct{})
 	add := func(edges []GraphEdge) {
@@ -402,7 +276,7 @@ type graphPredecessor struct {
 	edge GraphEdge
 }
 
-func (g *agentGraph) arcs(uri string, direction Direction, relations map[string]struct{}) []graphArc {
+func (g *documentGraph) arcs(uri string, direction Direction, relations map[string]struct{}) []graphArc {
 	result := []graphArc{}
 	if direction == DirectionOut || direction == DirectionBoth {
 		for _, edge := range g.outgoing[uri] {
@@ -435,7 +309,7 @@ func matchesRelation(relation string, allowed map[string]struct{}) bool {
 	return exists
 }
 
-func (g *agentGraph) findPath(source, target string, direction Direction, relations map[string]struct{}, maxDepth int) ([]string, []GraphEdge, bool) {
+func (g *documentGraph) findPath(source, target string, direction Direction, relations map[string]struct{}, maxDepth int) ([]string, []GraphEdge, bool) {
 	if _, exists := g.byURI[source]; !exists {
 		return nil, nil, false
 	}
@@ -495,7 +369,7 @@ func reconstructGraphPath(source, target string, previous map[string]graphPredec
 	return nodes, edges, true
 }
 
-func (g *agentGraph) refs(uris []string) []DocumentRef {
+func (g *documentGraph) refs(uris []string) []DocumentRef {
 	result := make([]DocumentRef, 0, len(uris))
 	for _, uri := range uris {
 		if document, exists := g.byURI[uri]; exists {

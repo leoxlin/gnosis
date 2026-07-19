@@ -1,4 +1,4 @@
-package vault
+package search
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	"gnosis/internal/vault"
 )
 
 func TestSemanticConfigFromEnv(t *testing.T) {
@@ -61,7 +62,7 @@ func TestSemanticConfigFromEnv(t *testing.T) {
 }
 
 func TestSemanticChunks(t *testing.T) {
-	document := Document{
+	document := vault.Document{
 		URI:         "gnosis://test/concepts/vector.md",
 		Title:       "Vector search",
 		Type:        "Reference",
@@ -84,7 +85,7 @@ func TestSemanticChunks(t *testing.T) {
 		}
 	}
 
-	oversized := semanticChunks(Document{Title: "Large", Body: strings.Repeat("c", semanticChunkRunes+1)})
+	oversized := semanticChunks(vault.Document{Title: "Large", Body: strings.Repeat("c", semanticChunkRunes+1)})
 	if len(oversized) != 2 {
 		t.Fatalf("oversized chunks = %d, want 2", len(oversized))
 	}
@@ -92,7 +93,7 @@ func TestSemanticChunks(t *testing.T) {
 		t.Fatal("first oversized chunk does not preserve the bounded body")
 	}
 
-	metadataOnly := semanticChunks(Document{Title: "Metadata only", Type: "Reference"})
+	metadataOnly := semanticChunks(vault.Document{Title: "Metadata only", Type: "Reference"})
 	if len(metadataOnly) != 1 || !strings.Contains(metadataOnly[0].content, "Metadata only") {
 		t.Fatalf("metadata-only chunks = %+v", metadataOnly)
 	}
@@ -211,11 +212,11 @@ func TestEmbeddingClientErrors(t *testing.T) {
 }
 
 func TestDocumentFingerprint(t *testing.T) {
-	documents := []Document{
+	documents := []vault.Document{
 		{URI: "gnosis://test/b.md", Revision: "two"},
 		{URI: "gnosis://test/a.md", Revision: "one"},
 	}
-	reversed := []Document{documents[1], documents[0]}
+	reversed := []vault.Document{documents[1], documents[0]}
 	if documentFingerprint(documents) != documentFingerprint(reversed) {
 		t.Fatal("fingerprint depends on document order")
 	}
@@ -291,7 +292,7 @@ Beta harbor shipping knowledge.
 		DatabaseURL:     databaseURL,
 		EmbeddingsURL:   embeddings.URL,
 		EmbeddingsModel: "test-model",
-		Scope:           documentFingerprint([]Document{{URI: root, Revision: t.Name()}}),
+		Scope:           documentFingerprint([]vault.Document{{URI: root, Revision: t.Name()}}),
 		HTTPClient:      embeddings.Client(),
 	}
 	defer deleteSemanticScope(t, config)
@@ -304,7 +305,7 @@ Beta harbor shipping knowledge.
 		t.Fatalf("index result = %+v", indexed)
 	}
 
-	result, err := QuerySemanticKnowledge(
+	result, err := QuerySemantic(
 		context.Background(),
 		root,
 		"alpha orchard",
@@ -332,7 +333,7 @@ Alpha orchard harvest knowledge changed.
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := QuerySemanticKnowledge(
+	if _, err := QuerySemantic(
 		context.Background(),
 		root,
 		"alpha orchard",
@@ -345,7 +346,7 @@ Alpha orchard harvest knowledge changed.
 	if _, err := SyncSemanticIndex(context.Background(), root, config); err != nil {
 		t.Fatal(err)
 	}
-	result, err = QuerySemanticKnowledge(
+	result, err = QuerySemantic(
 		context.Background(),
 		root,
 		"alpha orchard",
@@ -369,7 +370,7 @@ Alpha orchard harvest knowledge changed.
 	if _, err := SyncSemanticIndex(context.Background(), root, failedConfig); err == nil {
 		t.Fatal("failed synchronization returned nil error")
 	}
-	if _, err := QuerySemanticKnowledge(
+	if _, err := QuerySemantic(
 		context.Background(),
 		root,
 		"alpha orchard",
@@ -395,5 +396,21 @@ func deleteSemanticScope(t *testing.T, config SemanticConfig) {
 	}
 	if err := conn.Close(context.Background()); err != nil {
 		t.Errorf("close cleanup: %v", err)
+	}
+}
+
+func writeConfig(t *testing.T, root, content string) {
+	t.Helper()
+	write(t, root, "gnosis.toml", content)
+}
+
+func write(t *testing.T, root, relativePath, content string) {
+	t.Helper()
+	path := filepath.Join(root, relativePath)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }

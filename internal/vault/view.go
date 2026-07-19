@@ -16,7 +16,7 @@ type vaultSource struct {
 	config    Config
 }
 
-// effectiveVault owns the ordered, effective view of configured vault pages.
+// effectiveVault owns the ordered view of configured vault pages.
 type effectiveVault struct {
 	root    string
 	config  Config
@@ -172,23 +172,13 @@ func (v *effectiveVault) localRoot() (string, bool) {
 	return "", false
 }
 
-// SearchSource adapts the effective vault view into retrieval documents.
-type SearchSource struct {
-	vault *effectiveVault
-}
-
-// NewSearchSource resolves root and validates each configured vault root.
-func NewSearchSource(root string) (*SearchSource, error) {
+// LoadDocuments reads the live, resolved documents in the effective vault.
+func LoadDocuments(root string) ([]Document, error) {
 	vault, err := loadEffectiveVault(root)
 	if err != nil {
 		return nil, err
 	}
-	return &SearchSource{vault: vault}, nil
-}
-
-// Documents reads live concept files from every configured vault root.
-func (s *SearchSource) Documents() ([]Document, error) {
-	pages, err := s.vault.resolvedPages()
+	pages, err := vault.resolvedPages()
 	if err != nil {
 		return nil, err
 	}

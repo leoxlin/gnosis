@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"gnosis/internal/vault"
+	"gnosis/internal/search"
 )
 
 func TestIndexRequiresResource(t *testing.T) {
@@ -29,7 +29,7 @@ func TestIndexVaultPreservesDisabledState(t *testing.T) {
 }
 
 func TestWriteSemanticIndexResultUsesTOON(t *testing.T) {
-	result := vault.SemanticIndexResult{
+	result := search.SemanticIndexResult{
 		Documents:   2,
 		Chunks:      3,
 		Scope:       "scope",
