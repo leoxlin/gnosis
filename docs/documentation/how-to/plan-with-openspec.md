@@ -8,11 +8,13 @@ the registered `trium` store, whose checkout is maintained separately.
 
 From the repository root:
 
-    openspec new change <change-name>
+    openspec new change <change-name> --schema gnosis-dev
     openspec status --change <change-name>
 
-Follow the configured artifact order. A complete plan normally includes a
-proposal, capability delta specs, a design, and checkbox tasks.
+The `gnosis-dev` schema installed in the registered `trium` store guides
+proposal, capability delta specs, design, and checkbox tasks. Its source copy
+is `openspec/schemas/gnosis-dev/` in gnosis. Pass a different `--schema` only
+when a change needs another registered workflow.
 
 ## Implement and inspect
 

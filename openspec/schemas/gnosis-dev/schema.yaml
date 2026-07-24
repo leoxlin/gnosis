@@ -1,0 +1,57 @@
+name: gnosis-dev
+version: 1
+description: Minimal spec-driven workflow for gnosis development
+artifacts:
+  - id: proposal
+    generates: proposal.md
+    description: Change motivation and scope
+    template: proposal.md
+    instruction: |
+      Explain why the change is needed, what changes, and its impact.
+      List each new or modified capability by its exact kebab-case spec name.
+      Keep implementation details in design.md.
+    requires: []
+
+  - id: specs
+    generates: "specs/**/*.md"
+    description: Testable behavior changes
+    template: spec.md
+    instruction: |
+      Write one delta spec per capability listed in the proposal.
+      Use ADDED, MODIFIED, REMOVED, or RENAMED requirement sections.
+      Use SHALL or MUST, and give every requirement at least one testable
+      `#### Scenario` with WHEN and THEN steps.
+    requires:
+      - proposal
+
+  - id: design
+    generates: design.md
+    description: Necessary implementation decisions
+    template: design.md
+    instruction: |
+      Record only the implementation decisions, rationale, constraints, and
+      risks needed to deliver the proposal and specs. State explicit non-goals.
+    requires:
+      - proposal
+
+  - id: tasks
+    generates: tasks.md
+    description: Verifiable implementation checklist
+    template: tasks.md
+    instruction: |
+      Create an ordered checklist of small, verifiable implementation tasks.
+      Use `- [ ] X.Y Description` for every task and include relevant validation.
+    requires:
+      - specs
+      - design
+
+apply:
+  requires: [tasks]
+  tracks: tasks.md
+  instruction: |
+    Read the proposal, specs, design, and tasks. For each pending task:
+    1. Implement the smallest change that satisfies the artifacts.
+    2. Run the relevant checks.
+    3. Mark the task complete only after those checks pass.
+    Continue one task at a time. On ambiguity or failure, leave the task
+    incomplete and report the blocker.
