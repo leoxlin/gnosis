@@ -83,16 +83,16 @@ run = '''
 
 set -eu
 
-if [ ! -L openspec ] || [ "$(readlink openspec)" != "docs/openspec" ]; then
-  printf 'openspec must be a relative symlink to docs/openspec\n' >&2
+if [ "$(cat openspec/config.yaml)" != "store: trium" ]; then
+  printf 'openspec must point to the trium store\n' >&2
   exit 1
 fi
 
 openspec_context=$(openspec context --json)
 case "$openspec_context" in
-  *'"path": "'"$PWD"'"'*) ;;
+  *'"store_id": "trium"'*) ;;
   *)
-    printf 'openspec did not resolve the repository root\n' >&2
+    printf 'openspec did not resolve the trium store\n' >&2
     exit 1
     ;;
 esac
@@ -121,5 +121,4 @@ if [ "$ui_before" != "$ui_after" ]; then
 fi
 
 go run ./cmd/gnosis validate vault
-(cd docs/openspec && go run ../../cmd/gnosis validate vault)
 '''

@@ -18,4 +18,6 @@ Tools: `get_vaults`, `get_concepts`, `get_page`, `search_knowledge`. Register it
 
 ## Guarantees
 
-The serve paths are read-only by design; knowledge changes only through `apply page`. See the [knowledge-serving specification](../../openspec/specs/knowledge-serving/spec.md).
+The serve paths are read-only by design; knowledge changes only through
+`apply page`. Inspect the requirements with
+`openspec show gnosis-knowledge-serving --type spec`.

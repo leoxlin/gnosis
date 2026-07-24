@@ -1,7 +1,8 @@
 # OpenSpec lifecycle
 
-OpenSpec is gnosis's repository-development source of truth. It keeps project
-planning separate from the portable vault Procedure model.
+OpenSpec is gnosis's repository-development source of truth. Its specs and
+changes live in the external `trium` store, separate from the portable vault
+Procedure model.
 
 ## Artifacts
 
@@ -16,8 +17,9 @@ planning separate from the portable vault Procedure model.
 1. Create a kebab-case change with `openspec new change <name>`.
 2. Write the proposal, delta specs, design, and tasks required by the configured schema.
 3. Implement against the tasks and validate behavior.
-4. Sync the delta specs into `docs/openspec/specs/`.
-5. Archive the completed change under `docs/openspec/changes/archive/`.
+4. Sync the delta specs into the store's `openspec/specs/`.
+5. Archive the completed change under the store's
+   `openspec/changes/archive/`.
 
 ## Why it is separate
 

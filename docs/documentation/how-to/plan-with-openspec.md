@@ -1,7 +1,8 @@
 # Plan with OpenSpec
 
 Use OpenSpec for repository proposals, requirements, technical choices,
-implementation tasks, and completed-change history.
+implementation tasks, and completed-change history. The repository points to
+the registered `trium` store, whose checkout is maintained separately.
 
 ## Start a change
 
@@ -16,15 +17,13 @@ proposal, capability delta specs, a design, and checkbox tasks.
 ## Implement and inspect
 
 Use the change's `tasks.md` as the implementation checklist and keep it aligned
-with completed work. Current requirements live under `docs/openspec/specs/`;
-active changes live under `docs/openspec/changes/`.
+with completed work. Current requirements and changes live in the `trium`
+store.
 
-gnosis projects standard OpenSpec Markdown paths as read-only vault knowledge:
+Inspect artifacts through OpenSpec:
 
-    gnosis get concepts OpenSpecSpec
-    gnosis get pages gnosis://local/openspec/specs/vault-management/spec.md --full
-
-Edit OpenSpec artifacts through the OpenSpec workflow, not `gnosis apply page`.
+    openspec list --specs
+    openspec show gnosis-vault-management --type spec
 
 ## Validate and finish
 
