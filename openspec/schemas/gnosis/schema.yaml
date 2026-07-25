@@ -1,12 +1,15 @@
-name: gnosis-dev
+name: gnosis
 version: 1
-description: Minimal spec-driven workflow for gnosis development
+description: spec-driven workflow backed by gnosis concept types
 artifacts:
   - id: proposal
     generates: proposal.md
     description: Change motivation and scope
-    template: proposal.md
+    template: placeholder.md
     instruction: |
+      Run `gnosis get pages 'gnosis://_/concepts/openspec-proposal.md' --full`.
+      Use its `## Schema` code block as the artifact template and preserve the
+      OKF frontmatter.
       Explain why the change is needed, what changes, and its impact.
       List each new or modified capability by its exact kebab-case spec name.
       Keep implementation details in design.md.
@@ -15,8 +18,11 @@ artifacts:
   - id: specs
     generates: "specs/**/*.md"
     description: Testable behavior changes
-    template: spec.md
+    template: placeholder.md
     instruction: |
+      Run `gnosis get pages 'gnosis://_/concepts/openspec-spec.md' --full`.
+      Use its `## Schema` code block as the artifact template and preserve the
+      OKF frontmatter.
       Write one delta spec per capability listed in the proposal.
       Use ADDED, MODIFIED, REMOVED, or RENAMED requirement sections.
       Use SHALL or MUST, and give every requirement at least one testable
@@ -27,8 +33,11 @@ artifacts:
   - id: design
     generates: design.md
     description: Necessary implementation decisions
-    template: design.md
+    template: placeholder.md
     instruction: |
+      Run `gnosis get pages 'gnosis://_/concepts/openspec-design.md' --full`.
+      Use its `## Schema` code block as the artifact template and preserve the
+      OKF frontmatter.
       Record only the implementation decisions, rationale, constraints, and
       risks needed to deliver the proposal and specs. State explicit non-goals.
     requires:
@@ -37,8 +46,11 @@ artifacts:
   - id: tasks
     generates: tasks.md
     description: Verifiable implementation checklist
-    template: tasks.md
+    template: placeholder.md
     instruction: |
+      Run `gnosis get pages 'gnosis://_/concepts/openspec-tasks.md' --full`.
+      Use its `## Schema` code block as the artifact template and preserve the
+      OKF frontmatter.
       Create an ordered checklist of small, verifiable implementation tasks.
       Use `- [ ] X.Y Description` for every task and include relevant validation.
     requires:

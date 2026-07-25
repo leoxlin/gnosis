@@ -8,13 +8,13 @@ the registered `trium` store, whose checkout is maintained separately.
 
 From the repository root:
 
-    openspec new change <change-name> --schema gnosis-dev
+    openspec new change <change-name> --schema gnosis
     openspec status --change <change-name>
 
-The `gnosis-dev` schema installed in the registered `trium` store guides
-proposal, capability delta specs, design, and checkbox tasks. Its source copy
-is `openspec/schemas/gnosis-dev/` in gnosis. Pass a different `--schema` only
-when a change needs another registered workflow.
+The project-local `gnosis` schema guides proposal, capability delta specs,
+design, and checkbox tasks using gnosis Concept Type records. Its source is
+`openspec/schemas/gnosis/`. Pass a different `--schema` only when a change
+needs another registered workflow.
 
 ## Implement and inspect
 
