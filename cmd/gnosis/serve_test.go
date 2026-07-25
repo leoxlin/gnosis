@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	agentmemory "gnosis/internal/memory"
 	knowledge "gnosis/internal/search"
 	"gnosis/internal/vault"
 )
@@ -116,6 +117,7 @@ func TestHTTPAPIAndUI(t *testing.T) {
 }
 
 func TestHTTPMCP(t *testing.T) {
+	setMemoryEnv(t, memoryAPIServer(t).URL)
 	server := httptest.NewServer(newHTTPHandler(httpTestVault(t)))
 	t.Cleanup(server.Close)
 
@@ -136,8 +138,8 @@ func TestHTTPMCP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Tools) != 4 {
-		t.Fatalf("tools = %d, want 4", len(listed.Tools))
+	if len(listed.Tools) != 6 {
+		t.Fatalf("tools = %d, want 6", len(listed.Tools))
 	}
 	result := callMCPTool(t, session, "get_page", map[string]any{
 		"uri": "gnosis://test/note.md",
@@ -146,6 +148,24 @@ func TestHTTPMCP(t *testing.T) {
 	decodeMCPResult(t, result, &page)
 	if page.Document.URI != "gnosis://test/note.md" {
 		t.Fatalf("page = %+v", page)
+	}
+
+	addedResult := callMCPTool(t, session, "add_memory", map[string]any{
+		"text": "I prefer dark mode",
+	})
+	var added agentmemory.Result
+	decodeMCPResult(t, addedResult, &added)
+	if added.Count != 1 || added.Memories[0].ID != "memory-1" {
+		t.Fatalf("added = %+v", added)
+	}
+
+	searchResult := callMCPTool(t, session, "search_memory", map[string]any{
+		"query": "theme preference",
+	})
+	var found agentmemory.Result
+	decodeMCPResult(t, searchResult, &found)
+	if found.Count != 1 || found.Memories[0].Text != "Prefers dark mode" {
+		t.Fatalf("found = %+v", found)
 	}
 }
 
@@ -189,7 +209,14 @@ func TestMCPTools(t *testing.T) {
 		names = append(names, tool.Name)
 	}
 	sort.Strings(names)
-	want := []string{"get_concepts", "get_page", "get_vaults", "search_knowledge"}
+	want := []string{
+		"add_memory",
+		"get_concepts",
+		"get_page",
+		"get_vaults",
+		"search_knowledge",
+		"search_memory",
+	}
 	if strings.Join(names, ",") != strings.Join(want, ",") {
 		t.Fatalf("tools = %v, want %v", names, want)
 	}
@@ -234,6 +261,113 @@ func TestMCPTools(t *testing.T) {
 	}
 	if query.Candidates[0].Revision == "" || query.Candidates[0].Origin.Vault != "test" {
 		t.Fatalf("candidate provenance = %+v", query.Candidates[0])
+	}
+}
+
+func TestMCPMemoryTools(t *testing.T) {
+	setMemoryEnv(t, memoryAPIServer(t).URL)
+	workspace := mcpTestVault(t)
+	before, err := vault.ReadPage(workspace, "gnosis://test/note.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	session := connectMCPServer(t, newMCPServer(workspace))
+
+	addedResult := callMCPTool(t, session, "add_memory", map[string]any{
+		"text": "I prefer dark mode",
+	})
+	var added agentmemory.Result
+	decodeMCPResult(t, addedResult, &added)
+	if added.Count != 1 || added.Memories[0].ID != "memory-1" ||
+		added.Memories[0].Event != "ADD" {
+		t.Fatalf("added = %+v", added)
+	}
+
+	searchResult := callMCPTool(t, session, "search_memory", map[string]any{
+		"query": "theme preference",
+		"limit": 1,
+	})
+	var found agentmemory.Result
+	decodeMCPResult(t, searchResult, &found)
+	if found.Count != 1 || found.Memories[0].Text != "Prefers dark mode" {
+		t.Fatalf("found = %+v", found)
+	}
+
+	after, err := vault.ReadPage(workspace, "gnosis://test/note.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Document.Revision != before.Document.Revision {
+		t.Fatalf("page revision changed from %q to %q", before.Document.Revision, after.Document.Revision)
+	}
+}
+
+func TestMCPMemoryErrorsKeepSessionUsable(t *testing.T) {
+	for _, name := range []string{
+		agentmemory.EnvAPIKey,
+		agentmemory.EnvUserID,
+		agentmemory.EnvAgentID,
+		agentmemory.EnvProvider,
+		agentmemory.EnvBaseURL,
+	} {
+		t.Setenv(name, "")
+	}
+	session := connectMCPServer(t, newMCPServer(mcpTestVault(t)))
+
+	result, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "add_memory",
+		Arguments: map[string]any{"text": "remember this"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError || !strings.Contains(mcpResultText(result), agentmemory.EnvAPIKey) {
+		t.Fatalf("configuration result = %+v", result)
+	}
+	if err := session.Ping(context.Background(), nil); err != nil {
+		t.Fatalf("session failed after configuration error: %v", err)
+	}
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		http.Error(response, "unavailable", http.StatusServiceUnavailable)
+	}))
+	t.Cleanup(upstream.Close)
+	setMemoryEnv(t, upstream.URL)
+
+	result, err = session.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "add_memory",
+		Arguments: map[string]any{"text": " \t"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError || !strings.Contains(mcpResultText(result), "text must not be empty") {
+		t.Fatalf("invalid add result = %+v", result)
+	}
+
+	result, err = session.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "search_memory",
+		Arguments: map[string]any{"query": "memory", "limit": 21},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError || !strings.Contains(mcpResultText(result), "between 1 and 20") {
+		t.Fatalf("invalid search result = %+v", result)
+	}
+
+	result, err = session.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "add_memory",
+		Arguments: map[string]any{"text": "remember this"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError || !strings.Contains(mcpResultText(result), "status 503") {
+		t.Fatalf("upstream result = %+v", result)
+	}
+	if err := session.Ping(context.Background(), nil); err != nil {
+		t.Fatalf("session failed after memory errors: %v", err)
 	}
 }
 
@@ -345,8 +479,16 @@ func TestMCPSubprocess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Tools) != 4 {
-		t.Fatalf("tools = %d, want 4", len(listed.Tools))
+	if len(listed.Tools) != 6 {
+		t.Fatalf("tools = %d, want 6", len(listed.Tools))
+	}
+	var hasAdd, hasSearch bool
+	for _, tool := range listed.Tools {
+		hasAdd = hasAdd || tool.Name == "add_memory"
+		hasSearch = hasSearch || tool.Name == "search_memory"
+	}
+	if !hasAdd || !hasSearch {
+		t.Fatalf("memory tools missing: %+v", listed.Tools)
 	}
 
 	pageResult, err := session.CallTool(ctx, &mcp.CallToolParams{
@@ -437,6 +579,37 @@ func mcpResultText(result *mcp.CallToolResult) string {
 		}
 	}
 	return text.String()
+}
+
+func memoryAPIServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/v3/memories/add/":
+			writeHTTPJSON(response, http.StatusOK, []map[string]any{{
+				"id": "memory-1", "event": "ADD",
+				"data": map[string]any{"memory": "Prefers dark mode"},
+			}})
+		case "/v3/memories/search/":
+			writeHTTPJSON(response, http.StatusOK, map[string]any{"results": []map[string]any{{
+				"id": "memory-1", "memory": "Prefers dark mode", "score": 0.9,
+			}}})
+		default:
+			t.Errorf("unexpected memory request: %s %s", request.Method, request.URL.Path)
+			http.NotFound(response, request)
+		}
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+func setMemoryEnv(t *testing.T, baseURL string) {
+	t.Helper()
+	t.Setenv(agentmemory.EnvAPIKey, "key")
+	t.Setenv(agentmemory.EnvUserID, "user")
+	t.Setenv(agentmemory.EnvAgentID, "agent")
+	t.Setenv(agentmemory.EnvProvider, agentmemory.ProviderHosted)
+	t.Setenv(agentmemory.EnvBaseURL, baseURL)
 }
 
 func mcpTestVault(t *testing.T) string {

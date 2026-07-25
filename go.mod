@@ -5,6 +5,7 @@ go 1.25.0
 require (
 	github.com/adrg/frontmatter v0.2.0
 	github.com/jackc/pgx/v5 v5.10.0
+	github.com/mem0ai/mem0-go v0.0.0-20260725104438-256d6d5a570a
 	github.com/modelcontextprotocol/go-sdk v1.6.1
 	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/spf13/cobra v1.10.2
@@ -33,3 +34,5 @@ require (
 	golang.org/x/text v0.29.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 )
+
+replace github.com/mem0ai/mem0-go => github.com/leoxlin/mem0-go v0.0.0-20260725104438-256d6d5a570a

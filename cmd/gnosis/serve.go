@@ -8,6 +8,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
+	agentmemory "gnosis/internal/memory"
 	"gnosis/internal/search"
 	"gnosis/internal/vault"
 )
@@ -34,6 +35,15 @@ type searchKnowledgeInput struct {
 	Top      *int   `json:"top,omitempty" jsonschema:"number of candidate pages"`
 	MaxRead  *int   `json:"max_read,omitempty" jsonschema:"maximum pages to recommend reading"`
 	Depth    *int   `json:"depth,omitempty" jsonschema:"maximum graph traversal depth"`
+}
+
+type addMemoryInput struct {
+	Text string `json:"text" jsonschema:"durable memory text"`
+}
+
+type searchMemoryInput struct {
+	Query string `json:"query" jsonschema:"memory search query"`
+	Limit *int   `json:"limit,omitempty" jsonschema:"maximum memories to return, from 1 through 20"`
 }
 
 func newMCPServer(vaultPath string) *mcp.Server {
@@ -63,6 +73,28 @@ func newMCPServer(vaultPath string) *mcp.Server {
 		Description: "Search gnosis knowledge using vector or lexical retrieval",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input searchKnowledgeInput) (*mcp.CallToolResult, search.QueryResult, error) {
 		result, err := searchMCPKnowledge(ctx, vaultPath, input)
+		return nil, result, err
+	})
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "add_memory",
+		Description: "Store one durable memory in the configured user and agent scope",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input addMemoryInput) (*mcp.CallToolResult, agentmemory.Result, error) {
+		client, err := agentmemory.NewFromEnv()
+		if err != nil {
+			return nil, agentmemory.Result{}, err
+		}
+		result, err := client.Add(ctx, input.Text)
+		return nil, result, err
+	})
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "search_memory",
+		Description: "Search durable memories in the configured user and agent scope",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input searchMemoryInput) (*mcp.CallToolResult, agentmemory.Result, error) {
+		client, err := agentmemory.NewFromEnv()
+		if err != nil {
+			return nil, agentmemory.Result{}, err
+		}
+		result, err := client.Search(ctx, input.Query, input.Limit)
 		return nil, result, err
 	})
 	return server
@@ -148,7 +180,7 @@ func newServeCommand(options *rootOptions) *cobra.Command {
 func newServeMCPCommand(options *rootOptions) *cobra.Command {
 	return &cobra.Command{
 		Use:   "mcp [flags]",
-		Short: "Serve read-only gnosis tools over MCP stdio",
+		Short: "Serve gnosis tools over MCP stdio",
 		Args:  cobra.NoArgs,
 		Example: "gnosis serve mcp\n" +
 			"gnosis --vault <path> serve mcp",
