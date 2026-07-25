@@ -132,6 +132,25 @@ description: Verify git repository defaults.
 	}
 }
 
+func TestLoadEffectiveVaultTreatsMissingImplicitGitVaultAsEmpty(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	repository := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repository, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repository, ".git", "HEAD"), []byte("ref: refs/heads/main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	vault, err := loadEffectiveVault(repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(vault.sources) != 0 {
+		t.Fatalf("sources = %v, want none", vault.sources)
+	}
+}
+
 func TestLoadEffectiveVaultFindsRepositoryConfigurationFromDescendant(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	repository := t.TempDir()

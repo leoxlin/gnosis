@@ -51,6 +51,15 @@ func loadEffectiveVault(root string) (*effectiveVault, error) {
 			return nil, err
 		}
 	}
+	if configPath == "" && vault.config.HasLocalVault() {
+		localRoot, err := resolveVaultRoot(vault.config, vault.root)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := os.Stat(localRoot); os.IsNotExist(err) {
+			return vault, nil
+		}
+	}
 	if configPath != "" || vault.config.HasLocalVault() {
 		composer := vaultComposer{
 			vault:    vault,
