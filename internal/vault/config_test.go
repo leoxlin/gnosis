@@ -461,6 +461,54 @@ vault_root = "."
 	}
 }
 
+func TestLoadEffectiveVaultInheritsGlobalVaultsFromLocalConfiguration(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	configDir := filepath.Join(home, ".config")
+	if err := os.Mkdir(configDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	workspace := t.TempDir()
+	imported := t.TempDir()
+	writeConfig(t, workspace, `[vault]
+vault_name = "workspace"
+vault_root = "."
+`)
+	writeConfig(t, imported, `[vault]
+vault_name = "imported"
+vault_root = "."
+`)
+	writeConfig(t, configDir, `[[vaults]]
+vault_name = "workspace"
+vault_root = "`+workspace+`"
+
+[[vaults]]
+vault_name = "imported"
+vault_root = "`+imported+`"
+`)
+
+	vault, err := loadEffectiveVault(workspace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := sourcePaths(vault), []string{workspace, imported}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("vault roots = %v, want %v", got, want)
+	}
+
+	unregistered := t.TempDir()
+	writeConfig(t, unregistered, `[vault]
+vault_name = "unregistered"
+vault_root = "."
+`)
+	vault, err = loadEffectiveVault(unregistered)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := sourcePaths(vault), []string{unregistered}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("unregistered vault roots = %v, want %v", got, want)
+	}
+}
+
 func TestLoadEffectiveVaultReadsLocalRoot(t *testing.T) {
 	root := t.TempDir()
 	if err := os.Mkdir(filepath.Join(root, "docs"), 0o755); err != nil {

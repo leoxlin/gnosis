@@ -51,6 +51,9 @@ func loadEffectiveVault(root string) (*effectiveVault, error) {
 		if err != nil {
 			return nil, err
 		}
+		if err := inheritUserVaults(&vault.config, configPath, implicitRoot); err != nil {
+			return nil, err
+		}
 	}
 	if configPath == "" && vault.config.HasLocalVault() {
 		localRoot, err := resolveVaultRoot(vault.config, vault.root)
@@ -81,6 +84,50 @@ func loadEffectiveVault(root string) (*effectiveVault, error) {
 		}
 	}
 	return vault, nil
+}
+
+func inheritUserVaults(config *Config, configPath, root string) error {
+	userPath, err := userConfigPath()
+	if err != nil || filepath.Clean(configPath) == filepath.Clean(userPath) {
+		return err
+	}
+	info, err := os.Stat(userPath)
+	if os.IsNotExist(err) || err == nil && info.IsDir() {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("stat %s: %w", userPath, err)
+	}
+	userConfig, err := loadConfigPath(userPath)
+	if err != nil {
+		return err
+	}
+	rootInfo, err := os.Stat(root)
+	if err != nil {
+		return err
+	}
+	inherited := make([]DeclaredVaultConfig, 0, len(userConfig.Vaults))
+	registered := false
+	for _, declared := range userConfig.Vaults {
+		importRoot, err := resolveDeclaredVaultRoot(declared, filepath.Dir(userPath))
+		if err != nil {
+			return err
+		}
+		importInfo, err := os.Stat(importRoot)
+		if err != nil {
+			return err
+		}
+		if os.SameFile(rootInfo, importInfo) {
+			registered = true
+			continue
+		}
+		declared.Root = importRoot
+		inherited = append(inherited, declared)
+	}
+	if registered {
+		config.Vaults = append(config.Vaults, inherited...)
+	}
+	return nil
 }
 
 type vaultComposer struct {

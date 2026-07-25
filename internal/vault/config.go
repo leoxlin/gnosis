@@ -126,9 +126,9 @@ func (c Config) HasLocalVault() bool {
 }
 
 func findConfigPath(root string) (string, error) {
-	home, err := os.UserHomeDir()
+	globalPath, err := userConfigPath()
 	if err != nil {
-		return "", fmt.Errorf("find home directory: %w", err)
+		return "", err
 	}
 
 	searchRoots := []string{filepath.Clean(root)}
@@ -151,7 +151,6 @@ func findConfigPath(root string) (string, error) {
 		}
 	}
 
-	globalPath := filepath.Join(home, ".config", "gnosis.toml")
 	info, err := os.Stat(globalPath)
 	if err == nil && !info.IsDir() {
 		return globalPath, nil
@@ -163,6 +162,14 @@ func findConfigPath(root string) (string, error) {
 		return "", nil
 	}
 	return "", nil
+}
+
+func userConfigPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("find home directory: %w", err)
+	}
+	return filepath.Join(home, ".config", "gnosis.toml"), nil
 }
 
 func implicitVaultRoot(start string) string {

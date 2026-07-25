@@ -1,6 +1,6 @@
 # Configuration reference
 
-One TOML file, resolved in this order (first hit wins): `gnosis.local.toml`, `gnosis.toml`, then `~/.config/gnosis.toml`. Inside a git work tree with no config file, gnosis defaults to a vault named `local` rooted at `docs/` with strict relative links and index/log disabled.
+The primary vault configuration resolves in this order: `gnosis.local.toml`, `gnosis.toml`, then `~/.config/gnosis.toml`. Repository settings define the primary vault when present. When that repository is also registered in the user configuration, its other `[[vaults]]` remain available after repository-declared imports. Inside a git work tree with no repository or user configuration, gnosis defaults to a vault named `local` rooted at `docs/` with strict relative links and index/log disabled.
 
 ## `[vault]`
 
