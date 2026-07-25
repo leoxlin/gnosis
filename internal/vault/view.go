@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -266,6 +267,9 @@ func (v *effectiveVault) loadPages(tolerateInvalid bool) ([]*effectivePage, erro
 				Precedence: precedence,
 			}, tolerateInvalid)
 			if err != nil {
+				if errors.Is(err, errMissingYAMLFrontmatter) {
+					return nil
+				}
 				return err
 			}
 			seenPaths[path] = struct{}{}
@@ -312,6 +316,9 @@ func (v *effectiveVault) appendBundledPages(pages *[]*effectivePage, seenPaths, 
 			page, err = newEffectivePage(bundleRoot, path, document.Data, origin)
 		}
 		if err != nil {
+			if errors.Is(err, errMissingYAMLFrontmatter) {
+				continue
+			}
 			return err
 		}
 		seenPaths[path] = struct{}{}

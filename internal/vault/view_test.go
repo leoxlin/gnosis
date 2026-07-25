@@ -351,7 +351,6 @@ func TestLoadDocumentsRejectsInvalidConceptFrontmatter(t *testing.T) {
 		content string
 		want    string
 	}{
-		{name: "missing frontmatter", content: "# Page\n", want: "missing YAML frontmatter"},
 		{name: "missing type", content: "---\ntitle: Page\n---\n", want: "missing non-empty \"type\""},
 		{name: "invalid tags", content: "---\ntype: Page\ntags:\n  nested: value\n---\n", want: "tags"},
 	} {
@@ -363,6 +362,29 @@ func TestLoadDocumentsRejectsInvalidConceptFrontmatter(t *testing.T) {
 				t.Fatalf("error = %v, want %q", err, test.want)
 			}
 		})
+	}
+}
+
+func TestLoadDocumentsIgnoresMarkdownWithoutFrontmatter(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "page.md", "---\ntype: Note\ntitle: Page\n---\n")
+	write(t, root, "plain.md", "# Plain\n")
+
+	documents, err := LoadDocuments(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundPage := false
+	for _, document := range documents {
+		if document.Path == "plain.md" {
+			t.Fatalf("frontmatter-free document loaded: %+v", document)
+		}
+		if document.Path == "page.md" {
+			foundPage = true
+		}
+	}
+	if !foundPage {
+		t.Fatal("frontmatter page was not loaded")
 	}
 }
 

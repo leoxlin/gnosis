@@ -15,7 +15,7 @@ func WriteDocument(root, uri string, content []byte, update bool) (string, error
 	if !ok {
 		return "", fmt.Errorf("write: target URI: must be a canonical gnosis URI")
 	}
-	if _, openSpecArtifact := openSpecArtifactMetadata(targetPath); openSpecArtifact {
+	if isOpenSpecArtifact(targetPath) {
 		return "", fmt.Errorf("write: OpenSpec artifacts are read-only through gnosis; use OpenSpec to update %q", targetPath)
 	}
 

@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -74,8 +75,12 @@ func Validate(root string) (Result, error) {
 				return nil
 			}
 
+			effective := effectivePages[filepath.Clean(path)]
+			if effective != nil && errors.Is(effective.parseProblem, errMissingYAMLFrontmatter) {
+				return nil
+			}
 			result.FilesChecked++
-			validateFile(source.path, path, source.config, resolver, effectivePages[filepath.Clean(path)], &result)
+			validateFile(source.path, path, source.config, resolver, effective, &result)
 			return nil
 		})
 		if err != nil {

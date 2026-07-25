@@ -15,6 +15,7 @@ import (
 type frontmatterFields map[string]any
 
 var yamlFrontmatter = frontmatter.NewFormat("---", "---", yaml.Unmarshal)
+var errMissingYAMLFrontmatter = errors.New("missing YAML frontmatter")
 
 type parsedPage struct {
 	fields frontmatterFields
@@ -52,7 +53,7 @@ func parsePage(data []byte) (parsedPage, error) {
 
 func frontmatterError(err error) error {
 	if errors.Is(err, frontmatter.ErrNotFound) {
-		return fmt.Errorf("missing YAML frontmatter")
+		return errMissingYAMLFrontmatter
 	}
 	if err != nil {
 		return fmt.Errorf("invalid YAML frontmatter: %w", err)
@@ -205,9 +206,6 @@ type effectivePage struct {
 func newTolerantEffectivePage(root, path string, data []byte, origin Origin) (*effectivePage, error) {
 	parsed, err := parsePage(data)
 	if err != nil {
-		if projected, metadata, ok := projectedOpenSpecPage(root, path, data); ok {
-			return buildEffectivePage(root, path, data, origin, projected, metadata)
-		}
 		page, identityErr := newEffectivePageIdentity(root, path, data, origin)
 		if identityErr != nil {
 			return nil, identityErr
@@ -227,9 +225,6 @@ func newTolerantEffectivePage(root, path string, data []byte, origin Origin) (*e
 func newEffectivePage(root, path string, data []byte, origin Origin) (*effectivePage, error) {
 	parsed, err := parsePage(data)
 	if err != nil {
-		if projected, metadata, ok := projectedOpenSpecPage(root, path, data); ok {
-			return buildEffectivePage(root, path, data, origin, projected, metadata)
-		}
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 
