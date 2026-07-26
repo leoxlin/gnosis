@@ -21,7 +21,15 @@ Each block imports one vault: `vault_name`, `vault_root`, optional `backend`/`re
 
 ## Environment
 
-`GNOSIS_DATABASE_URL`, `GNOSIS_EMBEDDING_URL`, `GNOSIS_EMBEDDING_MODEL`, `GNOSIS_EMBEDDING_API_KEY` configure the optional vector backend. Secrets never live in `gnosis.toml`.
+`GNOSIS_DATABASE_URL`, `GNOSIS_EMBEDDING_URL`, `GNOSIS_EMBEDDING_MODEL`, `GNOSIS_EMBEDDING_API_KEY` configure the optional vector backend.
+
+Memory operations always require `GNOSIS_MEMORY_USER_ID` and `GNOSIS_MEMORY_AGENT_ID`. With `GNOSIS_MEMORY_API_KEY`, `GNOSIS_MEMORY_PROVIDER`, and `GNOSIS_MEMORY_BASE_URL` all absent, gnosis uses the effective writable vault. If any external-specific variable is set, configuration must be complete and gnosis uses Mem0 exclusively:
+
+- An API key with no provider selects `hosted`; `GNOSIS_MEMORY_BASE_URL` can override its endpoint.
+- `GNOSIS_MEMORY_PROVIDER=self-hosted` requires both an API key and `GNOSIS_MEMORY_BASE_URL`.
+- Partial configuration and external request failures never fall back to or mutate the vault.
+
+Secrets never live in `gnosis.toml`.
 
 ## Reserved names
 

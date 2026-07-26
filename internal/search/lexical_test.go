@@ -1,6 +1,7 @@
 package search
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -83,6 +84,45 @@ func TestSearchPreservesDuplicateBasenamesByFullID(t *testing.T) {
 	}
 	if hits[0].document.URI == hits[1].document.URI {
 		t.Fatalf("duplicate URIs in hits: %+v", hits)
+	}
+}
+
+func TestMemorySearchFiltersBeforeRanking(t *testing.T) {
+	scoped := vault.Document{
+		Path: "memories/scoped.md", URI: "gnosis://test/memories/scoped.md",
+		Type: "Memory", Body: "prefers dark mode",
+		Metadata: map[string]any{
+			"status": "active", "user_id": "user", "agent_id": "agent",
+		},
+	}
+	documents := []vault.Document{scoped}
+	for i := range 30 {
+		documents = append(documents, vault.Document{
+			Path: fmt.Sprintf("notes/%d.md", i),
+			URI:  fmt.Sprintf("gnosis://test/notes/%d.md", i),
+			Type: "Note", Title: "dark mode", Body: strings.Repeat("dark mode ", 20),
+		})
+	}
+	documents = append(documents,
+		vault.Document{
+			Path: "memories/other-user.md", URI: "gnosis://test/memories/other-user.md",
+			Type: "Memory", Body: "prefers dark mode",
+			Metadata: map[string]any{
+				"status": "active", "user_id": "other", "agent_id": "agent",
+			},
+		},
+		vault.Document{
+			Path: "memories/archived.md", URI: "gnosis://test/memories/archived.md",
+			Type: "Memory", Body: "prefers dark mode",
+			Metadata: map[string]any{
+				"status": "archived", "user_id": "user", "agent_id": "agent",
+			},
+		},
+	)
+
+	results := queryMemoryDocuments(documents, "dark mode", "user", "agent", 1)
+	if len(results) != 1 || results[0].Document.URI != scoped.URI {
+		t.Fatalf("results = %+v", results)
 	}
 }
 

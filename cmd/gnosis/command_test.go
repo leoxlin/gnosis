@@ -35,6 +35,8 @@ func TestCommandTreeUsesVerbResourceGrammar(t *testing.T) {
 		{"get", "pages", "--help"},
 		{"get", "procedures", "--help"},
 		{"search", "knowledge", "--help"},
+		{"search", "memory", "--help"},
+		{"add", "memory", "--help"},
 		{"graph", "neighbors", "--help"},
 		{"graph", "path", "--help"},
 		{"create", "vault", "--help"},

@@ -64,6 +64,12 @@ type QueryResult struct {
 	IndexOnly  bool        `json:"index_only"`
 }
 
+// MemoryCandidate is a scoped live Memory record and its lexical score.
+type MemoryCandidate struct {
+	Document vault.Document
+	Score    float64
+}
+
 // QueryLexical performs bounded live lexical retrieval.
 func QueryLexical(root, question string, options QueryOptions) (QueryResult, error) {
 	if strings.TrimSpace(question) == "" {
@@ -74,6 +80,48 @@ func QueryLexical(root, question string, options QueryOptions) (QueryResult, err
 		return QueryResult{}, err
 	}
 	return newEngine(documents).query(question, options), nil
+}
+
+// QueryMemoryLexical filters live scoped memories before bounded ranking.
+func QueryMemoryLexical(root, query, userID, agentID string, limit int) ([]MemoryCandidate, error) {
+	if strings.TrimSpace(query) == "" {
+		return nil, fmt.Errorf("query must not be empty")
+	}
+	documents, err := vault.LoadDocuments(root)
+	if err != nil {
+		return nil, err
+	}
+	return queryMemoryDocuments(documents, query, userID, agentID, limit), nil
+}
+
+func queryMemoryDocuments(
+	documents []vault.Document,
+	query, userID, agentID string,
+	limit int,
+) []MemoryCandidate {
+	filtered := make([]vault.Document, 0, len(documents))
+	for _, document := range documents {
+		if document.Type == "Memory" &&
+			metadataString(document.Metadata, "status") == "active" &&
+			metadataString(document.Metadata, "user_id") == userID &&
+			metadataString(document.Metadata, "agent_id") == agentID {
+			filtered = append(filtered, document)
+		}
+	}
+	hits := newEngine(filtered).search(query, limit)
+	result := make([]MemoryCandidate, 0, len(hits))
+	for _, hit := range hits {
+		result = append(result, MemoryCandidate{
+			Document: hit.document,
+			Score:    roundScore(hit.score),
+		})
+	}
+	return result
+}
+
+func metadataString(metadata map[string]any, key string) string {
+	value, _ := metadata[key].(string)
+	return strings.TrimSpace(value)
 }
 
 type field int

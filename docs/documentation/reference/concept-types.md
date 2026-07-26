@@ -9,7 +9,7 @@ Eight bundled types. Each definition lives in `docs/concepts/` (overridable in a
 | Entity | `entities/` | Who is involved? | `kind`, `status` |
 | Resource | `resources/` | Where is something? What can the agent use? | `kind`, `resource`, `status` |
 | Event | `events/` | What happened? What was observed? | `occurred_at`, `actor`, `source`, `status` |
-| Memory | `memories/` | Durable scoped facts, preferences, observations | `scope`, `observed_at`, `hash`, `entities`, `status` |
+| Memory | `memories/` | Durable scoped facts, preferences, observations | `scope`, `observed_at`, `hash`, `status`; API records add `user_id`, `agent_id`, `created_at`, `updated_at`, optional `metadata` |
 | Reflection | `reflections/` | What lesson was learned? | `status`, `confidence`, `superseded_by` |
 | Policy | `policies/` | What should or must be done? When does it apply? | `status`, `applies_to`, `superseded_by` |
 

@@ -169,6 +169,24 @@ func TestHTTPMCP(t *testing.T) {
 	}
 }
 
+func TestHTTPMCPVaultMemory(t *testing.T) {
+	clearCommandMemoryEnv(t)
+	t.Setenv(agentmemory.EnvUserID, "user")
+	t.Setenv(agentmemory.EnvAgentID, "agent")
+	server := httptest.NewServer(newHTTPHandler(httpTestVault(t)))
+	t.Cleanup(server.Close)
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "gnosis-http-test", Version: "0.0.0"}, nil)
+	session, err := client.Connect(context.Background(), &mcp.StreamableClientTransport{
+		Endpoint: server.URL + "/mcp",
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = session.Close() })
+	assertVaultMemoryTools(t, session)
+}
+
 func TestHTTPServerStopsOnCancellation(t *testing.T) {
 	workspace := httpTestVault(t)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -302,6 +320,15 @@ func TestMCPMemoryTools(t *testing.T) {
 	}
 }
 
+func TestMCPVaultMemoryTools(t *testing.T) {
+	clearCommandMemoryEnv(t)
+	t.Setenv(agentmemory.EnvUserID, "user")
+	t.Setenv(agentmemory.EnvAgentID, "agent")
+	workspace := mcpTestVault(t)
+	session := connectMCPServer(t, newMCPServer(workspace))
+	assertVaultMemoryTools(t, session)
+}
+
 func TestMCPMemoryErrorsKeepSessionUsable(t *testing.T) {
 	for _, name := range []string{
 		agentmemory.EnvAPIKey,
@@ -312,7 +339,8 @@ func TestMCPMemoryErrorsKeepSessionUsable(t *testing.T) {
 	} {
 		t.Setenv(name, "")
 	}
-	session := connectMCPServer(t, newMCPServer(mcpTestVault(t)))
+	workspace := mcpTestVault(t)
+	session := connectMCPServer(t, newMCPServer(workspace))
 
 	result, err := session.CallTool(context.Background(), &mcp.CallToolParams{
 		Name:      "add_memory",
@@ -321,7 +349,7 @@ func TestMCPMemoryErrorsKeepSessionUsable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.IsError || !strings.Contains(mcpResultText(result), agentmemory.EnvAPIKey) {
+	if !result.IsError || !strings.Contains(mcpResultText(result), agentmemory.EnvUserID) {
 		t.Fatalf("configuration result = %+v", result)
 	}
 	if err := session.Ping(context.Background(), nil); err != nil {
@@ -357,6 +385,17 @@ func TestMCPMemoryErrorsKeepSessionUsable(t *testing.T) {
 	}
 
 	result, err = session.CallTool(context.Background(), &mcp.CallToolParams{
+		Name:      "search_memory",
+		Arguments: map[string]any{"query": "memory"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError || !strings.Contains(mcpResultText(result), "status 503") {
+		t.Fatalf("upstream search result = %+v", result)
+	}
+
+	result, err = session.CallTool(context.Background(), &mcp.CallToolParams{
 		Name:      "add_memory",
 		Arguments: map[string]any{"text": "remember this"},
 	})
@@ -368,6 +407,13 @@ func TestMCPMemoryErrorsKeepSessionUsable(t *testing.T) {
 	}
 	if err := session.Ping(context.Background(), nil); err != nil {
 		t.Fatalf("session failed after memory errors: %v", err)
+	}
+	matches, err := filepath.Glob(filepath.Join(workspace, "memories", "*.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("external failures wrote vault memories: %v", matches)
 	}
 }
 
@@ -558,6 +604,33 @@ func callMCPTool(t *testing.T, session *mcp.ClientSession, name string, argument
 		t.Fatalf("%s returned tool error: %s", name, mcpResultText(result))
 	}
 	return result
+}
+
+func assertVaultMemoryTools(t *testing.T, session *mcp.ClientSession) {
+	t.Helper()
+	addedResult := callMCPTool(t, session, "add_memory", map[string]any{
+		"text": "I prefer dark mode",
+	})
+	var added agentmemory.Result
+	decodeMCPResult(t, addedResult, &added)
+	if added.Count != 1 || added.Memories[0].Event != "ADD" ||
+		added.Memories[0].Backend != agentmemory.BackendVault ||
+		added.Memories[0].CreatedAt == "" || added.Memories[0].UpdatedAt == "" {
+		t.Fatalf("added = %+v", added)
+	}
+
+	searchResult := callMCPTool(t, session, "search_memory", map[string]any{
+		"query": "dark mode",
+		"limit": 1,
+	})
+	var found agentmemory.Result
+	decodeMCPResult(t, searchResult, &found)
+	if found.Count != 1 || found.Memories[0].ID != added.Memories[0].ID ||
+		found.Memories[0].Text != "I prefer dark mode" ||
+		found.Memories[0].Score == nil ||
+		found.Memories[0].Backend != agentmemory.BackendVault {
+		t.Fatalf("found = %+v", found)
+	}
 }
 
 func decodeMCPResult(t *testing.T, result *mcp.CallToolResult, target any) {

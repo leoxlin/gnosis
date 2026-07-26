@@ -18,12 +18,15 @@ func newSearchCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
 		Args:    cobra.NoArgs,
 		GroupID: "knowledge",
 		Example: "gnosis search knowledge \"<question>\" --backend lexical\n" +
-			"gnosis search knowledge \"<question>\" --fields uri,title,score",
+			"gnosis search memory \"<query>\" --limit 5",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return newUsageError(errors.New("search: missing resource"))
 		},
 	}
-	command.AddCommand(newSearchKnowledgeCommand(options, stdout))
+	command.AddCommand(
+		newSearchKnowledgeCommand(options, stdout),
+		newSearchMemoryCommand(options, stdout),
+	)
 	return command
 }
 

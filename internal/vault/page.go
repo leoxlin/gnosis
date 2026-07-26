@@ -250,6 +250,10 @@ func buildEffectivePage(root, path string, data []byte, origin Origin, parsed pa
 	page.document.Title = metadata.title
 	page.document.Description = metadata.description
 	page.document.Type = metadata.conceptType
+	page.document.Metadata = make(map[string]any, len(parsed.fields))
+	for key, value := range parsed.fields {
+		page.document.Metadata[key] = value
+	}
 	page.document.Aliases = metadata.aliases
 	page.document.Tags = metadata.tags
 	page.document.Body = parsed.body

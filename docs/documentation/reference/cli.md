@@ -16,17 +16,19 @@ Grammar: `gnosis <verb> <resource> [flags]`, with one persistent `--vault <path>
 | `gnosis create vault` | Scaffold an OKF vault | `--name`, `--force`, `--concepts` |
 | `gnosis apply workspace` | Write `gnosis.toml` imports or a GitHub wiki primary vault | `--import <path>` (repeatable), `--github-wiki owner/repo`, `--name`, `--force` |
 | `gnosis apply page <uri>` | Validate and write one typed page (input `--filename` or stdin) | `--filename/-f`, `--update` |
+| `gnosis add memory <text>` | Add one scoped memory through the selected backend | — |
 | `gnosis get vaults` | List effective vaults in precedence order | `--fields` |
 | `gnosis get concepts [type]` | List concept types or records of one exact type | `--fields` |
 | `gnosis get pages [uri]` | List effective pages or read one exact page | `--fields`, `--full` |
 | `gnosis get procedures [uri]` | List executable procedures or read one contract | `--tags`, `--fields`, `--full` |
 | `gnosis search knowledge <question>` | Bounded retrieval over the composed vault | `--backend lexical|vector`, `--top`, `--max-read`, `--depth`, `--fields` |
+| `gnosis search memory <query>` | Search scoped memories through the selected backend | `--limit` (1–20, default 5) |
 | `gnosis graph neighbors <uri>` | Traverse directed links | `--direction out|in|both`, `--relation`, `--depth` |
 | `gnosis graph path <from> <to>` | Find a link path between two pages | `--direction`, `--relation`, `--depth` |
 | `gnosis index vault` | Regenerate `index.md` files | — |
 | `gnosis index knowledge` | Sync the pgvector semantic index | — |
 | `gnosis validate vault` | Frontmatter, links, contracts, reserved files | exit 1 on errors |
-| `gnosis serve mcp` | Read-only MCP over stdio | — |
+| `gnosis serve mcp` | Knowledge reads and scoped memory Add/Search over stdio MCP | — |
 | `gnosis serve http` | Atlas UI, JSON API, streamable MCP | `--address` |
 | `gnosis version` | Print the version | — |
 | `gnosis completion <shell>` | Shell completion scripts | — |

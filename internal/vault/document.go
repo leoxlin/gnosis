@@ -39,6 +39,7 @@ type Document struct {
 	Title       string
 	Description string
 	Type        string
+	Metadata    map[string]any
 	Aliases     []string
 	Tags        []string
 	Body        string

@@ -81,6 +81,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		&cobra.Group{ID: "other", Title: "Other Commands"},
 	)
 	command.AddCommand(
+		newAddCommand(options, stdout),
 		newCreateCommand(options, stdout),
 		newGetCommand(options, stdout),
 		newApplyCommand(options, os.Stdin, stdout),

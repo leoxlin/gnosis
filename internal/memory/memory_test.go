@@ -5,9 +5,14 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
+
+	"gnosis/internal/vault"
 )
 
 func TestNewFromEnv(t *testing.T) {
@@ -37,9 +42,22 @@ func TestNewFromEnv(t *testing.T) {
 			},
 		},
 		{
-			name: "missing api key",
+			name: "vault",
 			env: map[string]string{
 				EnvUserID: "user", EnvAgentID: "agent",
+			},
+		},
+		{
+			name: "provider without api key",
+			env: map[string]string{
+				EnvUserID: "user", EnvAgentID: "agent", EnvProvider: ProviderHosted,
+			},
+			wantErr: EnvAPIKey,
+		},
+		{
+			name: "base url without api key",
+			env: map[string]string{
+				EnvUserID: "user", EnvAgentID: "agent", EnvBaseURL: "https://memory.example.com",
 			},
 			wantErr: EnvAPIKey,
 		},
@@ -89,7 +107,7 @@ func TestNewFromEnv(t *testing.T) {
 			for name, value := range test.env {
 				t.Setenv(name, value)
 			}
-			client, err := NewFromEnv()
+			_, err := NewFromEnv(t.TempDir())
 			if test.wantErr != "" {
 				if err == nil || !strings.Contains(err.Error(), test.wantErr) {
 					t.Fatalf("error = %v, want %q", err, test.wantErr)
@@ -99,8 +117,14 @@ func TestNewFromEnv(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if client.entity.UserID != "user" || client.entity.AgentID != "agent" {
-				t.Fatalf("entity = %+v", client.entity)
+			if test.name == "vault" {
+				service, err := NewFromEnv(t.TempDir())
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, ok := service.backend.(*vaultBackend); !ok {
+					t.Fatalf("backend = %T, want vault", service.backend)
+				}
 			}
 		})
 	}
@@ -135,7 +159,9 @@ func TestHostedAddAndSearch(t *testing.T) {
 			}
 			writeJSON(t, response, []map[string]any{{
 				"id": "memory-1", "event": "ADD",
-				"data": map[string]any{"memory": "Prefers dark mode"},
+				"created_at": "2026-07-26T12:00:00Z",
+				"updated_at": "2026-07-26T12:01:00Z",
+				"data":       map[string]any{"memory": "Prefers dark mode"},
 			}})
 		case "/v3/memories/search/":
 			if body["query"] != "theme preference" || body["top_k"] != float64(1) {
@@ -161,7 +187,7 @@ func TestHostedAddAndSearch(t *testing.T) {
 
 	client, err := New(Config{
 		APIKey: "key", UserID: "user", AgentID: "agent", BaseURL: server.URL,
-	})
+	}, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +197,10 @@ func TestHostedAddAndSearch(t *testing.T) {
 	}
 	if added.Count != 1 || added.Memories[0].ID != "memory-1" ||
 		added.Memories[0].Text != "Prefers dark mode" ||
-		added.Memories[0].Event != "ADD" {
+		added.Memories[0].Event != "ADD" ||
+		added.Memories[0].Backend != BackendMem0 ||
+		added.Memories[0].CreatedAt != "2026-07-26T12:00:00Z" ||
+		added.Memories[0].UpdatedAt != "2026-07-26T12:01:00Z" {
 		t.Fatalf("added = %+v", added)
 	}
 
@@ -226,7 +255,7 @@ func TestSelfHostedAddAndDefaultSearch(t *testing.T) {
 	client, err := New(Config{
 		APIKey: "key", UserID: "user", AgentID: "agent",
 		Provider: ProviderSelfHosted, BaseURL: server.URL,
-	})
+	}, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -235,6 +264,116 @@ func TestSelfHostedAddAndDefaultSearch(t *testing.T) {
 	}
 	if _, err := client.Search(context.Background(), "memory host", nil); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRecordJSONIncludesBackendAndTimestamps(t *testing.T) {
+	data, err := json.Marshal(Record{
+		ID: "memory-1", Text: "text", Backend: BackendVault,
+		CreatedAt: "2026-07-26T12:00:00Z", UpdatedAt: "2026-07-26T12:01:00Z",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`"backend":"vault"`,
+		`"created_at":"2026-07-26T12:00:00Z"`,
+		`"updated_at":"2026-07-26T12:01:00Z"`,
+	} {
+		if !strings.Contains(string(data), want) {
+			t.Fatalf("json = %s, missing %s", data, want)
+		}
+	}
+}
+
+func TestVaultAddNoopAndScopedSearch(t *testing.T) {
+	root := memoryVault(t)
+	service, err := New(Config{UserID: "user", AgentID: "agent"}, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend := service.backend.(*vaultBackend)
+	backend.now = func() time.Time {
+		return time.Date(2026, 7, 26, 12, 0, 0, 0, time.FixedZone("offset", -4*60*60))
+	}
+
+	added, err := service.Add(context.Background(), "I prefer dark mode")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if added.Count != 1 || added.Memories[0].Event != "ADD" ||
+		added.Memories[0].Backend != BackendVault ||
+		added.Memories[0].CreatedAt != "2026-07-26T16:00:00Z" ||
+		added.Memories[0].CreatedAt != added.Memories[0].UpdatedAt ||
+		added.Memories[0].Origin == nil {
+		t.Fatalf("added = %+v", added)
+	}
+	page, err := vault.ReadPage(root, added.Memories[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"type: Memory", "user_id: user", "agent_id: agent",
+		"observed_at: \"2026-07-26T16:00:00Z\"",
+		"created_at: \"2026-07-26T16:00:00Z\"",
+		"updated_at: \"2026-07-26T16:00:00Z\"",
+		"status: active", "# Memory\n\nI prefer dark mode",
+	} {
+		if !strings.Contains(page.Markdown, want) {
+			t.Fatalf("page = %q, missing %q", page.Markdown, want)
+		}
+	}
+
+	backend.now = func() time.Time { return time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC) }
+	noop, err := service.Add(context.Background(), "I prefer dark mode")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if noop.Memories[0].Event != "NOOP" ||
+		noop.Memories[0].CreatedAt != added.Memories[0].CreatedAt ||
+		noop.Memories[0].UpdatedAt != added.Memories[0].UpdatedAt {
+		t.Fatalf("noop = %+v", noop)
+	}
+	unchanged, err := vault.ReadPage(root, added.Memories[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unchanged.Document.Revision != page.Document.Revision {
+		t.Fatalf("revision changed from %s to %s", page.Document.Revision, unchanged.Document.Revision)
+	}
+
+	other, err := New(Config{UserID: "other", AgentID: "agent"}, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := other.Add(context.Background(), "I prefer dark mode"); err != nil {
+		t.Fatal(err)
+	}
+	found, err := service.Search(context.Background(), "dark mode", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if found.Count != 1 || found.Memories[0].ID != added.Memories[0].ID ||
+		found.Memories[0].Score == nil || found.Memories[0].Text != "I prefer dark mode" {
+		t.Fatalf("found = %+v", found)
+	}
+}
+
+func TestVaultBackendRequiresWritableVault(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(
+		filepath.Join(root, "gnosis.toml"),
+		nil,
+		0o644,
+	); err != nil {
+		t.Fatal(err)
+	}
+	service, err := New(Config{UserID: "user", AgentID: "agent"}, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Add(context.Background(), "remember this"); err == nil {
+		t.Fatal("add succeeded without a writable vault")
 	}
 }
 
@@ -247,7 +386,7 @@ func TestInvalidOperationsDoNotSendRequests(t *testing.T) {
 
 	client, err := New(Config{
 		APIKey: "key", UserID: "user", AgentID: "agent", BaseURL: server.URL,
-	})
+	}, t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,14 +406,28 @@ func TestInvalidOperationsDoNotSendRequests(t *testing.T) {
 	}
 }
 
+func memoryVault(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	if err := os.WriteFile(
+		filepath.Join(root, "gnosis.toml"),
+		[]byte("[vault]\nvault_name = \"test\"\nvault_root = \".\"\n"),
+		0o644,
+	); err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
 func TestUpstreamError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
 		http.Error(response, "unavailable", http.StatusServiceUnavailable)
 	}))
 	defer server.Close()
+	root := memoryVault(t)
 	client, err := New(Config{
 		APIKey: "key", UserID: "user", AgentID: "agent", BaseURL: server.URL,
-	})
+	}, root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -283,6 +436,13 @@ func TestUpstreamError(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	} else if strings.Contains(err.Error(), "mem0:") {
 		t.Fatalf("error leaked dependency details: %v", err)
+	}
+	matches, err := filepath.Glob(filepath.Join(root, "memories", "*.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 0 {
+		t.Fatalf("configured external failure wrote vault memories: %v", matches)
 	}
 }
 

@@ -79,7 +79,7 @@ func newMCPServer(vaultPath string) *mcp.Server {
 		Name:        "add_memory",
 		Description: "Store one durable memory in the configured user and agent scope",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input addMemoryInput) (*mcp.CallToolResult, agentmemory.Result, error) {
-		client, err := agentmemory.NewFromEnv()
+		client, err := agentmemory.NewFromEnv(vaultPath)
 		if err != nil {
 			return nil, agentmemory.Result{}, err
 		}
@@ -90,7 +90,7 @@ func newMCPServer(vaultPath string) *mcp.Server {
 		Name:        "search_memory",
 		Description: "Search durable memories in the configured user and agent scope",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input searchMemoryInput) (*mcp.CallToolResult, agentmemory.Result, error) {
-		client, err := agentmemory.NewFromEnv()
+		client, err := agentmemory.NewFromEnv(vaultPath)
 		if err != nil {
 			return nil, agentmemory.Result{}, err
 		}
