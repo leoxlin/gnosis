@@ -1,45 +1,61 @@
 # Remember and recall
 
-In this tutorial you will store a durable preference as a scoped agent memory and retrieve it later. Time: about 5 minutes. Prerequisite: [get started](get-started.md).
+In this tutorial you will store one durable preference in a gnosis vault and
+retrieve it through the same user-and-agent scope. It takes about five minutes.
 
-## What memory is
+Complete [Get started with gnosis](get-started.md) first and remain in the
+`gnosis-demo` directory.
 
-A Memory page is one self-contained fact, preference, or observation under a scope (`user`, `agent`, `session`, `run`). Two procedures manage memories: `remember` writes them, `recall` reads them. You perform the procedures — they are contracts your agent follows, not hidden daemons.
+## Select a memory scope
 
-## Remember a preference
+Every memory operation requires both identities:
 
-Following the `remember` procedure (read it with `gnosis get procedures gnosis://_/procedures/remember.md --full`):
+```bash
+export GNOSIS_MEMORY_USER_ID="tutorial-user"
+export GNOSIS_MEMORY_AGENT_ID="tutorial-agent"
+```
 
-1. Extract the durable statement: "The user prefers tabs over spaces in Go-adjacent YAML."
-2. Compute its hash: `printf '%s' "The user prefers tabs over spaces in Go-adjacent YAML." | sha256sum`.
-3. Check for duplicates and near neighbors: `gnosis search knowledge --backend lexical "tabs over spaces"`.
-4. Nothing conflicts, so ADD `memories/user-prefers-tabs.md`:
+Because no external memory variables are set, gnosis uses the writable vault
+as the memory backend.
 
-        ---
-        type: Memory
-        title: Prefers tabs
-        description: The user prefers tabs over spaces in Go-adjacent YAML.
-        scope: user
-        observed_at: 2026-07-17
-        hash: <the sha256 from step 2>
-        entities: [yaml, go]
-        status: active
-        ---
+## Store a preference
 
-        # Memory
+```bash
+gnosis add memory "I prefer concise answers."
+```
 
-        The user prefers tabs over spaces in Go-adjacent YAML.
+The result reports one memory with the `vault` backend and an `ADD` event. A
+typed page now exists under `memories/`; its frontmatter records the two
+identities, timestamps, and a content hash.
 
-5. Apply it: `gnosis apply page gnosis://local/memories/user-prefers-tabs.md --filename memories/user-prefers-tabs.md`.
+Run the same command again:
 
-## Recall it
+```bash
+gnosis add memory "I prefer concise answers."
+```
 
-Following `recall`: run `gnosis search knowledge --backend lexical "formatting preferences"`, keep Memory records, and read the top candidate with `gnosis get pages gnosis://local/memories/user-prefers-tabs.md --full`. Answer with provenance: scope `user`, observed 2026-07-17.
+The second result reports `NOOP`. Exact active duplicates do not create another
+page.
 
-## Update and archive
+## Retrieve the preference
 
-When the preference changes, `remember` reconciles: UPDATE revises the page in place (git keeps the history); DELETE sets `status: archived` with a reason line instead of deleting the file. Archived memories answer "what changed?" questions and are excluded from normal recall.
+```bash
+gnosis search memory "concise answers"
+```
 
-## What you learned
+The result contains only active memories for `tutorial-user` and
+`tutorial-agent`. The default limit is five.
 
-Memory is explicit: every write is a validated vault page, dedupe is by content hash, audit is git plus retained archives. Next: the [how-to guides](../how-to/index.md).
+Change `GNOSIS_MEMORY_AGENT_ID` and repeat the search:
+
+```bash
+export GNOSIS_MEMORY_AGENT_ID="another-agent"
+gnosis search memory "concise answers"
+```
+
+The earlier preference is absent because the identity scope changed. Restore
+the original value if you want to inspect it again.
+
+You have stored a durable, deduplicated record and observed that retrieval is
+isolated by user and agent. Next, choose a task from the
+[how-to guides](../how-to/index.md).

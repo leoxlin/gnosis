@@ -1,8 +1,9 @@
 # Reference
 
-Information-oriented lookups.
+Use this section for exact, factual lookup.
 
-- [CLI](cli.md) — every command, flag, and output convention.
-- [Configuration](configuration.md) — `gnosis.toml` fields and resolution order.
-- [Concept types](concept-types.md) — the eight bundled types and their fields.
-- [Procedures](procedures.md) — every executable procedure and when it applies.
+- [CLI reference](cli.md) — command grammar, subcommands, flags, and output.
+- [Configuration reference](configuration.md) — resolution, TOML fields, and
+  environment variables.
+- [Concept Types](concept-types.md) — bundled schemas and shared metadata.
+- [Procedures](procedures.md) — bundled execution contracts and discovery.

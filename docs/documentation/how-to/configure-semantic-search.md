@@ -1,28 +1,33 @@
 # Configure semantic search
 
-Lexical (BM25F) search works everywhere with no services. Vector search is an optional derived index in PostgreSQL with pgvector.
+Configure the optional vector backend when lexical matching is not sufficient
+for conceptual queries.
 
-## Prerequisites
+You need PostgreSQL with the `pgvector` extension and an OpenAI-compatible
+embeddings endpoint.
 
-- PostgreSQL with the `pgvector` extension.
-- An OpenAI-compatible embeddings endpoint.
+Set the connection and embedding credentials in the process environment:
 
-## Environment
+```bash
+export GNOSIS_DATABASE_URL="postgres://user:pass@host:5432/database"
+export GNOSIS_EMBEDDING_URL="https://api.example.com/v1/embeddings"
+export GNOSIS_EMBEDDING_MODEL="text-embedding-3-small"
+export GNOSIS_EMBEDDING_API_KEY="<secret>"
+```
 
-Credentials come from the process environment, never from vault configuration:
+Build or replace the derived index for the effective workspace:
 
-    export GNOSIS_DATABASE_URL="postgres://user:pass@host:5432/dbname"
-    export GNOSIS_EMBEDDING_URL="https://api.example.com/v1/embeddings"
-    export GNOSIS_EMBEDDING_MODEL="text-embedding-3-small"
-    export GNOSIS_EMBEDDING_API_KEY="..."
+```bash
+gnosis index knowledge
+```
 
-## Sync and query
+Then query it:
 
-    gnosis index knowledge      # replace this workspace's derived chunks atomically
-    gnosis search knowledge "conceptual question" --backend vector
+```bash
+gnosis search knowledge "<conceptual question>" --backend vector
+```
 
-## Notes
-
-- Markdown stays authoritative; the database is disposable derived state. Re-run `gnosis index knowledge` after edits — stale indexes are detected by content fingerprint and reported.
-- Without these variables the default vector backend fails fast; pass `--backend lexical` or configure the environment.
-- Details and rationale: [knowledge model](../explanation/knowledge-model.md).
+Re-run `gnosis index knowledge` after Markdown changes. gnosis compares content
+fingerprints and reports stale derived data. Credentials do not belong in
+`gnosis.toml`; Markdown remains authoritative, and the vector index can be
+discarded and rebuilt.

@@ -1,23 +1,43 @@
-# Serve over MCP
+# Serve gnosis over MCP or HTTP
 
-Expose read-only vault knowledge to agents over the Model Context Protocol, or browse it over HTTP.
+Expose a vault to an agent over MCP stdio:
 
-## stdio (agent subprocess)
+```bash
+gnosis --vault /path/to/workspace serve mcp
+```
 
-    gnosis serve mcp
+Configure the agent to start that command as an MCP subprocess. The server
+offers six tools:
 
-Tools: `get_vaults`, `get_concepts`, `get_page`, `search_knowledge`. Register it in your agent's MCP configuration as a stdio server pointing at the vault (the server honors `--vault`).
+- `get_vaults`
+- `get_concepts`
+- `get_page`
+- `search_knowledge`
+- `add_memory`
+- `search_memory`
 
-## HTTP + streamable MCP
+Knowledge tools read the effective vault. The memory tools require
+`GNOSIS_MEMORY_USER_ID` and `GNOSIS_MEMORY_AGENT_ID` and can write through the
+selected memory backend.
 
-    gnosis serve http --address 127.0.0.1:8080
+To serve the browser atlas, JSON API, and streamable MCP together:
 
-- `GET /` — the atlas graph UI.
-- `GET /api/v1/vaults|concepts|pages|page?uri=...|graph|search?q=...` — JSON.
-- `POST /mcp` — streamable HTTP MCP endpoint with the same read-only tools.
+```bash
+gnosis --vault /path/to/workspace serve http \
+  --address 127.0.0.1:8080
+```
 
-## Guarantees
+Open `http://127.0.0.1:8080/` for the atlas or connect an MCP client to
+`http://127.0.0.1:8080/mcp`.
 
-The serve paths are read-only by design; knowledge changes only through
-`apply page`. Inspect the requirements with
-`openspec show gnosis-knowledge-serving --type spec`.
+The JSON endpoints are:
+
+- `GET /api/v1/vaults`
+- `GET /api/v1/concepts?type=<type>`
+- `GET /api/v1/pages`
+- `GET /api/v1/page?uri=<gnosis-uri>`
+- `GET /api/v1/graph`
+- `GET /api/v1/search?question=<question>`
+
+The default address is loopback-only. Review network exposure and memory
+backend credentials before binding to another interface.

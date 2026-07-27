@@ -1,20 +1,38 @@
 # Memory architecture
 
-gnosis implements agent memory in the mem0 style, adapted to a plain-file vault.
+gnosis treats memory as explicit, scoped knowledge rather than hidden agent
+state. The same CLI and MCP operations use exactly one backend for each
+invocation: a writable vault or Mem0.
 
-## Design
+## Identity before retrieval
 
-- **Memory pages** are the local store: one self-contained statement per page, scoped `user | agent | session | run`, with `observed_at`, lifecycle state, and a content `hash`. API-created pages also preserve fixed `user_id` and `agent_id`, optional metadata, and UTC `created_at` and `updated_at`.
-- **The shared memory service** selects exactly one backend per operation. Complete hosted or self-hosted Mem0 configuration selects Mem0; when every external-specific variable is absent, it selects the effective writable vault.
-- **Vault Add/Search** writes validated pages through the canonical vault writer and filters active Memory pages by both configured identities before bounded lexical ranking. Exact active duplicates return `NOOP` without a write.
-- **remember** is the write path: extract durable candidates, suppress exact duplicates by hash, retrieve the nearest existing memories, then reconcile each candidate as ADD (new page), UPDATE (revise in place), DELETE (archive with a reason), or NONE. Every operation is an explicit, validated page write.
-- **recall** is the read path: scoped retrieval combining lexical search (vector optional), entity-match boosts, and recency, returning provenance with every answer.
-- **Audit** is git history plus retained archived pages — the vault needs no separate history database.
+Every operation requires a user ID and an agent ID. The pair defines the
+retrieval boundary before ranking occurs. This prevents a semantically similar
+memory belonging to another identity from leaking into results.
 
-## Why this shape
+Vault-backed memory stores one statement per typed page. The page includes the
+identity pair, lifecycle state, UTC timestamps, and a hash of the statement.
+An exact active duplicate returns `NOOP`, making repeated writes safe without
+creating redundant pages.
 
-mem0's own trajectory informed it: their v3 moved to accumulate-and-rank over aggressive curation and removed external graph databases, because ranking handles currency and a link graph covers entity context. Plain pages give provenance, portability, and review for free. gnosis deliberately omits background summarizers, external graph stores, reranker services, cross-backend fallback, synchronization, and retry queues. A configured backend failure is terminal for that operation.
+## Fixed backend selection
 
-## Relationship to durable knowledge
+With only the identity variables configured, gnosis uses the effective writable
+vault. Supplying external memory configuration selects Mem0. A partial
+configuration is an error, and an external failure never falls back to a local
+write.
 
-Memories are not a dumping ground. When a memory graduates into durable knowledge, the owning procedure converts it: facts become Concepts, lessons become Reflections, and governing rules become Policies. Repository-development choices belong in OpenSpec.
+This strict choice matters because silent fallback would split one logical
+memory across stores and make later recall depend on which backend happened to
+be available.
+
+## Memory and durable knowledge
+
+Memory records preserve facts, preferences, and observations relevant to one
+scope. They are not a substitute for the rest of the knowledge model. A fact
+that becomes generally authoritative belongs in a Concept; a learned lesson
+belongs in a Reflection; a governing rule belongs in a Policy.
+
+The vault backend gains reviewability and git history from plain Markdown.
+Mem0 provides a dedicated shared service when that operational model is more
+appropriate. Both present the same compact add-and-search interface.

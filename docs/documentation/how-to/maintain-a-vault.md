@@ -1,21 +1,38 @@
 # Maintain a vault
 
-Keep the wiki linked, deduplicated, and fresh.
+Run a maintenance pass after a large import or when search results become
+duplicated, stale, or poorly connected.
 
-## Audit and repair
+1. Load the maintenance contract:
 
-Run `maintain-vault` (`gnosis get procedures gnosis://_/procedures/maintain-vault.md --full`):
+   ```bash
+   gnosis get procedures gnosis://_/procedures/maintain-vault.md --full
+   ```
 
-1. Baseline: `gnosis validate vault`.
-2. Audit orphans, near-duplicates, stale pages, contradictions, tag fragmentation, and broken typed relationships.
-3. Apply high-confidence repairs in place through `gnosis apply page`; merge duplicates into the richer page and mark the loser `status: archived` with `superseded_by`.
-4. Regenerate indexes (`gnosis index vault`) and log repairs when those options are enabled.
-5. Re-validate and report every finding with its disposition.
+2. Record the baseline:
 
-## Cross-link pages
+   ```bash
+   gnosis validate vault
+   ```
 
-Run `link-pages` to convert high-confidence unlinked mentions of known titles and aliases into real links in the vault's configured format, adding typed `relationships` only where the text states them explicitly. It links at most the first mention per target and five new links per page — restraint keeps the graph readable.
+3. Audit the findings required by the procedure: broken links, orphans,
+   duplicate identities, contradictions, stale pages, and fragmented tags.
 
-## Cadence
+4. Apply high-confidence repairs through `gnosis apply page`. Merge duplicate
+   content into the stronger page and archive the superseded record with a
+   `superseded_by` link instead of silently deleting history.
 
-Cross-link after large ingests; run the full consolidation pass on a schedule or when query results feel noisy.
+5. If pages mention known records without links, load and follow:
+
+   ```bash
+   gnosis get procedures gnosis://_/procedures/link-pages.md --full
+   ```
+
+6. Rebuild generated indexes and validate the final state:
+
+   ```bash
+   gnosis index vault
+   gnosis validate vault
+   ```
+
+Report each finding and whether it was repaired, deferred, or left unchanged.

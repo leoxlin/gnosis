@@ -1,24 +1,56 @@
 # Code architecture
 
-gnosis is a small Go module with focused packages and no framework beyond cobra.
+gnosis is a Go command with narrow package boundaries. The architecture keeps
+plain Markdown authoritative while allowing retrieval and serving layers to
+evolve independently.
 
-## Layout
+## Package flow
 
-- `cmd/gnosis/` — the CLI. Verb-resource commands, TOON output (AXI conventions), and HTTP/MCP servers.
-- `internal/search/` — knowledge retrieval over the effective vault view: bounded lexical ranking (`lexical.go`) and the optional pgvector semantic index (`semantic.go`). It depends on `internal/vault/`.
-- `internal/vault/` — Markdown storage and exact vault operations: configuration (`config.go`), document identity and reads (`document.go`), page parsing and frontmatter (`page.go`), multi-vault composition (`view.go`, `vaults.go`, `bundle.go`), exact graph traversal (`graph.go`, `links.go`), procedure contracts (`procedure.go`), writes (`write.go`), indexes (`index.go`), validation (`validate.go`), scaffolding (`scaffold.go`), and backends (`backend.go`). It does not depend on `internal/search/`.
-- `ui/` — the atlas document UI. Alpine.js source (`src/`) bundled by esbuild (`build.mjs`) into the committed single-file `ui.html`, embedded via `embed.go`; rebuild with `mise run ui`.
-- `docs/` — the project's own vault and the embedded core bundle (`embed.go` bundles concept types and procedures into the binary).
-- `plugins/gnosis/` — the agent plugin manifests and vault gateway skill.
+```text
+CLI / HTTP / MCP
+        │
+        ├── memory service ── vault or Mem0
+        │
+        └── search ────────── lexical or pgvector
+                │
+              vault
+                │
+        Markdown + configuration
+```
 
-## Key design choices
+`internal/vault` owns configuration, typed pages, canonical identity, links,
+composition, graph traversal, procedures, validation, writes, indexes,
+scaffolding, and storage backends. It does not depend on search.
 
-- **Markdown authoritative** — every store except the optional pgvector index is plain files; the database is disposable derived state.
-- **Composition** — vaults layer local → imports → core bundle with first-wins precedence, giving one deterministic view without copying.
-- **Contracts over code** — procedures and concept lifecycles are vault records; Go enforces structural procedure, link, and reserved-name contracts.
-- **One-way search boundary** — commands call retrieval through `internal/search`, which loads documents through the narrow `internal/vault.LoadDocuments` boundary; lexical always works, while vector and github-wiki are opt-in.
-- **Read-only serving** — MCP and HTTP expose knowledge without mutation paths; writes exist only through `apply page`.
+`internal/search` builds bounded retrieval over the effective vault view.
+Lexical retrieval works directly from live documents. Semantic retrieval adds
+an optional PostgreSQL/pgvector index.
 
-## Testing
+`internal/memory` selects either the vault or Mem0 and exposes one scoped
+add/search service. The command, MCP, and HTTP layers call these packages rather
+than reimplementing domain behavior.
 
-Every Go file has a sibling test; `mise run checks` is the full gate: gofmt, vet, tests with the race detector, build, UI bundle freshness, and vault validation.
+## Interfaces
+
+`cmd/gnosis` defines the Cobra command tree, TOON output, MCP server, and HTTP
+API. The browser atlas source lives in `ui/`; esbuild produces the committed
+single-file bundle embedded by the command.
+
+The `docs/` tree is both project knowledge and the source of bundled Concept
+Types and Procedures. `plugins/gnosis/` packages the procedure gateway skill
+for supported agents.
+
+## Design constraints
+
+- Markdown pages are authoritative; semantic indexes are disposable.
+- Effective vaults resolve in a fixed precedence order.
+- Search depends on vault reads, never the reverse.
+- Knowledge endpoints read pages; only explicit memory tools write through the
+  memory service.
+- OpenSpec pages can be projected into reads but cannot be written by the vault
+  writer.
+- Procedure behavior remains in reviewable contracts while Go enforces
+  structural invariants.
+
+`mise run checks` exercises these boundaries with formatting, vetting, normal
+and race-enabled tests, a build, UI bundle verification, and vault validation.

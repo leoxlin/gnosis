@@ -1,38 +1,86 @@
 # CLI reference
 
-Grammar: `gnosis <verb> <resource> [flags]`, with one persistent `--vault <path>` flag (default `.`).
+## Command grammar
 
-## Output conventions (AXI)
+Commands use `gnosis <verb> <resource>`. The persistent `--vault <path>` flag
+selects the workspace and defaults to the current directory. `--help` is
+available at every command level.
 
-- All data on stdout is TOON; errors are TOON with exit code 1; usage errors exit 2 and list valid flags.
-- List commands support `--fields` with defaults and an allowlist; long single-record output truncates with a `--full` escape hatch.
-- Empty results always print a definitive empty state plus next-step hints.
+Successful output, contextual help, and structured errors use
+[TOON](https://github.com/toon-format/toon). Data is written to standard
+output. Diagnostics are written to standard error. Usage failures and
+operational failures exit non-zero.
 
 ## Commands
 
-| Command | Purpose | Key flags |
+### Create and configure
+
+| Command | Purpose | Flags |
 |---|---|---|
-| `gnosis` | Home view: bin, workspace, counts, hints | — |
-| `gnosis create vault` | Scaffold an OKF vault | `--name`, `--force`, `--concepts` |
-| `gnosis apply workspace` | Write `gnosis.toml` imports or a GitHub wiki primary vault | `--import <path>` (repeatable), `--github-wiki owner/repo`, `--name`, `--force` |
-| `gnosis apply page <uri>` | Validate and write one typed page (input `--filename` or stdin) | `--filename/-f`, `--update` |
-| `gnosis add memory <text>` | Add one scoped memory through the selected backend | — |
-| `gnosis get vaults` | List effective vaults in precedence order | `--fields` |
-| `gnosis get concepts [type]` | List concept types or records of one exact type | `--fields` |
-| `gnosis get pages [uri]` | List effective pages or read one exact page | `--fields`, `--full` |
-| `gnosis get procedures [uri]` | List executable procedures or read one contract | `--tags`, `--fields`, `--full` |
-| `gnosis search knowledge <question>` | Bounded retrieval over the composed vault | `--backend lexical|vector`, `--top`, `--max-read`, `--depth`, `--fields` |
-| `gnosis search memory <query>` | Search scoped memories through the selected backend | `--limit` (1–20, default 5) |
-| `gnosis graph neighbors <uri>` | Traverse directed links | `--direction out|in|both`, `--relation`, `--depth` |
-| `gnosis graph path <from> <to>` | Find a link path between two pages | `--direction`, `--relation`, `--depth` |
-| `gnosis index vault` | Regenerate `index.md` files | — |
-| `gnosis index knowledge` | Sync the pgvector semantic index | — |
-| `gnosis validate vault` | Frontmatter, links, contracts, reserved files | exit 1 on errors |
-| `gnosis serve mcp` | Knowledge reads and scoped memory Add/Search over stdio MCP | — |
-| `gnosis serve http` | Atlas UI, JSON API, streamable MCP | `--address` |
-| `gnosis version` | Print the version | — |
-| `gnosis completion <shell>` | Shell completion scripts | — |
+| `gnosis create vault` | Scaffold an OKF-compatible vault | `--name <name>`, `--concepts`, `--force` |
+| `gnosis apply workspace` | Write workspace composition | `--import <path>` repeatable, `--github-wiki <owner/repository>`, `--name <name>`, `--force` |
+| `gnosis apply page <uri>` | Validate and write one typed page | `--filename <file>`/`-f`, `--update` |
 
-## URIs
+`apply page` reads standard input when `--filename` is omitted. `--update`
+allows an intentional local shadow of a lower-precedence page. OpenSpec
+artifacts are read-only through gnosis.
 
-Canonical form `gnosis://<vault>/<path>`; the `_` authority matches any vault. Relative links stay valid inside a vault; reads render them to canonical URIs.
+### Read and discover
+
+| Command | Purpose | Flags |
+|---|---|---|
+| `gnosis get vaults` | List effective vaults and precedence | `--fields vault,kind,root,precedence` |
+| `gnosis get concepts [type]` | List Concept Types or records of one exact type | `--fields uri,type,title,description,revision` |
+| `gnosis get pages [uri]` | List pages or read one exact page | `--fields uri,type,title,description,revision`, `--full` |
+| `gnosis get procedures [uri]` | List invocable Procedures or read one contract | `--tags <tag,...>`, `--fields uri,type,title,description,revision,invocation,tags`, `--full` |
+
+`--full` requires a URI. `--fields` applies only to list output. Every tag
+passed to `--tags` must match.
+
+### Search and traverse
+
+| Command | Purpose | Flags |
+|---|---|---|
+| `gnosis search knowledge <question>` | Rank relevant knowledge pages | `--backend vector\|lexical`, `--top <n>`, `--max-read <n>`, `--depth <n>`, `--fields uri,type,title,description,revision,score` |
+| `gnosis graph neighbors <uri>` | List adjacent typed links | `--direction out\|in\|both`, `--relation <type>` repeatable |
+| `gnosis graph path <from-uri> <to-uri>` | Find a bounded path | `--direction out\|in\|both`, `--relation <type>` repeatable, `--depth <n>` |
+
+Knowledge search defaults to the vector backend. Select `--backend lexical`
+for live, service-free BM25F-style retrieval.
+
+### Memory
+
+| Command | Purpose | Flags |
+|---|---|---|
+| `gnosis add memory <text>` | Store one memory in the configured identity scope | — |
+| `gnosis search memory <query>` | Search active memories in that scope | `--limit <1-20>` |
+
+Both commands require `GNOSIS_MEMORY_USER_ID` and
+`GNOSIS_MEMORY_AGENT_ID`. The search limit defaults to 5.
+
+### Index, validate, and serve
+
+| Command | Purpose | Flags |
+|---|---|---|
+| `gnosis index vault` | Generate enabled Markdown indexes | — |
+| `gnosis index knowledge` | Synchronize the vector index | — |
+| `gnosis validate vault` | Validate structure, frontmatter, links, and contracts | — |
+| `gnosis serve mcp` | Serve six MCP tools over stdio | — |
+| `gnosis serve http` | Serve the atlas, JSON API, and streamable MCP | `--address <host:port>` |
+| `gnosis version` | Print the installed version | — |
+| `gnosis completion <shell>` | Generate a shell completion script | shell-specific flags |
+
+The HTTP address defaults to `127.0.0.1:8080`.
+
+## Canonical URIs
+
+The canonical form is:
+
+```text
+gnosis://<vault-authority>/<path/to/page.md>
+```
+
+Selectors do not accept a query or fragment. The `_` authority selects the
+first matching path in the effective view and is useful for portable
+references. Reads render resolvable internal Markdown links as canonical
+gnosis URIs.

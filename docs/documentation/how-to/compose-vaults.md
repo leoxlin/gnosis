@@ -1,24 +1,54 @@
 # Compose vaults
 
-Combine several vaults into one deterministic knowledge view.
+Create a workspace that presents several local vaults as one deterministic
+knowledge view.
 
 ## Import local vaults
 
-    gnosis apply workspace --import /path/to/team/docs
+```bash
+gnosis apply workspace --vault ./workspace \
+  --import /path/to/team-vault \
+  --import /path/to/project-vault
+```
 
-Each `--import` appends one `[[vaults]]` entry to `gnosis.toml`, naming the vault after the path's basename. Repeat the flag to import several vaults. The composed view resolves in order: the local vault first, then imports in declared order, then the embedded core bundle — the first source wins for a given vault-relative path. Use `gnosis get vaults` to inspect the effective order.
+Each repeated `--import` adds a `[[vaults]]` entry to
+`workspace/gnosis.toml`. Inspect the effective order:
 
-## Address pages across vaults
+```bash
+gnosis --vault ./workspace get vaults \
+  --fields vault,kind,root,precedence
+```
 
-Canonical URIs are `gnosis://<vault>/<path>`. The `_` authority (`gnosis://_/procedures/query-vault.md`) matches any vault and is the portable way to reference shared records.
+The primary vault has highest precedence, followed by imports in declaration
+order and then the embedded core bundle. The first page at a given
+vault-relative path wins.
 
-## GitHub wiki backend
+Read an imported page by its own vault name:
 
-    gnosis apply workspace --github-wiki owner/repo --name wiki
+```bash
+gnosis --vault ./workspace get pages \
+  gnosis://team-vault/references/policy.md --full
+```
 
-The wiki repository is cached as a local git working tree, pulled fast-forward on load, and committed and pushed after mutations. Treat it as a shared vault: coordinate writers, because push conflicts surface as errors.
+Use `gnosis://_/path/to/page.md` when a reference should resolve the first
+matching page regardless of its vault authority.
 
-## Rules
+## Use a GitHub wiki as the primary vault
 
-- Imports are read-mostly: `apply page` writes only to the local vault (or to a github-wiki backend, which publishes).
-- Detect cycles with `gnosis validate vault` after changing imports.
+```bash
+gnosis apply workspace --vault ./workspace \
+  --github-wiki owner/repository \
+  --name team-wiki
+```
+
+gnosis clones the wiki into a local cache, fast-forwards it on load, and
+commits and pushes successful mutations. Coordinate concurrent writers;
+non-fast-forward conflicts are returned as errors.
+
+After changing composition, run:
+
+```bash
+gnosis --vault ./workspace validate vault
+```
+
+Validation reports import cycles and structural errors.

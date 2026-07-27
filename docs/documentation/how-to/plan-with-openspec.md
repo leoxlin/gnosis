@@ -1,36 +1,36 @@
-# Plan with OpenSpec
+# Plan repository work with OpenSpec
 
-Use OpenSpec for repository proposals, requirements, technical choices,
-implementation tasks, and completed-change history. The repository points to
-the registered `trium` store, whose checkout is maintained separately.
+Use OpenSpec for gnosis requirements, design decisions, implementation tasks,
+and completed change history. The repository's `openspec/config.yaml`
+registers the external `trium` store. Run commands from the gnosis repository
+root so OpenSpec resolves that store.
 
-## Start a change
+Create a kebab-case change and inspect its required artifacts:
 
-From the repository root:
+```bash
+openspec new change <change-name>
+openspec status --change <change-name>
+```
 
-    openspec new change <change-name> --schema gnosis
-    openspec status --change <change-name>
+Complete the generated proposal, delta specifications, design, and task list in
+the store before implementation. Keep task checkboxes aligned with delivered
+work.
 
-The project-local `gnosis` schema guides proposal, capability delta specs,
-design, and checkbox tasks using gnosis Concept Type records. Its source is
-`openspec/schemas/gnosis/`. Pass a different `--schema` only when a change
-needs another registered workflow.
+Inspect current changes and specifications:
 
-## Implement and inspect
+```bash
+openspec list
+openspec list --specs
+openspec show <change-or-spec>
+```
 
-Use the change's `tasks.md` as the implementation checklist and keep it aligned
-with completed work. Current requirements and changes live in the `trium`
-store.
+Validate all artifacts before finishing:
 
-Inspect artifacts through OpenSpec:
+```bash
+openspec validate --all --strict --no-interactive
+```
 
-    openspec list --specs
-    openspec show gnosis-vault-management --type spec
-
-## Validate and finish
-
-    openspec validate --all --strict --no-interactive
-
-After implementation passes its checks, sync the delta specs into the main
-specs and archive the change. The archive is the durable rationale and delivery
-history.
+After implementation and project checks pass, sync the change's delta
+specifications into the main specifications and archive the change with the
+OpenSpec workflow. Do not edit OpenSpec artifacts through `gnosis apply page`;
+gnosis projects them for reading and search but leaves authoring to OpenSpec.

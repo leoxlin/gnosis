@@ -1,8 +1,11 @@
 # Explanation
 
-Understanding-oriented design reading.
+These pages discuss why gnosis is designed as it is.
 
-- [Knowledge model](knowledge-model.md) — types, representations, and access mechanisms.
-- [Memory architecture](memory-architecture.md) — scoped agent memory as explicit records.
-- [OpenSpec lifecycle](openspec-lifecycle.md) — proposals, specs, designs, tasks, and archives.
-- [Code architecture](architecture.md) — how the CLI and vault library fit together.
+- [Knowledge model](knowledge-model.md) — meaning, representation, and access.
+- [Memory architecture](memory-architecture.md) — scoped memory and backend
+  selection.
+- [OpenSpec lifecycle](openspec-lifecycle.md) — why repository planning has a
+  separate authoring system.
+- [Code architecture](architecture.md) — package boundaries and design
+  constraints.

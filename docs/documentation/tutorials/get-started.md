@@ -1,57 +1,88 @@
 # Get started with gnosis
 
-In this tutorial you will install gnosis, create a knowledge vault, write a typed page, and answer a question from it. Time: about 10 minutes.
+In this tutorial you will create a vault, add one typed page, find it again,
+and validate the result. The exercise takes about ten minutes.
 
-## Install
+You need gnosis on your `PATH`. From a source checkout, build it with:
 
-Build from the repository checkout:
-
-    mise run build
-
-This produces `dist/gnosis`. Put it on your `PATH` or call it directly.
+```bash
+mise run build
+export PATH="$PWD/dist:$PATH"
+```
 
 ## Create a vault
 
-    mkdir my-vault && cd my-vault
-    gnosis create vault --concepts
+From a directory where you keep projects, run:
 
-This writes `gnosis.toml`, `AGENTS.md`, `log.md`, and `concepts/` + `references/` directories, and generates `index.md` files. `--concepts` also copies the bundled concept type definitions (Procedure, Concept, Entity, Resource, Event, Memory, Reflection, Policy) into your vault so you can refine them locally.
+```bash
+gnosis create vault --vault ./gnosis-demo --name demo --concepts
+cd gnosis-demo
+```
 
-## Write your first page
+The command creates `gnosis.toml`, agent instructions, indexes, a log, and the
+bundled Concept Type definitions. Confirm that gnosis sees the vault:
 
-Create `concepts/okf.md`:
+```bash
+gnosis get vaults
+gnosis get concepts
+```
 
-    ---
-    type: Concept
-    title: OKF
-    description: The Open Knowledge Format gnosis vaults follow.
-    status: draft
-    ---
+The first result identifies the `demo` vault. The second lists types such as
+`Concept`, `Memory`, and `Procedure`.
 
-    # OKF
+## Add a page
 
-    OKF is a Markdown-plus-frontmatter bundle format for portable knowledge.
+Apply a new Concept directly from standard input:
 
-Apply it to the vault:
+```bash
+gnosis apply page gnosis://demo/concepts/local-first.md <<'EOF'
+---
+type: Concept
+title: Local-first knowledge
+description: Knowledge kept in files under the user's control.
+status: active
+---
 
-    gnosis apply page gnosis://local/concepts/okf.md --filename concepts/okf.md
+# Local-first knowledge
 
-`apply page` validates the record, checks its links, and writes it atomically. Repeating the same apply is a no-op.
+Local-first knowledge remains useful without a remote service.
+EOF
+```
 
-## Ask a question
+gnosis validates the frontmatter and URI before writing
+`concepts/local-first.md`. Open that file in any Markdown editor; there is no
+proprietary storage layer.
 
-    gnosis search knowledge "what is OKF" --backend lexical
+Read the page through its canonical identity:
 
-You get a bounded candidate list with `should_read` pointers instead of a document dump. Read exactly one page with:
+```bash
+gnosis get pages gnosis://demo/concepts/local-first.md --full
+```
 
-    gnosis get pages gnosis://local/concepts/okf.md --full
+The result includes both metadata and the complete Markdown.
 
-## Check vault health
+## Find the page
 
-    gnosis validate vault
+Search the live vault with the built-in lexical backend:
 
-Errors fail the command; warnings print to stderr. Run it after every batch of writes.
+```bash
+gnosis search knowledge "What remains useful without a remote service?" \
+  --backend lexical
+```
 
-## What you learned
+The candidate list points back to
+`gnosis://demo/concepts/local-first.md`. Search narrows the candidates; `get
+pages` retrieves an exact page.
 
-A vault is plain Markdown; `apply page` is the only write path; `search knowledge` narrows candidates; `get pages` reads exactly one record; `validate vault` guards integrity. Next: [remember and recall](remember-and-recall.md).
+## Validate the vault
+
+```bash
+gnosis validate vault
+```
+
+A successful command reports no validation errors. Run it after a batch of
+edits so broken frontmatter, paths, and links are caught early.
+
+You have now completed the basic gnosis loop: create a vault, apply typed
+Markdown, search for a candidate, read an exact page, and validate the result.
+Continue with [Remember and recall](remember-and-recall.md).
