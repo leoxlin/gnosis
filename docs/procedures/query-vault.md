@@ -13,23 +13,24 @@ invocation: model
 ## Inputs
 
 - Vault configuration and agent rules.
-- Knowledge-query results, candidate identity and provenance, and only the concept pages they identify as necessary.
+- Evidence-context results or lower-level knowledge-query results, candidate identity and provenance, and only the concept pages they identify as necessary.
 - Citations and source material recorded by those concept pages.
 
 ## Process
 
 1. Resolve the vault and read its configuration and agent rules. Route questions about preferences, persona, or agent memories to [recall](recall.md) instead.
-2. **Catalog pass.** When `vault_index` is enabled, read the root `index.md` and use titles and descriptions to shortlist candidates before any search.
-3. **Lexical pass.** Run `gnosis search knowledge --backend lexical --vault <root> "<question>"`.
+2. **Evidence-context pass.** Prefer `get_evidence_context` when the host exposes it; otherwise run `gnosis context knowledge --vault <root> "<question>"`. Use cited excerpts and typed paths directly when they are sufficient. Follow exact-read guidance for truncated evidence. If the operation is unavailable or returns a gap, continue through the lower-level passes.
+3. **Catalog pass.** When `vault_index` is enabled, read the root `index.md` and use titles and descriptions to shortlist candidates before any search.
+4. **Lexical pass.** Run `gnosis search knowledge --backend lexical --vault <root> "<question>"`.
    - If `index_only` is true and a candidate exists, answer from its description and cite its page without opening the body.
    - For a non-empty `path`, use the returned chain and open only the listed `should_read` pages when the link structure alone does not explain the relationship.
    - If no candidates are returned, continue to the next pass before declaring a gap.
-4. **Vector pass.** Only when semantic retrieval is configured, run `gnosis search knowledge --backend vector --vault <root> "<question>"` and merge candidates by URI with the lexical results.
-5. **Read pass.** Open at most the top three `should_read` candidates with `gnosis get pages '<URI>' --full`, preferring `tier: core` pages; grep a relevant section before reading whole pages when a candidate is long.
-6. **Multi-hop pass.** For exact relationship questions, use `gnosis graph neighbors '<URI>' --vault <root>` or `gnosis graph path '<FROM_URI>' '<TO_URI>' --vault <root>` with bounded depth.
-7. If the `gnosis` command is unavailable, fall back to the vault index when `vault_index` is enabled, then search titles, descriptions, tags, and filenames before opening pages.
-8. Answer from recorded knowledge and cited sources. Label agent synthesis `^[inferred]`, unresolved conflicts `^[ambiguous]`, and report knowledge gaps instead of scanning every page.
-9. Cite the concept paths that support the answer.
+5. **Vector pass.** Only when semantic retrieval is configured, run `gnosis search knowledge --backend vector --vault <root> "<question>"` and merge candidates by URI with the lexical results.
+6. **Read pass.** Open at most the top three `should_read` candidates with `gnosis get pages '<URI>' --full`, preferring `tier: core` pages; grep a relevant section before reading whole pages when a candidate is long.
+7. **Multi-hop pass.** For exact relationship questions, use `gnosis graph neighbors '<URI>' --vault <root>` or `gnosis graph path '<FROM_URI>' '<TO_URI>' --vault <root>` with bounded depth.
+8. If the `gnosis` command is unavailable, fall back to the vault index when `vault_index` is enabled, then search titles, descriptions, tags, and filenames before opening pages.
+9. Answer from recorded knowledge and cited sources. Label agent synthesis `^[inferred]`, unresolved conflicts `^[ambiguous]`, and report knowledge gaps instead of scanning every page.
+10. Cite the concept paths that support the answer.
 
 ## Completion
 

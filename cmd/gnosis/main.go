@@ -93,6 +93,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		newGetCommand(options, stdout),
 		newApplyCommand(options, os.Stdin, stdout),
 		newSearchCommand(options, stdout),
+		newContextCommand(options, stdout),
 		newGraphCommand(options, stdout),
 		newIndexCommand(options, stdout),
 		newValidateCommand(options, stdout, stderr),

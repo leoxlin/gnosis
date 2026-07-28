@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
+	evidencecontext "gnosis/internal/evidencecontext"
 	"gnosis/internal/vault"
 	"gnosis/ui"
 	"go.yaml.in/yaml/v4"
@@ -89,6 +90,7 @@ func newHTTPHandler(vaultPath string) http.Handler {
 	mux.HandleFunc("GET /api/v1/page", servePage(vaultPath))
 	mux.HandleFunc("GET /api/v1/graph", serveGraph(vaultPath))
 	mux.HandleFunc("GET /api/v1/search", serveSearch(vaultPath))
+	mux.HandleFunc("POST /api/v1/context", serveContext(vaultPath))
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
 		return newMCPServer(vaultPath)
 	}, nil)
@@ -224,6 +226,29 @@ func serveSearch(vaultPath string) http.HandlerFunc {
 			return
 		}
 		result, err := searchMCPKnowledge(request.Context(), vaultPath, input)
+		if err != nil {
+			writeHTTPError(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeHTTPJSON(w, http.StatusOK, result)
+	}
+}
+
+func serveContext(vaultPath string) http.HandlerFunc {
+	return func(w http.ResponseWriter, request *http.Request) {
+		var input evidencecontext.Request
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&input); err != nil {
+			writeHTTPError(w, http.StatusBadRequest, fmt.Errorf("invalid context request: %w", err))
+			return
+		}
+		input = evidencecontext.Defaults(input)
+		if err := evidencecontext.Validate(input); err != nil {
+			writeHTTPError(w, http.StatusBadRequest, err)
+			return
+		}
+		result, err := evidencecontext.Resolve(request.Context(), vaultPath, input)
 		if err != nil {
 			writeHTTPError(w, http.StatusInternalServerError, err)
 			return

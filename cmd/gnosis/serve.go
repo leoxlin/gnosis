@@ -9,6 +9,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
+	evidencecontext "gnosis/internal/evidencecontext"
 	agentmemory "gnosis/internal/memory"
 	"gnosis/internal/search"
 	"gnosis/internal/vault"
@@ -135,6 +136,13 @@ func newMCPServer(vaultPath string) *mcp.Server {
 		Description: "Discover eligible Procedures by tags or read one exact validated contract",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, input getProceduresInput) (*mcp.CallToolResult, getProceduresOutput, error) {
 		result, err := getMCPProcedures(vaultPath, input)
+		return nil, result, err
+	})
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_evidence_context",
+		Description: "Resolve bounded cited evidence without generating an answer",
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, input evidencecontext.Request) (*mcp.CallToolResult, evidencecontext.Result, error) {
+		result, err := evidencecontext.Resolve(ctx, vaultPath, input)
 		return nil, result, err
 	})
 	mcp.AddTool(server, &mcp.Tool{

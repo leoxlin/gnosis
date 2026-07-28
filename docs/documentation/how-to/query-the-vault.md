@@ -9,28 +9,39 @@ knowledge.
    gnosis get procedures gnosis://_/procedures/query-vault.md --full
    ```
 
-2. Search the current Markdown without external services:
+2. Resolve a bounded evidence packet without external services:
+
+   ```bash
+   gnosis context knowledge "<question>"
+   ```
+
+   Use cited excerpts directly when sufficient. Read cited pages when an excerpt
+   is truncated.
+
+3. If evidence context is unavailable or reports a gap, use the lower-level
+   lexical search:
 
    ```bash
    gnosis search knowledge "<question>" --backend lexical
    ```
 
-3. Read only the candidates needed for the answer:
+4. Read only the candidates needed for the answer:
 
    ```bash
    gnosis get pages <gnosis-uri> --full
    ```
 
-4. For a relationship question, inspect exact links:
+5. For a relationship question, inspect exact links:
 
    ```bash
    gnosis graph neighbors <gnosis-uri>
    gnosis graph path <from-uri> <to-uri>
    ```
 
-5. Answer from the retrieved pages and cite their canonical URIs. Distinguish
+6. Answer from the retrieved pages and cite their canonical URIs. Distinguish
    recorded claims from your own inference.
 
-Use `--top`, `--max-read`, and `--depth` to bound retrieval. Use the vector
-backend only after completing
+Use `--max-evidence`, `--max-chars`, and `--depth` to bound evidence context.
+Use `--top`, `--max-read`, and `--depth` to bound lower-level retrieval. Use
+vector or hybrid strategies only after completing
 [Configure semantic search](configure-semantic-search.md).

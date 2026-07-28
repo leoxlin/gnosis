@@ -50,6 +50,7 @@ requested page and adds its bounded supersession result.
 | Command | Purpose | Flags |
 |---|---|---|
 | `gnosis search knowledge <question>` | Rank relevant knowledge pages | `--backend vector\|lexical`, `--top <n>`, `--max-read <n>`, `--depth <n>`, `--fields uri,type,title,description,revision,score,trust` |
+| `gnosis context knowledge <question>` | Resolve bounded cited evidence without generating an answer | `--strategy lexical\|vector\|hybrid`, exact constraint flags, `--max-evidence <n>`, `--max-chars <n>`, `--depth <n>` |
 | `gnosis graph neighbors <uri>` | List adjacent typed links | `--direction out\|in\|both`, `--relation <type>` repeatable |
 | `gnosis graph path <from-uri> <to-uri>` | Find a bounded path | `--direction out\|in\|both`, `--relation <type>` repeatable, `--depth <n>` |
 
@@ -73,7 +74,7 @@ Both commands require `GNOSIS_MEMORY_USER_ID` and
 | `gnosis index vault` | Generate enabled Markdown indexes | — |
 | `gnosis index knowledge` | Synchronize the vector index | — |
 | `gnosis validate vault` | Validate structure, frontmatter, links, and contracts | — |
-| `gnosis serve mcp` | Serve eight MCP tools over stdio | — |
+| `gnosis serve mcp` | Serve nine MCP tools over stdio | — |
 | `gnosis serve http` | Serve the atlas, JSON API, and streamable MCP | `--address <host:port>` |
 | `gnosis version` | Print the installed version | — |
 | `gnosis completion <shell>` | Generate a shell completion script | shell-specific flags |
@@ -88,6 +89,8 @@ return the effective page's rendered Markdown, concrete origin, and revision;
 `get_page` remains the model-controlled tool for exact reads.
 The same catalog includes `trace_graph` for bounded neighbors and paths plus
 `get_procedures` for all-match discovery and exact validated contracts.
+`get_evidence_context` returns the same bounded evidence contract as
+`gnosis context knowledge`.
 
 ## Remote Git targets
 

@@ -177,8 +177,8 @@ func TestHTTPMCP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Tools) != 8 {
-		t.Fatalf("tools = %d, want 8", len(listed.Tools))
+	if len(listed.Tools) != 9 {
+		t.Fatalf("tools = %d, want 9", len(listed.Tools))
 	}
 	result := callMCPTool(t, session, "get_page", map[string]any{
 		"uri": "gnosis://test/note.md",
@@ -273,6 +273,7 @@ func TestMCPTools(t *testing.T) {
 	want := []string{
 		"add_memory",
 		"get_concepts",
+		"get_evidence_context",
 		"get_page",
 		"get_procedures",
 		"get_vaults",
@@ -912,8 +913,8 @@ func TestMCPSubprocess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Tools) != 8 {
-		t.Fatalf("tools = %d, want 8", len(listed.Tools))
+	if len(listed.Tools) != 9 {
+		t.Fatalf("tools = %d, want 9", len(listed.Tools))
 	}
 	var hasAdd, hasSearch bool
 	for _, tool := range listed.Tools {
