@@ -3,7 +3,6 @@ package vault
 import (
 	"bytes"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -238,7 +237,7 @@ func validateConfig(config Config, root string) error {
 		if strings.TrimSpace(declared.Name) == "" {
 			return fmt.Errorf("vaults[%d].vault_name must not be empty", i)
 		}
-		if _, err := resolveDeclaredVaultRoot(declared, root); err != nil {
+		if err := validateDeclaredVaultRoot(declared, root); err != nil {
 			return fmt.Errorf("vaults[%d]: %w", i, err)
 		}
 	}
@@ -278,9 +277,31 @@ func resolveDeclaredVaultRoot(config DeclaredVaultConfig, root string) (string, 
 	if path == "" {
 		return "", fmt.Errorf("vault_root must not be empty")
 	}
-	if parsed, err := url.Parse(path); err == nil && parsed.Scheme != "" && parsed.Host != "" {
-		return "", fmt.Errorf("remote vault imports are not supported: %q", path)
+	if _, remote, err := parseRemoteLocator(path); err != nil {
+		return "", err
+	} else if remote {
+		target, err := resolveVaultTarget(path)
+		if err != nil {
+			return "", err
+		}
+		return target.root, nil
 	}
+	return resolveLocalDeclaredVaultRoot(path, root)
+}
+
+func validateDeclaredVaultRoot(config DeclaredVaultConfig, root string) error {
+	path := strings.TrimSpace(config.Root)
+	if path == "" {
+		return fmt.Errorf("vault_root must not be empty")
+	}
+	if _, remote, err := parseRemoteLocator(path); err != nil || remote {
+		return err
+	}
+	_, err := resolveLocalDeclaredVaultRoot(path, root)
+	return err
+}
+
+func resolveLocalDeclaredVaultRoot(path, root string) (string, error) {
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(root, path)
 	}
@@ -299,7 +320,7 @@ func resolveDeclaredVaultRoot(config DeclaredVaultConfig, root string) (string, 
 }
 
 // WriteWorkspaceConfig creates a workspace configuration with declared vaults.
-func WriteWorkspaceConfig(root string, imports []string, force bool) (bool, error) {
+func WriteWorkspaceConfig(root string, imports []string, force bool) (bool, string, error) {
 	var contents strings.Builder
 	for _, value := range imports {
 		contents.WriteString("[[vaults]]\n")
@@ -310,16 +331,16 @@ func WriteWorkspaceConfig(root string, imports []string, force bool) (bool, erro
 		contents.WriteString(strconv.Quote(value))
 		contents.WriteString("\n\n")
 	}
-	return WriteGeneratedFile(filepath.Join(root, "gnosis.toml"), []byte(contents.String()), force)
+	return writeTargetFile(root, "gnosis.toml", []byte(contents.String()), force, "gnosis: configure workspace")
 }
 
 // WriteGitHubWikiConfig configures a GitHub Wiki as the primary vault.
-func WriteGitHubWikiConfig(root, name, repository string, force bool) (bool, error) {
+func WriteGitHubWikiConfig(root, name, repository string, force bool) (bool, string, error) {
 	if !isCanonicalVaultName(name) {
-		return false, fmt.Errorf("vault name %q must be a canonical gnosis URI authority", name)
+		return false, "", fmt.Errorf("vault name %q must be a canonical gnosis URI authority", name)
 	}
 	if err := validateGitHubRepository(repository); err != nil {
-		return false, fmt.Errorf("GitHub Wiki repository: %w", err)
+		return false, "", fmt.Errorf("GitHub Wiki repository: %w", err)
 	}
 	contents := fmt.Sprintf(`[vault]
 vault_name = %s
@@ -330,7 +351,7 @@ link_format_strict = false
 vault_index = true
 vault_log = true
 `, strconv.Quote(name), githubWikiBackend, strconv.Quote(repository))
-	return WriteGeneratedFile(filepath.Join(root, "gnosis.toml"), []byte(contents), force)
+	return writeTargetFile(root, "gnosis.toml", []byte(contents), force, "gnosis: configure workspace")
 }
 
 func writeVaultConfig(root, name string, disableIndex, disableLog, force bool) (bool, error) {

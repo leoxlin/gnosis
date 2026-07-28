@@ -13,6 +13,7 @@ import (
 type ScaffoldOptions struct {
 	Force        bool
 	Name         string
+	Concepts     bool
 	DisableIndex bool
 	DisableLog   bool
 }
@@ -31,8 +32,15 @@ var scaffoldTemplates = template.Must(template.ParseFS(scaffoldTemplatesFS, "tem
 // Scaffold creates the base OKF vault shape. Existing files are left alone
 // unless Force is set.
 func Scaffold(root string, options ScaffoldOptions) ([]string, error) {
-	root = filepath.Clean(root)
 	created := []string{}
+	target, err := resolveVaultTarget(root)
+	if err != nil {
+		return created, err
+	}
+	root = target.root
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		return created, err
+	}
 	changed, err := writeVaultConfig(root, options.Name, options.DisableIndex, options.DisableLog, options.Force)
 	if err != nil {
 		return created, err
@@ -88,6 +96,23 @@ func Scaffold(root string, options ScaffoldOptions) ([]string, error) {
 		}
 	}
 
+	if options.Concepts {
+		documents, err := BundledConcepts()
+		if err != nil {
+			return created, err
+		}
+		for _, document := range documents {
+			path := filepath.Join(root, document.Path)
+			changed, err := WriteGeneratedFile(path, document.Data, options.Force)
+			if err != nil {
+				return created, err
+			}
+			if changed {
+				created = append(created, path)
+			}
+		}
+	}
+
 	if !options.DisableIndex {
 		paths, err := GenerateIndexes(root, IndexOptions{Overwrite: options.Force})
 		if err != nil {
@@ -96,5 +121,10 @@ func Scaffold(root string, options ScaffoldOptions) ([]string, error) {
 		created = append(created, paths...)
 	}
 
+	if len(created) > 0 && target.backend != nil {
+		if err := target.backend.publish("gnosis: create vault"); err != nil {
+			return created, err
+		}
+	}
 	return created, nil
 }

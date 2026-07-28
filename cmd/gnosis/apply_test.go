@@ -124,6 +124,101 @@ func TestCreateVaultAcknowledgesRepeatAsNoOp(t *testing.T) {
 	}
 }
 
+func TestCreateVaultPublishesRemoteChangesAndSkipsRemoteNoOp(t *testing.T) {
+	fixture := newCommandRemoteFixture(t, "https://example.test/team/create.git")
+	args := []string{"--vault", fixture.url, "create", "vault", "--name", "remote", "--concepts"}
+	before := commandRemoteCommitCount(t, fixture)
+
+	var stdout, stderr bytes.Buffer
+	if err := run(args, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if got := commandRemoteCommitCount(t, fixture); got != before+1 {
+		t.Fatalf("create commit count = %d, want %d", got, before+1)
+	}
+	if !strings.Contains(stdout.String(), "changed: true") {
+		t.Fatalf("create output = %q", stdout.String())
+	}
+
+	rejectCommandRemotePushes(t, fixture)
+	stdout.Reset()
+	if err := run(args, &stdout, &stderr); err != nil {
+		t.Fatalf("no-op create attempted publication: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "status: no-op") ||
+		!strings.Contains(stdout.String(), "changed: false") {
+		t.Fatalf("second create = %q", stdout.String())
+	}
+}
+
+func TestCreateVaultReportsRemotePublicationFailure(t *testing.T) {
+	fixture := newCommandRemoteFixture(t, "https://example.test/team/create-rejected.git")
+	before := commandRemoteCommitCount(t, fixture)
+	rejectCommandRemotePushes(t, fixture)
+
+	var stdout, stderr bytes.Buffer
+	err := run(
+		[]string{"--vault", fixture.url, "create", "vault", "--name", "remote"},
+		&stdout,
+		&stderr,
+	)
+	if err == nil || !strings.Contains(err.Error(), "git") {
+		t.Fatalf("create publication error = %v", err)
+	}
+	if got := commandRemoteCommitCount(t, fixture); got != before {
+		t.Fatalf("rejected create commit count = %d, want %d", got, before)
+	}
+}
+
+func TestApplyWorkspacePublishesRemoteChangesAndSkipsRemoteNoOp(t *testing.T) {
+	fixture := newCommandRemoteFixture(t, "https://example.test/team/workspace.git")
+	args := []string{
+		"--vault", fixture.url, "apply", "workspace",
+		"--import", "/tmp/imported", "--force",
+	}
+	before := commandRemoteCommitCount(t, fixture)
+
+	var stdout, stderr bytes.Buffer
+	if err := run(args, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if got := commandRemoteCommitCount(t, fixture); got != before+1 {
+		t.Fatalf("workspace commit count = %d, want %d", got, before+1)
+	}
+
+	rejectCommandRemotePushes(t, fixture)
+	stdout.Reset()
+	if err := run(args, &stdout, &stderr); err != nil {
+		t.Fatalf("no-op workspace apply attempted publication: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "status: no-op") ||
+		!strings.Contains(stdout.String(), "changed: false") {
+		t.Fatalf("second workspace apply = %q", stdout.String())
+	}
+}
+
+func TestApplyWorkspaceReportsRemotePublicationFailure(t *testing.T) {
+	fixture := newCommandRemoteFixture(t, "https://example.test/team/workspace-rejected.git")
+	before := commandRemoteCommitCount(t, fixture)
+	rejectCommandRemotePushes(t, fixture)
+
+	var stdout, stderr bytes.Buffer
+	err := run(
+		[]string{
+			"--vault", fixture.url, "apply", "workspace",
+			"--import", "/tmp/imported", "--force",
+		},
+		&stdout,
+		&stderr,
+	)
+	if err == nil || !strings.Contains(err.Error(), "git") {
+		t.Fatalf("workspace publication error = %v", err)
+	}
+	if got := commandRemoteCommitCount(t, fixture); got != before {
+		t.Fatalf("rejected workspace commit count = %d, want %d", got, before)
+	}
+}
+
 func TestApplyPageAcknowledgesRepeatWithBodyLinksAsNoOp(t *testing.T) {
 	workspace := commandVault(t)
 	dir := t.TempDir()

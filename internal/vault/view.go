@@ -26,7 +26,11 @@ type effectiveVault struct {
 }
 
 func loadEffectiveVault(root string) (*effectiveVault, error) {
-	absolute, err := filepath.Abs(root)
+	target, err := resolveVaultTarget(root)
+	if err != nil {
+		return nil, err
+	}
+	absolute, err := filepath.Abs(target.root)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +48,11 @@ func loadEffectiveVault(root string) (*effectiveVault, error) {
 		return nil, err
 	}
 	implicitRoot := implicitVaultRoot(start)
-	vault := &effectiveVault{root: implicitRoot, config: defaultConfig(implicitRoot)}
+	vault := &effectiveVault{
+		root:    implicitRoot,
+		config:  defaultConfig(implicitRoot),
+		backend: target.backend,
+	}
 	if configPath != "" {
 		vault.root = filepath.Dir(configPath)
 		vault.config, err = loadConfigPath(configPath)

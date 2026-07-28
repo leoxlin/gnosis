@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/spf13/cobra"
@@ -62,6 +63,12 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return writeHome(stdout, options)
 		},
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+			if err := vault.ValidateTarget(options.vaultPath); err != nil {
+				return newUsageError(err)
+			}
+			return nil
+		},
 	}
 	command.SetOut(stdout)
 	command.SetErr(stderr)
@@ -72,7 +79,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		&options.vaultPath,
 		"vault",
 		defaultVault,
-		"path to the OKF vault",
+		"path or HTTPS/SSH Git URL to the OKF vault",
 	)
 	command.AddGroup(
 		&cobra.Group{ID: "basic", Title: "Basic Commands"},
@@ -153,9 +160,13 @@ func writeHome(output io.Writer, options *rootOptions) error {
 			toon.Field{Key: "description", Value: conceptType.Description},
 		))
 	}
-	workspace, err := filepath.Abs(options.vaultPath)
-	if err != nil {
-		workspace = filepath.Clean(options.vaultPath)
+	workspace := options.vaultPath
+	if !strings.Contains(workspace, "://") {
+		var err error
+		workspace, err = filepath.Abs(workspace)
+		if err != nil {
+			workspace = filepath.Clean(options.vaultPath)
+		}
 	}
 	return writeTOON(output, toon.NewObject(
 		toon.Field{Key: "bin", Value: executablePath()},

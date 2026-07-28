@@ -116,6 +116,34 @@ func TestHTTPAPIAndUI(t *testing.T) {
 	}
 }
 
+func TestHTTPConfiguredRemoteImportRefreshesDuringServerLifetime(t *testing.T) {
+	fixture := newCommandRemoteFixture(t, "https://example.test/team/http-import.git")
+	workspace := t.TempDir()
+	writeCommandFile(t, workspace, "gnosis.toml", `[[vaults]]
+vault_name = "remote"
+vault_root = "`+fixture.url+`"
+`)
+	server := httptest.NewServer(newHTTPHandler(workspace))
+	t.Cleanup(server.Close)
+	endpoint := server.URL + "/api/v1/page?uri=" + url.QueryEscape("gnosis://remote/notes/remote.md")
+
+	var page vault.Page
+	if status := getHTTPJSON(t, endpoint, &page); status != http.StatusOK {
+		t.Fatalf("initial page status = %d", status)
+	}
+	if page.Document.Title != "Remote note" {
+		t.Fatalf("initial page = %+v", page.Document)
+	}
+
+	updateCommandRemoteNote(t, fixture, "Refreshed remote note")
+	if status := getHTTPJSON(t, endpoint, &page); status != http.StatusOK {
+		t.Fatalf("refreshed page status = %d", status)
+	}
+	if page.Document.Title != "Refreshed remote note" {
+		t.Fatalf("refreshed page = %+v", page.Document)
+	}
+}
+
 func TestHTTPMCP(t *testing.T) {
 	setMemoryEnv(t, memoryAPIServer(t).URL)
 	server := httptest.NewServer(newHTTPHandler(httpTestVault(t)))
@@ -279,6 +307,26 @@ func TestMCPTools(t *testing.T) {
 	}
 	if query.Candidates[0].Revision == "" || query.Candidates[0].Origin.Vault != "test" {
 		t.Fatalf("candidate provenance = %+v", query.Candidates[0])
+	}
+}
+
+func TestMCPDirectRemoteTargetRefreshesDuringServerLifetime(t *testing.T) {
+	fixture := newCommandRemoteFixture(t, "https://example.test/team/mcp-direct.git")
+	session := connectMCPServer(t, newMCPServer(fixture.url))
+	arguments := map[string]any{"uri": "gnosis://remote/notes/remote.md"}
+
+	result := callMCPTool(t, session, "get_page", arguments)
+	var page vault.Page
+	decodeMCPResult(t, result, &page)
+	if page.Document.Title != "Remote note" {
+		t.Fatalf("initial page = %+v", page.Document)
+	}
+
+	updateCommandRemoteNote(t, fixture, "Refreshed remote note")
+	result = callMCPTool(t, session, "get_page", arguments)
+	decodeMCPResult(t, result, &page)
+	if page.Document.Title != "Refreshed remote note" {
+		t.Fatalf("refreshed page = %+v", page.Document)
 	}
 }
 

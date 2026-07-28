@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 	toon "github.com/toon-format/toon-go"
@@ -62,33 +60,13 @@ func runCreateVault(
 	hasConcepts bool,
 	stdout io.Writer,
 ) error {
-	root := filepath.Clean(vaultPath)
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		return fmt.Errorf("create vault: make root: %w", err)
-	}
-	created, err := vault.Scaffold(root, vault.ScaffoldOptions{
-		Force: isForce,
-		Name:  vaultName,
+	created, err := vault.Scaffold(vaultPath, vault.ScaffoldOptions{
+		Force:    isForce,
+		Name:     vaultName,
+		Concepts: hasConcepts,
 	})
 	if err != nil {
 		return fmt.Errorf("create vault: %w", err)
-	}
-	if hasConcepts {
-		conceptPaths, err := writeBundledConcepts(root, isForce)
-		if err != nil {
-			return fmt.Errorf("create vault: concepts: %w", err)
-		}
-		created = append(created, conceptPaths...)
-		if len(conceptPaths) > 0 {
-			indexPaths, _, err := vault.GenerateWorkspaceIndexes(
-				root,
-				vault.IndexOptions{Overwrite: true},
-			)
-			if err != nil {
-				return fmt.Errorf("create vault: indexes: %w", err)
-			}
-			created = append(created, indexPaths...)
-		}
 	}
 	status := "created"
 	if len(created) == 0 {
@@ -98,28 +76,8 @@ func runCreateVault(
 		toon.Field{Key: "action", Value: "create"},
 		toon.Field{Key: "resource", Value: "vault"},
 		toon.Field{Key: "status", Value: status},
-		toon.Field{Key: "path", Value: root},
+		toon.Field{Key: "path", Value: vaultPath},
 		toon.Field{Key: "changed", Value: len(created) > 0},
 		toon.Field{Key: "files", Value: created},
 	))
-}
-
-func writeBundledConcepts(root string, force bool) ([]string, error) {
-	documents, err := vault.BundledConcepts()
-	if err != nil {
-		return nil, err
-	}
-
-	created := make([]string, 0, len(documents))
-	for _, document := range documents {
-		path := filepath.Join(root, document.Path)
-		changed, err := vault.WriteGeneratedFile(path, document.Data, force)
-		if err != nil {
-			return created, err
-		}
-		if changed {
-			created = append(created, path)
-		}
-	}
-	return created, nil
 }

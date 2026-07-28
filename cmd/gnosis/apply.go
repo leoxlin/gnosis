@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -90,15 +89,13 @@ func runApplyWorkspace(
 	isForce bool,
 	stdout io.Writer,
 ) error {
-	if err := os.MkdirAll(vaultPath, 0o755); err != nil {
-		return fmt.Errorf("apply workspace: make root: %w", err)
-	}
 	var isChanged bool
+	var configPath string
 	var err error
 	if githubWiki != "" {
-		isChanged, err = vault.WriteGitHubWikiConfig(vaultPath, vaultName, githubWiki, isForce)
+		isChanged, configPath, err = vault.WriteGitHubWikiConfig(vaultPath, vaultName, githubWiki, isForce)
 	} else {
-		isChanged, err = vault.WriteWorkspaceConfig(vaultPath, imports, isForce)
+		isChanged, configPath, err = vault.WriteWorkspaceConfig(vaultPath, imports, isForce)
 	}
 	if err != nil {
 		return fmt.Errorf("apply workspace: %w", err)
@@ -112,7 +109,7 @@ func runApplyWorkspace(
 		toon.Field{Key: "resource", Value: "workspace"},
 		toon.Field{Key: "status", Value: status},
 		toon.Field{Key: "changed", Value: isChanged},
-		toon.Field{Key: "path", Value: filepath.Join(vaultPath, "gnosis.toml")},
+		toon.Field{Key: "path", Value: configPath},
 	))
 }
 

@@ -127,6 +127,40 @@ func TestGetPagePreviewAndFullContent(t *testing.T) {
 	}
 }
 
+func TestGetPageReadsDirectRemoteTargetAndConfiguredRemoteImport(t *testing.T) {
+	fixture := newCommandRemoteFixture(t, "https://example.test/team/read.git")
+	uri := "gnosis://remote/notes/remote.md"
+
+	var stdout, stderr bytes.Buffer
+	if err := run(
+		[]string{"--vault", fixture.url, "get", "pages", uri, "--full"},
+		&stdout,
+		&stderr,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), "Remote note") {
+		t.Fatalf("direct remote page = %q", stdout.String())
+	}
+
+	workspace := t.TempDir()
+	writeCommandFile(t, workspace, "gnosis.toml", `[[vaults]]
+vault_name = "remote"
+vault_root = "`+fixture.url+`"
+`)
+	stdout.Reset()
+	if err := run(
+		[]string{"--vault", workspace, "get", "pages", uri, "--full"},
+		&stdout,
+		&stderr,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), "Remote note") {
+		t.Fatalf("configured remote import page = %q", stdout.String())
+	}
+}
+
 func TestGetProceduresListsAndBoundsExecutionContract(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	workspace := t.TempDir()

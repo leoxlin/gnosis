@@ -2,9 +2,17 @@
 
 ## Command grammar
 
-Commands use `gnosis <verb> <resource>`. The persistent `--vault <path>` flag
-selects the workspace and defaults to the current directory. `--help` is
-available at every command level.
+Commands use `gnosis <verb> <resource>`. The persistent
+`--vault <path-or-git-url>` flag selects the workspace and defaults to the
+current directory. It accepts local paths plus explicit HTTPS and SSH Git
+URLs:
+
+```sh
+gnosis --vault https://github.com/leoxlin/gnosis-openspec.git get pages
+gnosis --vault ssh://git@github.com/leoxlin/gnosis-openspec.git get pages
+```
+
+`--help` is available at every command level.
 
 Successful output, contextual help, and structured errors use
 [TOON](https://github.com/toon-format/toon). Data is written to standard
@@ -18,7 +26,7 @@ operational failures exit non-zero.
 | Command | Purpose | Flags |
 |---|---|---|
 | `gnosis create vault` | Scaffold an OKF-compatible vault | `--name <name>`, `--concepts`, `--force` |
-| `gnosis apply workspace` | Write workspace composition | `--import <path>` repeatable, `--github-wiki <owner/repository>`, `--name <name>`, `--force` |
+| `gnosis apply workspace` | Write workspace composition | `--import <path-or-git-url>` repeatable, `--github-wiki <owner/repository>`, `--name <name>`, `--force` |
 | `gnosis apply page <uri>` | Validate and write one typed page | `--filename <file>`/`-f`, `--update` |
 
 `apply page` reads standard input when `--filename` is omitted. `--update`
@@ -71,6 +79,28 @@ Both commands require `GNOSIS_MEMORY_USER_ID` and
 | `gnosis completion <shell>` | Generate a shell completion script | shell-specific flags |
 
 The HTTP address defaults to `127.0.0.1:8080`.
+
+## Remote Git targets
+
+gnosis clones each remote into
+`os.UserCacheDir()/gnosis/git-vaults/<sha256-of-normalized-url>`. The first
+operation clones the repository's default branch. Later operations verify the
+cached origin and run a fast-forward-only pull before resolving the vault.
+Long-lived MCP and HTTP servers perform the same refresh when handling an
+operation.
+
+A remote selected directly with `--vault` is the writable target. A changed
+page, index, scaffold, workspace configuration, or vault-memory operation
+creates one `gnosis:` commit and pushes the current branch. A no-op creates no
+commit and performs no push. If a push fails, the commit remains in the local
+cache and the command returns an error.
+
+Authentication comes from the user's existing Git and SSH configuration,
+including credential helpers. gnosis does not accept embedded HTTPS
+credentials. Remote targets do not select branches, revisions, subdirectories,
+queries, or fragments. SCP-like `git@host:path` locators are not supported;
+use an explicit `ssh://` URL. Cloning a repository that does not yet exist is
+also outside this workflow.
 
 ## Canonical URIs
 

@@ -371,16 +371,227 @@ vault_root = "imported"
 	}
 }
 
-func TestLoadEffectiveVaultRejectsRemoteVaultImports(t *testing.T) {
+func TestLoadConfigValidatesRemoteImportWithoutCloning(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	workspace := t.TempDir()
 	writeConfig(t, workspace, `[[vaults]]
 vault_name = "remote"
 vault_root = "https://example.com/remote-vault.git"
 `)
 
+	if _, err := loadConfig(workspace); err != nil {
+		t.Fatal(err)
+	}
+	cache, err := remoteCacheRoot("https://example.com/remote-vault.git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(cache); !os.IsNotExist(err) {
+		t.Fatalf("configuration validation created cache: %v", err)
+	}
+}
+
+func TestLoadEffectiveVaultLoadsRemoteImportOnce(t *testing.T) {
+	fixture := newGitRemoteFixture(t, "https://example.test/team/imported.git")
+	writeConfig(t, fixture.seed, `[vault]
+vault_name = "remote"
+vault_root = "."
+vault_index = false
+vault_log = false
+`)
+	runGit(t, "-C", fixture.seed, "add", "gnosis.toml")
+	runGit(t, "-C", fixture.seed, "commit", "-m", "configure vault")
+	runGit(t, "-C", fixture.seed, "push", fixture.remote, "main")
+
+	workspace := t.TempDir()
+	writeConfig(t, workspace, `[[vaults]]
+vault_name = "first"
+vault_root = "`+fixture.url+`"
+
+[[vaults]]
+vault_name = "second"
+vault_root = "`+fixture.url+`"
+`)
+	effective, err := loadEffectiveVault(workspace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(effective.sources) != 1 {
+		t.Fatalf("sources = %v, want one de-duplicated remote", sourcePaths(effective))
+	}
+	if effective.sources[0].config.Vault.Name != "remote" {
+		t.Fatalf("remote source = %+v", effective.sources[0])
+	}
+	if effective.backend != nil {
+		t.Fatal("remote import unexpectedly became the writable publisher")
+	}
+	before := remoteCommitCount(t, fixture)
+	content := []byte(`---
+type: Note
+title: Imported write
+description: Must not be published through an import.
+---
+`)
+	if _, err := WriteDocument(workspace, "gnosis://remote/notes/imported.md", content, false); err == nil ||
+		!strings.Contains(err.Error(), "local vault") {
+		t.Fatalf("remote import write error = %v", err)
+	}
+	if got := remoteCommitCount(t, fixture); got != before {
+		t.Fatalf("remote import commit count = %d, want %d", got, before)
+	}
+}
+
+func TestLoadEffectiveVaultKeepsLocalPrecedenceOverRemoteImport(t *testing.T) {
+	fixture := newGitRemoteFixture(t, "https://example.test/team/precedence.git")
+	writeConfig(t, fixture.seed, `[vault]
+vault_name = "remote"
+vault_root = "."
+vault_index = false
+vault_log = false
+`)
+	writeTestFile(t, filepath.Join(fixture.seed, "note.md"), `---
+type: Resource
+title: Remote note
+description: Lower-precedence remote content.
+---
+`)
+	runGit(t, "-C", fixture.seed, "add", ".")
+	runGit(t, "-C", fixture.seed, "commit", "-m", "configure remote vault")
+	runGit(t, "-C", fixture.seed, "push", fixture.remote, "main")
+
+	workspace := t.TempDir()
+	writeConfig(t, workspace, `[vault]
+vault_name = "workspace"
+vault_root = "local"
+vault_index = false
+vault_log = false
+
+[[vaults]]
+vault_name = "remote"
+vault_root = "`+fixture.url+`"
+`)
+	writeTestFile(t, filepath.Join(workspace, "local", "note.md"), `---
+type: Resource
+title: Local note
+description: Higher-precedence local content.
+---
+`)
+
+	page, err := ReadPage(workspace, "gnosis://workspace/note.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if page.Document.Title != "Local note" || page.Document.Origin.Kind != OriginLocal {
+		t.Fatalf("resolved page = %+v", page.Document)
+	}
+}
+
+func TestLoadEffectiveVaultSupportsConfiguredAndImplicitRemoteTargets(t *testing.T) {
+	t.Run("configured", func(t *testing.T) {
+		fixture := newGitRemoteFixture(t, "https://example.test/team/configured.git")
+		writeConfig(t, fixture.seed, `[vault]
+vault_name = "remote"
+vault_root = "."
+vault_index = false
+vault_log = false
+`)
+		runGit(t, "-C", fixture.seed, "add", "gnosis.toml")
+		runGit(t, "-C", fixture.seed, "commit", "-m", "configure vault")
+		runGit(t, "-C", fixture.seed, "push", fixture.remote, "main")
+
+		effective, err := loadEffectiveVault(fixture.url)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if effective.backend == nil || effective.config.Vault.Name != "remote" {
+			t.Fatalf("effective remote = %+v", effective)
+		}
+		if got, want := sourcePaths(effective), []string{effective.root}; !reflect.DeepEqual(got, want) {
+			t.Fatalf("sources = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("implicit", func(t *testing.T) {
+		fixture := newGitRemoteFixture(t, "https://example.test/team/implicit.git")
+		writeTestFile(t, filepath.Join(fixture.seed, "docs", "note.md"), `---
+type: Note
+title: Remote note
+description: Loaded from an implicit remote vault.
+---
+`)
+		runGit(t, "-C", fixture.seed, "add", "docs/note.md")
+		runGit(t, "-C", fixture.seed, "commit", "-m", "add implicit vault")
+		runGit(t, "-C", fixture.seed, "push", fixture.remote, "main")
+
+		effective, err := loadEffectiveVault(fixture.url)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if effective.backend == nil || effective.config.Vault.Name != "local" {
+			t.Fatalf("effective remote = %+v", effective)
+		}
+		if got, want := sourcePaths(effective), []string{filepath.Join(effective.root, "docs")}; !reflect.DeepEqual(got, want) {
+			t.Fatalf("sources = %v, want %v", got, want)
+		}
+	})
+}
+
+func TestLoadEffectiveVaultRejectsRemoteImportWithoutConfiguration(t *testing.T) {
+	fixture := newGitRemoteFixture(t, "https://example.test/team/unconfigured.git")
+	workspace := t.TempDir()
+	writeConfig(t, workspace, `[[vaults]]
+vault_name = "remote"
+vault_root = "`+fixture.url+`"
+`)
+
 	_, err := loadEffectiveVault(workspace)
-	if err == nil || !strings.Contains(err.Error(), "remote vault imports are not supported") {
+	if err == nil || !strings.Contains(err.Error(), "gnosis.toml") {
+		t.Fatalf("missing remote configuration error = %v", err)
+	}
+}
+
+func TestLoadEffectiveVaultRejectsRemoteImportFailure(t *testing.T) {
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	if err := os.MkdirAll(home, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(root, "cache"))
+	url := "https://example.test/missing/vault.git"
+	runGit(t, "config", "--global", "url.file://"+filepath.ToSlash(filepath.Join(root, "missing.git"))+".insteadOf", url)
+	workspace := t.TempDir()
+	writeConfig(t, workspace, `[[vaults]]
+vault_name = "remote"
+vault_root = "`+url+`"
+`)
+
+	if _, err := loadEffectiveVault(workspace); err == nil || !strings.Contains(err.Error(), "clone remote vault") {
 		t.Fatalf("remote import error = %v", err)
+	}
+}
+
+func TestLoadEffectiveVaultRejectsLocalRemoteCycle(t *testing.T) {
+	fixture := newGitRemoteFixture(t, "https://example.test/team/cycle.git")
+	workspace := t.TempDir()
+	writeConfig(t, fixture.seed, `[vault]
+vault_name = "remote"
+vault_root = "."
+
+[[vaults]]
+vault_name = "workspace"
+vault_root = "`+workspace+`"
+`)
+	runGit(t, "-C", fixture.seed, "add", "gnosis.toml")
+	runGit(t, "-C", fixture.seed, "commit", "-m", "add cycle")
+	runGit(t, "-C", fixture.seed, "push", fixture.remote, "main")
+	writeConfig(t, workspace, `[[vaults]]
+vault_name = "remote"
+vault_root = "`+fixture.url+`"
+`)
+
+	if _, err := loadEffectiveVault(workspace); err == nil || !strings.Contains(err.Error(), "cycle") {
+		t.Fatalf("remote cycle error = %v", err)
 	}
 }
 

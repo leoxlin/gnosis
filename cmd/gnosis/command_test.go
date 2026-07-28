@@ -60,6 +60,30 @@ func TestCommandTreeUsesVerbResourceGrammar(t *testing.T) {
 	}
 }
 
+func TestVaultFlagDocumentsRemoteTargets(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if err := run([]string{"--help"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), "path or HTTPS/SSH Git URL to the OKF vault") {
+		t.Fatalf("root help = %q", stdout.String())
+	}
+}
+
+func TestInvalidRemoteVaultSyntaxIsUsageError(t *testing.T) {
+	for _, target := range []string{
+		"ftp://example.test/vault.git",
+		"https://token@example.test/vault.git",
+		"https://example.test/vault.git?branch=main",
+	} {
+		var stdout, stderr bytes.Buffer
+		err := run([]string{"--vault", target, "get", "pages"}, &stdout, &stderr)
+		if err == nil || exitCode(err) != 2 {
+			t.Fatalf("target %q error = %v, exit = %d", target, err, exitCode(err))
+		}
+	}
+}
+
 func TestEveryCommandHelpIsContextual(t *testing.T) {
 	root := newRootCommand(&bytes.Buffer{}, &bytes.Buffer{})
 	var visit func(*cobra.Command)

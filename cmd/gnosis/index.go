@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 	toon "github.com/toon-format/toon-go"
@@ -78,9 +77,8 @@ func writeSemanticIndexResult(output io.Writer, result search.SemanticIndexResul
 }
 
 func runIndex(vaultPath string, stdout io.Writer) error {
-	root := filepath.Clean(vaultPath)
 	written, enabled, err := vault.GenerateWorkspaceIndexes(
-		root,
+		vaultPath,
 		vault.IndexOptions{Overwrite: true},
 	)
 	if err != nil {
@@ -96,7 +94,7 @@ func runIndex(vaultPath string, stdout io.Writer) error {
 		toon.Field{Key: "action", Value: "index"},
 		toon.Field{Key: "resource", Value: "vault"},
 		toon.Field{Key: "status", Value: status},
-		toon.Field{Key: "path", Value: root},
+		toon.Field{Key: "path", Value: vaultPath},
 		toon.Field{Key: "changed", Value: len(written) > 0},
 		toon.Field{Key: "files", Value: written},
 	))

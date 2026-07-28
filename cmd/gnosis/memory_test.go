@@ -55,6 +55,45 @@ func TestMemoryCLIUsesVaultBackend(t *testing.T) {
 	}
 }
 
+func TestMemoryCLIUsesWritableRemoteVault(t *testing.T) {
+	fixture := newCommandRemoteFixture(t, "https://example.test/team/memory.git")
+	clearCommandMemoryEnv(t)
+	t.Setenv(agentmemory.EnvUserID, "user")
+	t.Setenv(agentmemory.EnvAgentID, "agent")
+	before := commandRemoteCommitCount(t, fixture)
+
+	var stdout, stderr bytes.Buffer
+	if err := run(
+		[]string{"--vault", fixture.url, "add", "memory", "I prefer remote memory"},
+		&stdout,
+		&stderr,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if got := commandRemoteCommitCount(t, fixture); got != before+1 {
+		t.Fatalf("memory commit count = %d, want %d", got, before+1)
+	}
+	if got := runCommandGit(t, "--git-dir", fixture.remote, "ls-tree", "-r", "--name-only", "HEAD"); !strings.Contains(got, "memories/") {
+		t.Fatalf("remote tree = %q, want a memory page", got)
+	}
+
+	rejectCommandRemotePushes(t, fixture)
+	stdout.Reset()
+	if err := run(
+		[]string{"--vault", fixture.url, "add", "memory", "I prefer remote memory"},
+		&stdout,
+		&stderr,
+	); err != nil {
+		t.Fatalf("no-op memory attempted publication: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "event: NOOP") {
+		t.Fatalf("no-op memory output = %q", stdout.String())
+	}
+	if got := commandRemoteCommitCount(t, fixture); got != before+1 {
+		t.Fatalf("no-op memory commit count = %d, want %d", got, before+1)
+	}
+}
+
 func TestMemoryCLIRejectsUsageBeforeMutation(t *testing.T) {
 	workspace := commandVault(t)
 	clearCommandMemoryEnv(t)

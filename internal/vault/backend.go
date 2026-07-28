@@ -47,19 +47,60 @@ func prepareGitHubWikiBackend(repository string) (*gitBackend, error) {
 	// ponytail: cache access is single-process; add per-vault locking if concurrent CLI use becomes necessary.
 	root := filepath.Join(cache, "gnosis", githubWikiBackend, parts[0], parts[1])
 	remote := "https://github.com/" + repository + ".wiki.git"
-	if _, err := os.Stat(root); os.IsNotExist(err) {
-		if err := os.MkdirAll(filepath.Dir(root), 0o755); err != nil {
+	return prepareGitBackend(remote, root)
+}
+
+func prepareGitBackend(remote, root string) (*gitBackend, error) {
+	info, err := os.Stat(root)
+	if err == nil {
+		if !info.IsDir() {
+			return nil, fmt.Errorf("remote vault cache %s is not a directory", root)
+		}
+		if err := verifyGitOrigin(root, remote); err != nil {
 			return nil, err
 		}
-		if err := runGitCommand("clone", remote, root); err != nil {
-			return nil, fmt.Errorf("clone GitHub Wiki %q: %w", repository, err)
+		if err := runGitCommand("-C", root, "pull", "--ff-only"); err != nil {
+			return nil, fmt.Errorf("pull remote vault %q: %w", remote, err)
 		}
-	} else if err != nil {
+		return &gitBackend{root: root}, nil
+	}
+	if !os.IsNotExist(err) {
 		return nil, err
-	} else if err := runGitCommand("-C", root, "pull", "--ff-only"); err != nil {
-		return nil, fmt.Errorf("pull GitHub Wiki %q: %w", repository, err)
+	}
+	parent := filepath.Dir(root)
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		return nil, err
+	}
+	temporary, err := os.MkdirTemp(parent, ".clone-")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(temporary)
+	if err := runGitCommand("clone", "--", remote, temporary); err != nil {
+		return nil, fmt.Errorf("clone remote vault %q: %w", remote, err)
+	}
+	if err := verifyGitOrigin(temporary, remote); err != nil {
+		return nil, err
+	}
+	if err := os.Rename(temporary, root); err != nil {
+		return nil, fmt.Errorf("install remote vault cache: %w", err)
 	}
 	return &gitBackend{root: root}, nil
+}
+
+func verifyGitOrigin(root, remote string) error {
+	origin, err := gitCommandOutput("-C", root, "config", "--get", "remote.origin.url")
+	if err != nil {
+		return fmt.Errorf("read remote vault origin: %w", err)
+	}
+	if strings.TrimSpace(origin) != remote {
+		return fmt.Errorf(
+			"remote vault cache origin is %q, want %q",
+			strings.TrimSpace(origin),
+			remote,
+		)
+	}
+	return nil
 }
 
 func (b *gitBackend) publish(message string) error {

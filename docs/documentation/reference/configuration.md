@@ -43,7 +43,8 @@ vault_log = true
 
 ## `[[vaults]]`
 
-Each imported vault has a name and local root:
+Each imported vault has a name and either a local root or an explicit HTTPS or
+SSH Git URL:
 
 ```toml
 [[vaults]]
@@ -51,9 +52,29 @@ vault_name = "team"
 vault_root = "../team-vault"
 ```
 
+```toml
+[[vaults]]
+vault_name = "gnosis-openspec"
+vault_root = "https://github.com/leoxlin/gnosis-openspec.git"
+```
+
 The effective precedence is the primary vault, declared imports in order, then
 the embedded core bundle. The first source for a vault-relative path wins.
 Import cycles are invalid.
+
+Remote imports are cloned into
+`os.UserCacheDir()/gnosis/git-vaults/<sha256-of-normalized-url>` and refreshed
+with a fast-forward-only pull during composition. Repeated declarations of the
+same normalized URL reuse one checkout. An imported remote participates in
+reads, validation, search, and serving, but it does not become the workspace's
+publisher. To mutate and publish that repository, select its URL directly with
+`--vault`.
+
+Remote authentication uses existing Git credential helpers and SSH
+configuration. Supported locators begin with `https://` or `ssh://`. Embedded
+HTTPS credentials, SSH passwords, queries, fragments, branch or revision
+selection, repository subdirectories, and SCP-like `git@host:path` syntax are
+not supported.
 
 ## Semantic search environment
 
