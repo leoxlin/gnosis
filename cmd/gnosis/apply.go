@@ -28,6 +28,7 @@ func newApplyCommand(options *rootOptions, input io.Reader, stdout io.Writer) *c
 	command.AddCommand(
 		newApplyWorkspaceCommand(options, stdout),
 		newApplyPageCommand(options, input, stdout),
+		newApplyKnowledgeChangeCommand(options, input, stdout),
 	)
 	return command
 }
@@ -173,16 +174,61 @@ func newApplyPageCommand(
 }
 
 func readPageInput(input io.Reader, filename string) ([]byte, error) {
+	return readMarkdownInput(input, filename, "apply page")
+}
+
+func readMarkdownInput(input io.Reader, filename, operation string) ([]byte, error) {
 	if filename == "" {
 		content, err := io.ReadAll(input)
 		if err != nil {
-			return nil, fmt.Errorf("apply page: read standard input: %w", err)
+			return nil, fmt.Errorf("%s: read standard input: %w", operation, err)
 		}
 		return content, nil
 	}
 	content, err := os.ReadFile(filename)
 	if err != nil {
-		return nil, fmt.Errorf("apply page: read %s: %w", filename, err)
+		return nil, fmt.Errorf("%s: read %s: %w", operation, filename, err)
 	}
 	return content, nil
+}
+
+func newApplyKnowledgeChangeCommand(
+	options *rootOptions,
+	input io.Reader,
+	stdout io.Writer,
+) *cobra.Command {
+	var filename, expectedRevision, digest string
+	var expectedAbsent bool
+	command := &cobra.Command{
+		Use:   "knowledge-change <gnosis-uri> [flags]",
+		Short: "Apply one accepted revision-bound knowledge change",
+		Args:  cobra.ExactArgs(1),
+		Example: "gnosis apply knowledge-change <gnosis-uri> --expected-revision <revision> --digest <digest> --filename <file>\n" +
+			"gnosis apply knowledge-change <gnosis-uri> --expected-absent --digest <digest> < <file>",
+		RunE: func(_ *cobra.Command, args []string) error {
+			change, err := knowledgeChangeInput(
+				input,
+				filename,
+				args[0],
+				expectedRevision,
+				expectedAbsent,
+				"apply knowledge-change",
+			)
+			if err != nil {
+				return err
+			}
+			result, err := vault.ApplyKnowledgeChange(options.vaultPath, change, digest)
+			if err != nil {
+				return err
+			}
+			return writeKnowledgeChangeResult(stdout, result)
+		},
+	}
+	flags := command.Flags()
+	flags.StringVarP(&filename, "filename", "f", "", "read complete Markdown candidate from this file")
+	flags.StringVar(&expectedRevision, "expected-revision", "", "required current revision for an update or archive")
+	flags.BoolVar(&expectedAbsent, "expected-absent", false, "require the target page to be absent")
+	flags.StringVar(&digest, "digest", "", "digest returned by plan knowledge-change")
+	_ = command.MarkFlagRequired("digest")
+	return command
 }

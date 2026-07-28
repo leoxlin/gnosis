@@ -28,9 +28,24 @@ operational failures exit non-zero.
 | `gnosis create vault` | Scaffold an OKF-compatible vault | `--name <name>`, `--concepts`, `--force` |
 | `gnosis apply workspace` | Write workspace composition | `--import <path-or-git-url>` repeatable, `--github-wiki <owner/repository>`, `--name <name>`, `--force` |
 | `gnosis apply page <uri>` | Validate and write one typed page | `--filename <file>`/`-f`, `--update` |
+| `gnosis plan knowledge-change <uri>` | Validate and diff one complete page without writing | `--filename <file>`/`-f`, exactly one of `--expected-absent` or `--expected-revision <revision>` |
+| `gnosis apply knowledge-change <uri>` | Revalidate and apply one accepted plan | plan flags plus `--digest <digest>` |
 
 `apply page` reads standard input when `--filename` is omitted. `--update`
 allows an intentional local shadow of a lower-precedence page.
+
+The knowledge-change commands form a stateless two-phase contract. Planning
+returns the classified create, update, archive, no-op, or invalid operation;
+deterministic Markdown diff; validation findings; affected relationships; and
+a digest bound to the URI, complete candidate, expected state, and relevant
+configuration. It changes no page, index, log, commit, or remote.
+
+Apply requires the same URI, candidate, expected state, and digest. It refreshes
+the target, rejects a changed digest or stale expected revision/absence, and
+revalidates before writing through the existing atomic vault writer. Updates
+preserve unrecognized frontmatter unless the candidate supplies that field.
+Archival retains the page; physical deletion is unsupported. A remote push
+failure leaves the one local cache commit intact and returns an error.
 
 ### Read and discover
 
@@ -74,8 +89,8 @@ Both commands require `GNOSIS_MEMORY_USER_ID` and
 | `gnosis index vault` | Generate enabled Markdown indexes | — |
 | `gnosis index knowledge` | Synchronize the vector index | — |
 | `gnosis validate vault` | Validate structure, frontmatter, links, and contracts | — |
-| `gnosis serve mcp` | Serve nine MCP tools over stdio | — |
-| `gnosis serve http` | Serve the atlas, JSON API, and streamable MCP | `--address <host:port>` |
+| `gnosis serve mcp` | Serve ten default MCP tools over stdio | `--allow-knowledge-writes` |
+| `gnosis serve http` | Serve the atlas, JSON API, and streamable MCP | `--address <host:port>`, `--allow-knowledge-writes` |
 | `gnosis version` | Print the installed version | — |
 | `gnosis completion <shell>` | Generate a shell completion script | shell-specific flags |
 
@@ -91,6 +106,11 @@ The same catalog includes `trace_graph` for bounded neighbors and paths plus
 `get_procedures` for all-match discovery and exact validated contracts.
 `get_evidence_context` returns the same bounded evidence contract as
 `gnosis context knowledge`.
+`propose_knowledge_change` is always available and has no write side effects.
+`apply_knowledge_change` is absent unless the server operator starts the
+transport with `--allow-knowledge-writes`. Enabling the tool authorizes its
+server-side capability but does not replace the MCP host's responsibility to
+obtain per-call user approval.
 
 ## Remote Git targets
 

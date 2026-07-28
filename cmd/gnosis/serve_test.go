@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -177,8 +178,8 @@ func TestHTTPMCP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Tools) != 9 {
-		t.Fatalf("tools = %d, want 9", len(listed.Tools))
+	if len(listed.Tools) != 10 {
+		t.Fatalf("tools = %d, want 10", len(listed.Tools))
 	}
 	result := callMCPTool(t, session, "get_page", map[string]any{
 		"uri": "gnosis://test/note.md",
@@ -277,6 +278,7 @@ func TestMCPTools(t *testing.T) {
 		"get_page",
 		"get_procedures",
 		"get_vaults",
+		"propose_knowledge_change",
 		"search_knowledge",
 		"search_memory",
 		"trace_graph",
@@ -347,6 +349,134 @@ func TestMCPTools(t *testing.T) {
 	if query.Candidates[0].Trust.Status != page.Document.Trust.Status ||
 		query.Candidates[0].Trust.Revision != page.Document.Trust.Revision {
 		t.Fatalf("candidate trust = %+v", query.Candidates[0].Trust)
+	}
+}
+
+func TestMCPKnowledgeChangeToolsAreGatedAndWorkOverBothTransports(t *testing.T) {
+	workspace := mcpTestVault(t)
+	writeCommandFile(t, workspace, "types/note.md", `---
+type: ConceptType
+title: Note
+description: A test note.
+path: notes
+---
+`)
+
+	defaultSession := connectMCPServer(t, newMCPServer(workspace))
+	defaultTools, err := defaultSession.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasMCPTool(defaultTools.Tools, "propose_knowledge_change") ||
+		hasMCPTool(defaultTools.Tools, "apply_knowledge_change") {
+		t.Fatalf("default tools = %+v", defaultTools.Tools)
+	}
+
+	enabledSession := connectMCPServer(t, newMCPServerWithKnowledgeWrites(workspace, true))
+	enabledTools, err := enabledSession.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasMCPTool(enabledTools.Tools, "apply_knowledge_change") {
+		t.Fatalf("write-enabled tools = %+v", enabledTools.Tools)
+	}
+
+	candidate := `---
+type: Note
+title: Planned
+description: MCP knowledge change.
+---
+
+# Planned
+`
+	arguments := map[string]any{
+		"uri":             "gnosis://test/notes/planned.md",
+		"candidate":       candidate,
+		"expected_absent": true,
+	}
+	proposalResult := callMCPTool(t, defaultSession, "propose_knowledge_change", arguments)
+	var plan vault.KnowledgeChangePlan
+	decodeMCPResult(t, proposalResult, &plan)
+	if !plan.Applicable || plan.Operation != "create" {
+		t.Fatalf("plan = %+v", plan)
+	}
+
+	changed := maps.Clone(arguments)
+	changed["candidate"] = strings.Replace(candidate, "# Planned", "# Changed", 1)
+	changed["digest"] = plan.Digest
+	result, err := enabledSession.CallTool(context.Background(), &mcp.CallToolParams{
+		Name: "apply_knowledge_change", Arguments: changed,
+	})
+	if err != nil || !result.IsError || !strings.Contains(mcpResultText(result), "digest changed") {
+		t.Fatalf("changed digest result = %+v err = %v", result, err)
+	}
+
+	writeCommandFile(t, workspace, "notes/planned.md", candidate)
+	stale := maps.Clone(arguments)
+	stale["digest"] = plan.Digest
+	result, err = enabledSession.CallTool(context.Background(), &mcp.CallToolParams{
+		Name: "apply_knowledge_change", Arguments: stale,
+	})
+	if err != nil || !result.IsError || !strings.Contains(mcpResultText(result), "actual revision") {
+		t.Fatalf("stale result = %+v err = %v", result, err)
+	}
+
+	invalidResult := callMCPTool(t, defaultSession, "propose_knowledge_change", map[string]any{
+		"uri":             "gnosis://test/notes/invalid.md",
+		"candidate":       "not typed markdown",
+		"expected_absent": true,
+	})
+	var invalid vault.KnowledgeChangePlan
+	decodeMCPResult(t, invalidResult, &invalid)
+	if invalid.Applicable || len(invalid.Findings) == 0 {
+		t.Fatalf("invalid plan = %+v", invalid)
+	}
+
+	successArguments := map[string]any{
+		"uri":             "gnosis://test/notes/applied.md",
+		"candidate":       strings.Replace(candidate, "Planned", "Applied", 2),
+		"expected_absent": true,
+	}
+	successProposal := callMCPTool(t, defaultSession, "propose_knowledge_change", successArguments)
+	decodeMCPResult(t, successProposal, &plan)
+	successArguments["digest"] = plan.Digest
+	appliedResult := callMCPTool(t, enabledSession, "apply_knowledge_change", successArguments)
+	var applied vault.KnowledgeChangeResult
+	decodeMCPResult(t, appliedResult, &applied)
+	if !applied.Changed || applied.Revision == "" {
+		t.Fatalf("applied = %+v", applied)
+	}
+
+	server := httptest.NewServer(newHTTPHandlerWithKnowledgeWrites(workspace, true))
+	t.Cleanup(server.Close)
+	client := mcp.NewClient(&mcp.Implementation{Name: "gnosis-test", Version: "0.0.0"}, nil)
+	httpSession, err := client.Connect(context.Background(), &mcp.StreamableClientTransport{
+		Endpoint: server.URL + "/mcp",
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = httpSession.Close() })
+	httpTools, err := httpSession.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasMCPTool(httpTools.Tools, "propose_knowledge_change") ||
+		!hasMCPTool(httpTools.Tools, "apply_knowledge_change") {
+		t.Fatalf("HTTP tools = %+v", httpTools.Tools)
+	}
+	httpArguments := map[string]any{
+		"uri":             "gnosis://test/notes/http-applied.md",
+		"candidate":       strings.Replace(candidate, "Planned", "HTTP applied", 2),
+		"expected_absent": true,
+	}
+	httpProposal := callMCPTool(t, httpSession, "propose_knowledge_change", httpArguments)
+	decodeMCPResult(t, httpProposal, &plan)
+	httpArguments["digest"] = plan.Digest
+	httpApplied := callMCPTool(t, httpSession, "apply_knowledge_change", httpArguments)
+	decodeMCPResult(t, httpApplied, &applied)
+	if !applied.Changed {
+		t.Fatalf("HTTP apply = %+v", applied)
 	}
 }
 
@@ -913,16 +1043,18 @@ func TestMCPSubprocess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Tools) != 9 {
-		t.Fatalf("tools = %d, want 9", len(listed.Tools))
+	if len(listed.Tools) != 10 {
+		t.Fatalf("tools = %d, want 10", len(listed.Tools))
 	}
-	var hasAdd, hasSearch bool
+	var hasAdd, hasSearch, hasPropose, hasApply bool
 	for _, tool := range listed.Tools {
 		hasAdd = hasAdd || tool.Name == "add_memory"
 		hasSearch = hasSearch || tool.Name == "search_memory"
+		hasPropose = hasPropose || tool.Name == "propose_knowledge_change"
+		hasApply = hasApply || tool.Name == "apply_knowledge_change"
 	}
-	if !hasAdd || !hasSearch {
-		t.Fatalf("memory tools missing: %+v", listed.Tools)
+	if !hasAdd || !hasSearch || !hasPropose || hasApply {
+		t.Fatalf("unexpected default tools: %+v", listed.Tools)
 	}
 
 	pageResult, err := session.CallTool(ctx, &mcp.CallToolParams{
@@ -987,6 +1119,15 @@ func connectMCPServer(t *testing.T, server *mcp.Server) *mcp.ClientSession {
 		_ = serverSession.Close()
 	})
 	return clientSession
+}
+
+func hasMCPTool(tools []*mcp.Tool, name string) bool {
+	for _, tool := range tools {
+		if tool.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func callMCPTool(t *testing.T, session *mcp.ClientSession, name string, arguments map[string]any) *mcp.CallToolResult {

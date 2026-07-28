@@ -6,8 +6,8 @@ Expose a vault to an agent over MCP stdio:
 gnosis --vault /path/to/workspace serve mcp
 ```
 
-Configure the agent to start that command as an MCP subprocess. The server
-offers nine tools:
+Configure the agent to start that command as an MCP subprocess. The default
+server offers ten tools:
 
 - `get_vaults`
 - `get_concepts`
@@ -16,6 +16,7 @@ offers nine tools:
 - `get_procedures`
 - `trace_graph`
 - `search_knowledge`
+- `propose_knowledge_change`
 - `add_memory`
 - `search_memory`
 
@@ -28,6 +29,20 @@ edges; truncated neighbor results direct callers to refine direction or
 relationship filters. The memory tools require
 `GNOSIS_MEMORY_USER_ID` and `GNOSIS_MEMORY_AGENT_ID` and can write through the
 selected memory backend.
+
+`propose_knowledge_change` validates and diffs one complete typed Markdown
+candidate without writing. To register the corresponding mutation tool, the
+server operator must opt in:
+
+```bash
+gnosis --vault /path/to/workspace serve mcp --allow-knowledge-writes
+```
+
+That adds `apply_knowledge_change`. Apply requires the exact URI, candidate,
+expected revision or expected absence, and digest returned during planning. It
+refreshes and revalidates the target, rejects stale or changed plans, and never
+physically deletes a page. Operator enablement makes the capability available;
+the MCP host remains responsible for per-call user approval.
 
 The same server exposes effective pages as MCP resources over both transports.
 Clients can:
@@ -50,6 +65,8 @@ gnosis --vault /path/to/workspace serve http \
 
 Open `http://127.0.0.1:8080/` for the atlas or connect an MCP client to
 `http://127.0.0.1:8080/mcp`.
+Add `--allow-knowledge-writes` to the HTTP command only when the streamable MCP
+server should also advertise `apply_knowledge_change`.
 
 The JSON endpoints are:
 
@@ -61,5 +78,6 @@ The JSON endpoints are:
 - `GET /api/v1/search?question=<question>`
 - `POST /api/v1/context`
 
-The default address is loopback-only. Review network exposure and memory
-backend credentials before binding to another interface.
+The default address is loopback-only. Review network exposure, host approval
+policy, and memory backend credentials before binding to another interface or
+enabling general knowledge writes.

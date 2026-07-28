@@ -11,74 +11,92 @@ import (
 // WriteDocument writes content into the vault selected by the target URI.
 // Concrete authorities remain restricted to the current local vault.
 func WriteDocument(root, uri string, content []byte, update bool) (string, error) {
-	targetVault, _, ok := canonicalGnosisParts(uri)
-	if !ok {
-		return "", fmt.Errorf("write: target URI: must be a canonical gnosis URI")
-	}
-
-	parsed, err := parsePage(content)
-	if err != nil {
-		return "", fmt.Errorf("write: parse input: %w", err)
-	}
-	metadata, problems := interpretPageMetadata(parsed.fields)
-	if len(problems) > 0 {
-		return "", fmt.Errorf("write: input %w", problems[0])
-	}
-	if _, err := requiredPageScalar(parsed.fields, "title"); err != nil {
-		return "", fmt.Errorf("write: input %w", err)
-	}
 	vault, err := loadEffectiveVault(root)
 	if err != nil {
 		return "", fmt.Errorf("write: resolve current directory: %w", err)
 	}
+	prepared, err := vault.prepareDocumentWrite(uri, content, update)
+	if err != nil {
+		return "", err
+	}
+	return vault.writePreparedDocument(prepared)
+}
+
+type preparedDocumentWrite struct {
+	content     []byte
+	destination string
+	candidate   *effectivePage
+	pages       []*effectivePage
+	config      Config
+}
+
+func (vault *effectiveVault) prepareDocumentWrite(uri string, content []byte, update bool) (preparedDocumentWrite, error) {
+	targetVault, _, ok := canonicalGnosisParts(uri)
+	if !ok {
+		return preparedDocumentWrite{}, fmt.Errorf("write: target URI: must be a canonical gnosis URI")
+	}
+
+	parsed, err := parsePage(content)
+	if err != nil {
+		return preparedDocumentWrite{}, fmt.Errorf("write: parse input: %w", err)
+	}
+	metadata, problems := interpretPageMetadata(parsed.fields)
+	if len(problems) > 0 {
+		return preparedDocumentWrite{}, fmt.Errorf("write: input %w", problems[0])
+	}
+	if _, err := requiredPageScalar(parsed.fields, "title"); err != nil {
+		return preparedDocumentWrite{}, fmt.Errorf("write: input %w", err)
+	}
 	targetRoot, hasLocalRoot := vault.localRoot()
 	targetVaultName := vault.config.Vault.Name
 	targetKind := OriginLocal
+	targetConfig := vault.config
 	if targetVault == anyVaultAuthority {
 		if len(vault.sources) == 0 {
-			return "", fmt.Errorf("write: no configured vault is writable in the current directory")
+			return preparedDocumentWrite{}, fmt.Errorf("write: no configured vault is writable in the current directory")
 		}
 		target := vault.sources[0]
 		targetRoot = target.path
 		targetVaultName = target.config.Vault.Name
+		targetConfig = target.config
 		if target.vaultRoot != vault.root {
 			targetKind = OriginImport
 		}
 	} else if !hasLocalRoot {
-		return "", fmt.Errorf("write: no local vault is defined in the current directory")
+		return preparedDocumentWrite{}, fmt.Errorf("write: no local vault is defined in the current directory")
 	}
 	targetRoot = filepath.Clean(targetRoot)
 	destination, destinationPath, err := writeURIDestination(uri, targetVaultName, targetRoot)
 	if err != nil {
-		return "", fmt.Errorf("write: target URI: %w", err)
+		return preparedDocumentWrite{}, fmt.Errorf("write: target URI: %w", err)
 	}
 
 	pages, err := vault.pages()
 	if err != nil {
-		return "", fmt.Errorf("write: %w", err)
+		return preparedDocumentWrite{}, fmt.Errorf("write: %w", err)
 	}
 
 	conceptPage, err := conceptTypePage(pages, metadata.conceptType)
 	if err != nil {
-		return "", err
+		return preparedDocumentWrite{}, err
 	}
 	directory, err := requiredPageScalar(conceptPage.fields, "path")
 	if err != nil {
-		return "", fmt.Errorf("write: Concept Type %q %w", metadata.conceptType, err)
+		return preparedDocumentWrite{}, fmt.Errorf("write: Concept Type %q %w", metadata.conceptType, err)
 	}
 	destinationDirectory, err := writeDestinationDirectory(targetRoot, directory)
 	if err != nil {
-		return "", fmt.Errorf("write: Concept Type %q path: %w", metadata.conceptType, err)
+		return preparedDocumentWrite{}, fmt.Errorf("write: Concept Type %q path: %w", metadata.conceptType, err)
 	}
 	relative, err := filepath.Rel(destinationDirectory, destination)
 	if err != nil {
-		return "", fmt.Errorf("write: determine target path: %w", err)
+		return preparedDocumentWrite{}, fmt.Errorf("write: determine target path: %w", err)
 	}
 	if relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
-		return "", fmt.Errorf("write: target path is outside Concept Type %q path", metadata.conceptType)
+		return preparedDocumentWrite{}, fmt.Errorf("write: target path is outside Concept Type %q path", metadata.conceptType)
 	}
 	if !update && hasExternalCollision(pages, targetRoot, destinationPath) {
-		return "", fmt.Errorf("write: document already exists outside the selected vault; rerun with --update")
+		return preparedDocumentWrite{}, fmt.Errorf("write: document already exists outside the selected vault; rerun with --update")
 	}
 	candidate, err := buildEffectivePage(targetRoot, destination, content, Origin{
 		Vault:      targetVaultName,
@@ -88,21 +106,32 @@ func WriteDocument(root, uri string, content []byte, update bool) (string, error
 		Precedence: 0,
 	}, parsed, metadata)
 	if err != nil {
-		return "", fmt.Errorf("write: build input page: %w", err)
+		return preparedDocumentWrite{}, fmt.Errorf("write: build input page: %w", err)
 	}
 	resolverPages := append([]*effectivePage(nil), pages...)
 	resolverPages = append(resolverPages, candidate)
 	if _, err := newDocumentResolver(resolverPages).resolvePageLinks(candidate); err != nil {
-		return "", fmt.Errorf("write: input links: %w", err)
+		return preparedDocumentWrite{}, fmt.Errorf("write: input links: %w", err)
 	}
+	return preparedDocumentWrite{
+		content:     content,
+		destination: destination,
+		candidate:   candidate,
+		pages:       pages,
+		config:      targetConfig,
+	}, nil
+}
+
+func (vault *effectiveVault) writePreparedDocument(prepared preparedDocumentWrite) (string, error) {
+	destination := prepared.destination
 	if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
 		return "", err
 	}
-	if err := atomicWriteFile(destination, content, 0o644); err != nil {
+	if err := atomicWriteFile(destination, prepared.content, 0o644); err != nil {
 		return "", err
 	}
 	if err := vault.publish("gnosis: update vault"); err != nil {
-		return "", fmt.Errorf("write: publish backend: %w", err)
+		return destination, fmt.Errorf("write: publish backend: %w", err)
 	}
 	return destination, nil
 }

@@ -29,29 +29,51 @@ const defaultHTTPAddress = "127.0.0.1:8080"
 
 func newServeHTTPCommand(options *rootOptions) *cobra.Command {
 	var address string
+	var allowKnowledgeWrites bool
 	command := &cobra.Command{
 		Use:   "http [flags]",
 		Short: "Serve the gnosis API, document UI, and MCP over HTTP",
 		Args:  cobra.NoArgs,
 		Example: "gnosis serve http --address 127.0.0.1:8080\n" +
-			"gnosis --vault <path> serve http",
+			"gnosis --vault <path> serve http\n" +
+			"gnosis --vault <path> serve http --allow-knowledge-writes",
 		RunE: func(command *cobra.Command, _ []string) error {
-			return serveHTTP(
-				command.Context(), address, options.vaultPath, command.ErrOrStderr(),
+			return serveHTTPWithKnowledgeWrites(
+				command.Context(),
+				address,
+				options.vaultPath,
+				allowKnowledgeWrites,
+				command.ErrOrStderr(),
 			)
 		},
 	}
 	command.Flags().StringVar(&address, "address", defaultHTTPAddress, "HTTP listen address")
+	command.Flags().BoolVar(
+		&allowKnowledgeWrites,
+		"allow-knowledge-writes",
+		false,
+		"register approval-gated general knowledge apply",
+	)
 	return command
 }
 
 func serveHTTP(ctx context.Context, address, vaultPath string, output io.Writer) error {
+	return serveHTTPWithKnowledgeWrites(ctx, address, vaultPath, false, output)
+}
+
+func serveHTTPWithKnowledgeWrites(
+	ctx context.Context,
+	address,
+	vaultPath string,
+	allowKnowledgeWrites bool,
+	output io.Writer,
+) error {
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return fmt.Errorf("serve http: listen: %w", err)
 	}
 	server := &http.Server{
-		Handler:           newHTTPHandler(vaultPath),
+		Handler:           newHTTPHandlerWithKnowledgeWrites(vaultPath, allowKnowledgeWrites),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       time.Minute,
 	}
@@ -82,6 +104,10 @@ func serveHTTP(ctx context.Context, address, vaultPath string, output io.Writer)
 }
 
 func newHTTPHandler(vaultPath string) http.Handler {
+	return newHTTPHandlerWithKnowledgeWrites(vaultPath, false)
+}
+
+func newHTTPHandlerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bool) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", serveUI)
 	mux.HandleFunc("GET /api/v1/vaults", serveVaults(vaultPath))
@@ -92,7 +118,7 @@ func newHTTPHandler(vaultPath string) http.Handler {
 	mux.HandleFunc("GET /api/v1/search", serveSearch(vaultPath))
 	mux.HandleFunc("POST /api/v1/context", serveContext(vaultPath))
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
-		return newMCPServer(vaultPath)
+		return newMCPServerWithKnowledgeWrites(vaultPath, allowKnowledgeWrites)
 	}, nil)
 	mux.Handle("/mcp", http.NewCrossOriginProtection().Handler(mcpHandler))
 	return mux

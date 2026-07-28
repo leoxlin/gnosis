@@ -85,7 +85,26 @@ type getProceduresOutput struct {
 	Procedure  *vault.ProcessInvocation `json:"procedure,omitempty"`
 }
 
+type proposeKnowledgeChangeInput struct {
+	URI              string `json:"uri" jsonschema:"canonical gnosis URI"`
+	Candidate        string `json:"candidate" jsonschema:"complete typed Markdown candidate"`
+	ExpectedRevision string `json:"expected_revision,omitempty" jsonschema:"required current revision for update or archive"`
+	ExpectedAbsent   bool   `json:"expected_absent,omitempty" jsonschema:"require the target page to be absent"`
+}
+
+type applyKnowledgeChangeInput struct {
+	URI              string `json:"uri" jsonschema:"canonical gnosis URI"`
+	Candidate        string `json:"candidate" jsonschema:"complete typed Markdown candidate"`
+	ExpectedRevision string `json:"expected_revision,omitempty" jsonschema:"required current revision for update or archive"`
+	ExpectedAbsent   bool   `json:"expected_absent,omitempty" jsonschema:"require the target page to be absent"`
+	Digest           string `json:"digest" jsonschema:"digest returned by propose_knowledge_change"`
+}
+
 func newMCPServer(vaultPath string) *mcp.Server {
+	return newMCPServerWithKnowledgeWrites(vaultPath, false)
+}
+
+func newMCPServerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bool) *mcp.Server {
 	server := mcp.NewServer(
 		&mcp.Implementation{Name: "gnosis", Version: "0.1.0"},
 		&mcp.ServerOptions{Capabilities: &mcp.ServerCapabilities{
@@ -146,6 +165,22 @@ func newMCPServer(vaultPath string) *mcp.Server {
 		return nil, result, err
 	})
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        "propose_knowledge_change",
+		Description: "Validate and diff one complete revision-bound knowledge candidate without side effects",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, input proposeKnowledgeChangeInput) (*mcp.CallToolResult, vault.KnowledgeChangePlan, error) {
+		result, err := vault.PlanKnowledgeChange(vaultPath, input.knowledgeChange())
+		return nil, result, err
+	})
+	if allowKnowledgeWrites {
+		mcp.AddTool(server, &mcp.Tool{
+			Name:        "apply_knowledge_change",
+			Description: "Apply one accepted revision-bound knowledge change; host approval is required",
+		}, func(_ context.Context, _ *mcp.CallToolRequest, input applyKnowledgeChangeInput) (*mcp.CallToolResult, vault.KnowledgeChangeResult, error) {
+			result, err := vault.ApplyKnowledgeChange(vaultPath, input.knowledgeChange(), input.Digest)
+			return nil, result, err
+		})
+	}
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "add_memory",
 		Description: "Store one durable memory in the configured user and agent scope",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input addMemoryInput) (*mcp.CallToolResult, agentmemory.Result, error) {
@@ -168,6 +203,24 @@ func newMCPServer(vaultPath string) *mcp.Server {
 		return nil, result, err
 	})
 	return server
+}
+
+func (input proposeKnowledgeChangeInput) knowledgeChange() vault.KnowledgeChangeInput {
+	return vault.KnowledgeChangeInput{
+		URI:              input.URI,
+		Candidate:        input.Candidate,
+		ExpectedRevision: input.ExpectedRevision,
+		ExpectedAbsent:   input.ExpectedAbsent,
+	}
+}
+
+func (input applyKnowledgeChangeInput) knowledgeChange() vault.KnowledgeChangeInput {
+	return vault.KnowledgeChangeInput{
+		URI:              input.URI,
+		Candidate:        input.Candidate,
+		ExpectedRevision: input.ExpectedRevision,
+		ExpectedAbsent:   input.ExpectedAbsent,
+	}
 }
 
 func traceMCPGraph(vaultPath string, input traceGraphInput) (traceGraphOutput, error) {
@@ -417,14 +470,26 @@ func newServeCommand(options *rootOptions) *cobra.Command {
 }
 
 func newServeMCPCommand(options *rootOptions) *cobra.Command {
-	return &cobra.Command{
+	var allowKnowledgeWrites bool
+	command := &cobra.Command{
 		Use:   "mcp [flags]",
 		Short: "Serve gnosis tools over MCP stdio",
 		Args:  cobra.NoArgs,
 		Example: "gnosis serve mcp\n" +
-			"gnosis --vault <path> serve mcp",
+			"gnosis --vault <path> serve mcp\n" +
+			"gnosis --vault <path> serve mcp --allow-knowledge-writes",
 		RunE: func(command *cobra.Command, _ []string) error {
-			return newMCPServer(options.vaultPath).Run(command.Context(), &mcp.StdioTransport{})
+			return newMCPServerWithKnowledgeWrites(
+				options.vaultPath,
+				allowKnowledgeWrites,
+			).Run(command.Context(), &mcp.StdioTransport{})
 		},
 	}
+	command.Flags().BoolVar(
+		&allowKnowledgeWrites,
+		"allow-knowledge-writes",
+		false,
+		"register approval-gated general knowledge apply",
+	)
+	return command
 }

@@ -10,6 +10,7 @@ evolve independently.
 CLI / HTTP / MCP
         │
         ├── memory service ── vault or Mem0
+        ├── knowledge change ─ validate / diff / conditional write
         │
         └── search ────────── lexical or pgvector
                 │
@@ -45,8 +46,9 @@ for supported agents.
 - Markdown pages are authoritative; semantic indexes are disposable.
 - Effective vaults resolve in a fixed precedence order.
 - Search depends on vault reads, never the reverse.
-- Knowledge endpoints read pages; only explicit memory tools write through the
-  memory service.
+- Knowledge-change planning is read-only. Explicitly enabled apply and memory
+  tools are the only MCP mutations, and each delegates persistence to its
+  owning service.
 - Procedure behavior remains in reviewable contracts while Go enforces
   structural invariants.
 
