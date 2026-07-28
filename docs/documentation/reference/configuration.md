@@ -54,8 +54,8 @@ vault_root = "../team-vault"
 
 ```toml
 [[vaults]]
-vault_name = "gnosis-openspec"
-vault_root = "https://github.com/leoxlin/gnosis-openspec.git"
+vault_name = "remote"
+vault_root = "https://github.com/example/knowledge-vault.git"
 ```
 
 The effective precedence is the primary vault, declared imports in order, then

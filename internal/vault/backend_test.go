@@ -19,12 +19,12 @@ func TestParseRemoteLocator(t *testing.T) {
 	}{
 		{name: "local", value: "../vault", wantRemote: false},
 		{
-			name: "https", value: "https://GitHub.COM/leoxlin/gnosis-openspec.git",
-			want: "https://github.com/leoxlin/gnosis-openspec.git", wantRemote: true,
+			name: "https", value: "https://GitHub.COM/example/knowledge-vault.git",
+			want: "https://github.com/example/knowledge-vault.git", wantRemote: true,
 		},
 		{
-			name: "ssh", value: "ssh://git@GitHub.COM/leoxlin/gnosis-openspec.git",
-			want: "ssh://git@github.com/leoxlin/gnosis-openspec.git", wantRemote: true,
+			name: "ssh", value: "ssh://git@GitHub.COM/example/knowledge-vault.git",
+			want: "ssh://git@github.com/example/knowledge-vault.git", wantRemote: true,
 		},
 		{name: "unsupported", value: "ftp://example.com/vault.git", wantRemote: true, wantErr: "https or ssh"},
 		{name: "https user", value: "https://token@example.com/vault.git", wantRemote: true, wantErr: "user information"},

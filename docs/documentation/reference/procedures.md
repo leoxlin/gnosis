@@ -33,6 +33,3 @@ same path.
 - Multi-step contracts define numbered `STEP` sections and routing.
 - A procedure that writes completes only after its stated validation and
   reporting gates pass.
-
-Repository development planning is handled by OpenSpec, not by a bundled
-development-procedure family.

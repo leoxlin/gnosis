@@ -15,7 +15,7 @@ By convention, Policy records live at `gnosis://<vault>/policies/`.
 
 - Normative and conditional knowledge — security controls, permissions, technology-selection rules, and situational guidance that answers "what should or must be done?" or "when does this apply?".
 
-Do not use it for repository-development choices (OpenSpec), facts (Concept), or lessons (Reflection).
+Do not use it for repository-development choices, facts (Concept), or lessons (Reflection).
 
 ## Minimum record
 

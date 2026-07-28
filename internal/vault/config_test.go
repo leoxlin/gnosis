@@ -162,7 +162,7 @@ vault_index = false
 vault_log = false
 `)
 	write(t, repository, "knowledge/note.md", "---\ntype: Note\ntitle: Repository note\n---\n")
-	descendant := filepath.Join(repository, "docs", "openspec", "changes")
+	descendant := filepath.Join(repository, "docs", "knowledge", "records")
 	if err := os.MkdirAll(descendant, 0o755); err != nil {
 		t.Fatal(err)
 	}

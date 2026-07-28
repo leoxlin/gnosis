@@ -152,6 +152,20 @@ description: Minimal concept.
 	}
 }
 
+func TestValidateIgnoresFrontmatterFreeMarkdown(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, "[vault]\nvault_index = false\nvault_log = false\n")
+	write(t, root, "notes/plain.md", "# Plain\n\nNo frontmatter.\n")
+
+	result, err := Validate(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Errors) != 0 || len(result.Warnings) != 0 || result.FilesChecked != 0 {
+		t.Fatalf("validation = %+v", result)
+	}
+}
+
 func TestValidateHonorsIndexAndLogIndependently(t *testing.T) {
 	tests := []struct {
 		name   string

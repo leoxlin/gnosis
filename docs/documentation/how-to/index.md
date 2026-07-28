@@ -9,4 +9,3 @@ specific task.
 - [Compose vaults](compose-vaults.md)
 - [Configure semantic search](configure-semantic-search.md)
 - [Serve gnosis over MCP or HTTP](serve-over-mcp.md)
-- [Plan repository work with OpenSpec](plan-with-openspec.md)

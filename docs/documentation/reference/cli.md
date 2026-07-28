@@ -8,8 +8,8 @@ current directory. It accepts local paths plus explicit HTTPS and SSH Git
 URLs:
 
 ```sh
-gnosis --vault https://github.com/leoxlin/gnosis-openspec.git get pages
-gnosis --vault ssh://git@github.com/leoxlin/gnosis-openspec.git get pages
+gnosis --vault https://github.com/example/knowledge-vault.git get pages
+gnosis --vault ssh://git@github.com/example/knowledge-vault.git get pages
 ```
 
 `--help` is available at every command level.
@@ -30,8 +30,7 @@ operational failures exit non-zero.
 | `gnosis apply page <uri>` | Validate and write one typed page | `--filename <file>`/`-f`, `--update` |
 
 `apply page` reads standard input when `--filename` is omitted. `--update`
-allows an intentional local shadow of a lower-precedence page. OpenSpec
-artifacts are read-only through gnosis.
+allows an intentional local shadow of a lower-precedence page.
 
 ### Read and discover
 

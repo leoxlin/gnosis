@@ -47,8 +47,6 @@ for supported agents.
 - Search depends on vault reads, never the reverse.
 - Knowledge endpoints read pages; only explicit memory tools write through the
   memory service.
-- OpenSpec pages can be projected into reads but cannot be written by the vault
-  writer.
 - Procedure behavior remains in reviewable contracts while Go enforces
   structural invariants.
 
