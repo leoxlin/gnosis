@@ -27,14 +27,15 @@ type Config struct {
 
 // VaultConfig holds local vault settings.
 type VaultConfig struct {
-	Name             string `toml:"vault_name"`
-	Root             string `toml:"vault_root"`
-	Backend          string `toml:"backend"`
-	Repository       string `toml:"repository"`
-	LinkFormat       string `toml:"link_format"`
-	LinkFormatStrict bool   `toml:"link_format_strict"`
-	VaultIndex       bool   `toml:"vault_index"`
-	VaultLog         bool   `toml:"vault_log"`
+	Name             string   `toml:"vault_name"`
+	Root             string   `toml:"vault_root"`
+	Backend          string   `toml:"backend"`
+	Repository       string   `toml:"repository"`
+	EntryPoints      []string `toml:"entry_points"`
+	LinkFormat       string   `toml:"link_format"`
+	LinkFormatStrict bool     `toml:"link_format_strict"`
+	VaultIndex       bool     `toml:"vault_index"`
+	VaultLog         bool     `toml:"vault_log"`
 }
 
 // DeclaredVaultConfig identifies one additional vault root in a workspace.
@@ -231,6 +232,11 @@ func validateConfig(config Config, root string) error {
 		case string(LinkFormatRelative), string(LinkFormatAbsolute):
 		default:
 			return fmt.Errorf("vault.link_format must be %q or %q, got %q", LinkFormatRelative, LinkFormatAbsolute, config.Vault.LinkFormat)
+		}
+		for index, uri := range config.Vault.EntryPoints {
+			if !IsCanonicalURI(strings.TrimSpace(uri)) {
+				return fmt.Errorf("vault.entry_points[%d] must be a canonical gnosis URI", index)
+			}
 		}
 	}
 	for i, declared := range config.Vaults {

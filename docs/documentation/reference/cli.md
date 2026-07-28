@@ -85,9 +85,17 @@ a new baseline instead of attempting to repair Git history.
 | `gnosis context knowledge <question>` | Resolve bounded cited evidence without generating an answer | `--strategy lexical\|vector\|hybrid`, exact constraint flags, `--max-evidence <n>`, `--max-chars <n>`, `--depth <n>` |
 | `gnosis graph neighbors <uri>` | List adjacent typed links | `--direction out\|in\|both`, `--relation <type>` repeatable |
 | `gnosis graph path <from-uri> <to-uri>` | Find a bounded path | `--direction out\|in\|both`, `--relation <type>` repeatable, `--depth <n>` |
+| `gnosis audit knowledge` | Report deterministic read-only knowledge-health findings | `--class <class>`, `--type <type>`, `--tier <tier>`, `--page-limit <n>`, `--finding-limit <n>`, `--stale-after <duration>`, `--cursor <cursor>` |
 
 Knowledge search defaults to the vector backend. Select `--backend lexical`
 for live, service-free BM25F-style retrieval.
+
+Knowledge audits default to every finding class except staleness. Selecting
+`stale` requires a positive duration plus at least one type or tier filter.
+Page bounds reject an over-broad request; finding bounds return an opaque
+cursor over the severity-and-URI ordered result. Audits report evidence and
+Procedure routing without changing pages, indexes, logs, configuration,
+commits, or remotes.
 
 ### Memory
 
@@ -106,7 +114,7 @@ Both commands require `GNOSIS_MEMORY_USER_ID` and
 | `gnosis index vault` | Generate enabled Markdown indexes | — |
 | `gnosis index knowledge` | Synchronize the vector index | — |
 | `gnosis validate vault` | Validate structure, frontmatter, links, and contracts | — |
-| `gnosis serve mcp` | Serve thirteen default MCP tools over stdio | `--allow-knowledge-writes` |
+| `gnosis serve mcp` | Serve fourteen default MCP tools over stdio | `--allow-knowledge-writes` |
 | `gnosis serve http` | Serve the atlas, JSON API, and streamable MCP | `--address <host:port>`, `--allow-knowledge-writes` |
 | `gnosis version` | Print the installed version | — |
 | `gnosis completion <shell>` | Generate a shell completion script | shell-specific flags |
@@ -125,6 +133,8 @@ The same catalog includes `trace_graph` for bounded neighbors and paths plus
 as the CLI.
 `get_evidence_context` returns the same bounded evidence contract as
 `gnosis context knowledge`.
+`audit_knowledge` returns the same read-only health contract as
+`gnosis audit knowledge`.
 `propose_knowledge_change` is always available and has no write side effects.
 `apply_knowledge_change` is absent unless the server operator starts the
 transport with `--allow-knowledge-writes`. Enabling the tool authorizes its

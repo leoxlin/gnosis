@@ -120,6 +120,7 @@ func newHTTPHandlerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bo
 	mux.HandleFunc("GET /api/v1/graph", serveGraph(vaultPath))
 	mux.HandleFunc("GET /api/v1/search", serveSearch(vaultPath))
 	mux.HandleFunc("POST /api/v1/context", serveContext(vaultPath))
+	mux.HandleFunc("POST /api/v1/audit/knowledge", serveKnowledgeAudit(vaultPath))
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
 		return newMCPServerWithKnowledgeWrites(vaultPath, allowKnowledgeWrites)
 	}, nil)
@@ -368,6 +369,24 @@ func serveContext(vaultPath string) http.HandlerFunc {
 		result, err := evidencecontext.Resolve(request.Context(), vaultPath, input)
 		if err != nil {
 			writeHTTPError(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeHTTPJSON(w, http.StatusOK, result)
+	}
+}
+
+func serveKnowledgeAudit(vaultPath string) http.HandlerFunc {
+	return func(w http.ResponseWriter, request *http.Request) {
+		var input vault.KnowledgeAuditRequest
+		decoder := json.NewDecoder(request.Body)
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&input); err != nil {
+			writeHTTPError(w, http.StatusBadRequest, fmt.Errorf("invalid knowledge audit request: %w", err))
+			return
+		}
+		result, err := vault.AuditKnowledge(vaultPath, input)
+		if err != nil {
+			writeHTTPError(w, http.StatusBadRequest, err)
 			return
 		}
 		writeHTTPJSON(w, http.StatusOK, result)

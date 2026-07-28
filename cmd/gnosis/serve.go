@@ -218,6 +218,13 @@ func newMCPServerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bool
 		return nil, result, err
 	})
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        "audit_knowledge",
+		Description: "Report bounded deterministic knowledge-health findings without mutation",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, input vault.KnowledgeAuditRequest) (*mcp.CallToolResult, vault.KnowledgeAuditResult, error) {
+		result, err := vault.AuditKnowledge(vaultPath, input)
+		return nil, result, err
+	})
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "propose_knowledge_change",
 		Description: "Validate and diff one complete revision-bound knowledge candidate without side effects",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, input proposeKnowledgeChangeInput) (*mcp.CallToolResult, vault.KnowledgeChangePlan, error) {

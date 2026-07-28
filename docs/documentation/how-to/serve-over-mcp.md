@@ -7,7 +7,7 @@ gnosis --vault /path/to/workspace serve mcp
 ```
 
 Configure the agent to start that command as an MCP subprocess. The default
-server offers thirteen tools:
+server offers fourteen tools:
 
 - `get_vaults`
 - `get_concepts`
@@ -16,6 +16,7 @@ server offers thirteen tools:
 - `get_diff`
 - `get_changes`
 - `get_evidence_context`
+- `audit_knowledge`
 - `get_procedures`
 - `trace_graph`
 - `search_knowledge`
@@ -27,6 +28,8 @@ Knowledge tools read the effective vault. `get_procedures` discovers eligible
 model-invocable Procedures by all-match tags or reads one exact validated
 contract. `get_evidence_context` returns bounded cited excerpts, typed paths,
 retrieval passes, omissions, and gaps without generating an answer.
+`audit_knowledge` returns bounded deterministic health findings and recommended
+Procedure routing without modifying the vault.
 `trace_graph` returns a path or at most 100 deterministically ordered neighbor
 edges; truncated neighbor results direct callers to refine direction or
 relationship filters. The memory tools require
@@ -104,6 +107,7 @@ The JSON endpoints are:
 - `GET /api/v1/graph`
 - `GET /api/v1/search?question=<question>`
 - `POST /api/v1/context`
+- `POST /api/v1/audit/knowledge`
 
 The default address is loopback-only. Review network exposure, host approval
 policy, and memory backend credentials before binding to another interface or

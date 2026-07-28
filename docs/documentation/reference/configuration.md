@@ -24,6 +24,7 @@ indexes and the log are enabled.
 | `vault_root` | `docs` in an implicit repository vault | Knowledge directory |
 | `backend` | empty | Primary storage backend; supported value: `github-wiki` |
 | `repository` | empty | GitHub `owner/repository` used by that backend |
+| `entry_points` | empty | Canonical page URIs excluded from orphan findings |
 | `link_format` | `relative` | Preferred internal link form: `relative` or `absolute` |
 | `link_format_strict` | `true` in an implicit repository vault | Treat link-style violations as errors |
 | `vault_index` | `false` in an implicit repository vault | Require and generate directory `index.md` files |
@@ -35,6 +36,7 @@ Example standalone vault:
 [vault]
 vault_name = "knowledge"
 vault_root = "."
+entry_points = ["gnosis://knowledge/home.md"]
 link_format = "relative"
 link_format_strict = false
 vault_index = true
