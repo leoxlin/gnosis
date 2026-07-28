@@ -45,3 +45,23 @@ read. Optional source, observation, validity, confidence, and inference markers
 explain how strongly a claim is supported. Supersession and archival retain
 negative knowledge—what used to be believed or has ceased to apply—instead of
 silently erasing it.
+
+Agent-facing page references carry these values in one `trust` object. `origin`
+and `revision` identify the selected effective page. `status`, `confidence`,
+`source`, `valid_from`, `valid_until`, `observed_at`, `occurred_at`, and `tier`
+appear only when authored; gnosis does not supply trust defaults or calculate a
+score.
+
+The projection derives only identities and locations:
+
+- `superseded_by.uri` is the effective identity resolved from the authored link;
+- `current: false` means that successor resolved, while absence does not assert
+  currentness;
+- `claims` locates authored `^[inferred]` and `^[ambiguous]` markers by
+  one-based body line and column;
+- `contradictions` contains identities from explicit `contradicts`
+  relationships without choosing which claim is true.
+
+Exact reads can resolve the bounded successor chain. The result retains the
+requested historical page and reports `current`, `missing_target`, `cycle`, or
+`depth_exceeded`.

@@ -47,16 +47,18 @@ type Document struct {
 	Edges       []Edge
 	Origin      Origin
 	Revision    string
+	Trust       TrustProjection
 }
 
 // DocumentRef is the compact agent-facing representation of a document.
 type DocumentRef struct {
-	URI         string `json:"uri"`
-	Type        string `json:"type"`
-	Title       string `json:"title"`
-	Description string `json:"description,omitempty"`
-	Origin      Origin `json:"origin"`
-	Revision    string `json:"revision"`
+	URI         string          `json:"uri"`
+	Type        string          `json:"type"`
+	Title       string          `json:"title"`
+	Description string          `json:"description,omitempty"`
+	Origin      Origin          `json:"origin"`
+	Revision    string          `json:"revision"`
+	Trust       TrustProjection `json:"trust"`
 }
 
 // Ref returns the agent-facing identity for a document.
@@ -68,13 +70,20 @@ func (d Document) Ref() DocumentRef {
 		Description: d.Description,
 		Origin:      d.Origin,
 		Revision:    d.Revision,
+		Trust:       d.Trust,
 	}
 }
 
 // Page is an exact vault page and its complete Markdown source.
 type Page struct {
-	Document DocumentRef `json:"document"`
-	Markdown string      `json:"markdown"`
+	Document          DocumentRef        `json:"document"`
+	Markdown          string             `json:"markdown"`
+	CurrentResolution *CurrentResolution `json:"current_resolution,omitempty"`
+}
+
+// ReadOptions controls optional exact-read projections.
+type ReadOptions struct {
+	ResolveCurrent bool
 }
 
 // ListPages returns every effective page in deterministic URI order.
@@ -83,7 +92,7 @@ func ListPages(root string) ([]DocumentRef, error) {
 	if err != nil {
 		return nil, err
 	}
-	pages, err := vault.pages()
+	pages, err := vault.resolvedPages()
 	if err != nil {
 		return nil, err
 	}
@@ -97,11 +106,16 @@ func ListPages(root string) ([]DocumentRef, error) {
 
 // ReadPage reads one exact effective page by gnosis URI.
 func ReadPage(root, selector string) (Page, error) {
+	return ReadPageWithOptions(root, selector, ReadOptions{})
+}
+
+// ReadPageWithOptions reads one exact page and optionally follows supersession.
+func ReadPageWithOptions(root, selector string, options ReadOptions) (Page, error) {
 	vault, err := loadEffectiveVault(root)
 	if err != nil {
 		return Page{}, err
 	}
-	pages, err := vault.pages()
+	pages, err := vault.resolvedPages()
 	if err != nil {
 		return Page{}, err
 	}
@@ -113,7 +127,12 @@ func ReadPage(root, selector string) (Page, error) {
 	if err != nil {
 		return Page{}, err
 	}
-	return Page{Document: page.document.Ref(), Markdown: markdown}, nil
+	result := Page{Document: page.document.Ref(), Markdown: markdown}
+	if options.ResolveCurrent {
+		current := resolveCurrent(pages, page)
+		result.CurrentResolution = &current
+	}
+	return result, nil
 }
 
 func selectPage(pages []*effectivePage, selector string) (*effectivePage, bool) {

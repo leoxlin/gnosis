@@ -26,7 +26,8 @@ type conceptsOutput struct {
 }
 
 type getPageInput struct {
-	URI string `json:"uri" jsonschema:"canonical gnosis URI"`
+	URI            string `json:"uri" jsonschema:"canonical gnosis URI"`
+	ResolveCurrent bool   `json:"resolve_current,omitempty" jsonschema:"follow the bounded supersession chain"`
 }
 
 type searchKnowledgeInput struct {
@@ -65,7 +66,11 @@ func newMCPServer(vaultPath string) *mcp.Server {
 		Name:        "get_page",
 		Description: "Read one exact gnosis page by canonical URI",
 	}, func(_ context.Context, _ *mcp.CallToolRequest, input getPageInput) (*mcp.CallToolResult, vault.Page, error) {
-		page, err := vault.ReadPage(vaultPath, input.URI)
+		page, err := vault.ReadPageWithOptions(
+			vaultPath,
+			input.URI,
+			vault.ReadOptions{ResolveCurrent: input.ResolveCurrent},
+		)
 		return nil, page, err
 	})
 	mcp.AddTool(server, &mcp.Tool{

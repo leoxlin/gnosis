@@ -127,6 +127,31 @@ func TestGetPagePreviewAndFullContent(t *testing.T) {
 	}
 }
 
+func TestGetPageProjectsTrustAndResolvesCurrent(t *testing.T) {
+	workspace := commandVault(t)
+	writeCommandFile(t, workspace, "current.md", "---\ntype: Note\ntitle: Current\nstatus: verified\n---\n")
+	writeCommandFile(t, workspace, "old.md", "---\ntype: Note\ntitle: Old\nstatus: archived\nsuperseded_by: current.md\n---\n")
+
+	var stdout, stderr bytes.Buffer
+	if err := run([]string{
+		"--vault", workspace, "get", "pages", "gnosis://test/old.md", "--resolve-current",
+	}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	for _, value := range []string{
+		"trust:",
+		"status: archived",
+		"current: false",
+		"current_resolution:",
+		"status: current",
+		`current: "gnosis://test/current.md"`,
+	} {
+		if !strings.Contains(stdout.String(), value) {
+			t.Fatalf("output = %q, missing %q", stdout.String(), value)
+		}
+	}
+}
+
 func TestGetPageReadsDirectRemoteTargetAndConfiguredRemoteImport(t *testing.T) {
 	fixture := newCommandRemoteFixture(t, "https://example.test/team/read.git")
 	uri := "gnosis://remote/notes/remote.md"

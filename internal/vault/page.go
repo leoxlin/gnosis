@@ -257,6 +257,7 @@ func buildEffectivePage(root, path string, data []byte, origin Origin, parsed pa
 	page.document.Aliases = metadata.aliases
 	page.document.Tags = metadata.tags
 	page.document.Body = parsed.body
+	page.document.Trust = initialTrust(page.document)
 	return page, nil
 }
 
@@ -266,7 +267,7 @@ func newEffectivePageIdentity(root, path string, data []byte, origin Origin) (*e
 		return nil, err
 	}
 
-	return &effectivePage{
+	page := &effectivePage{
 		root: root,
 		path: filepath.Clean(path),
 		data: data,
@@ -278,7 +279,9 @@ func newEffectivePageIdentity(root, path string, data []byte, origin Origin) (*e
 			Origin:   origin,
 			Revision: documentRevision(data),
 		},
-	}, nil
+	}
+	page.document.Trust = initialTrust(page.document)
+	return page, nil
 }
 
 func (p *effectivePage) authoredRecord() map[string]any {
@@ -287,6 +290,7 @@ func (p *effectivePage) authoredRecord() map[string]any {
 		record[key] = value
 	}
 	record["uri"] = p.document.URI
+	record["trust"] = p.document.Trust
 	return record
 }
 

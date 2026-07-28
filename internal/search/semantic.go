@@ -227,6 +227,10 @@ func QuerySemantic(
 	if err != nil {
 		return QueryResult{}, fmt.Errorf("semantic query: load documents: %w", err)
 	}
+	documentsByURI := make(map[string]vault.Document, len(documents))
+	for _, document := range documents {
+		documentsByURI[document.URI] = document
+	}
 
 	conn, err := pgx.Connect(ctx, config.DatabaseURL)
 	if err != nil {
@@ -321,6 +325,7 @@ func QuerySemantic(
 		if err := json.Unmarshal(origin, &candidate.Origin); err != nil {
 			return QueryResult{}, fmt.Errorf("semantic query: decode origin for %q: %w", candidate.URI, err)
 		}
+		candidate.Trust = documentsByURI[candidate.URI].Trust
 		candidate.Description = truncateRunes(candidate.Description, maxDescriptionRune)
 		candidate.Score = roundScore(candidate.Score)
 		result.Candidates = append(result.Candidates, candidate)

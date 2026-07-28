@@ -266,6 +266,9 @@ func (v *effectiveVault) resolvedPages() ([]*effectivePage, error) {
 	if err := resolveDocumentEdges(pages); err != nil {
 		return nil, err
 	}
+	if err := projectTrust(pages); err != nil {
+		return nil, err
+	}
 	return pages, nil
 }
 

@@ -46,13 +46,14 @@ type QueryOptions struct {
 
 // Candidate is the compact, user-facing representation of a search hit.
 type Candidate struct {
-	URI         string       `json:"uri"`
-	Type        string       `json:"type"`
-	Title       string       `json:"title"`
-	Description string       `json:"description"`
-	Origin      vault.Origin `json:"origin"`
-	Revision    string       `json:"revision"`
-	Score       float64      `json:"score"`
+	URI         string                `json:"uri"`
+	Type        string                `json:"type"`
+	Title       string                `json:"title"`
+	Description string                `json:"description"`
+	Origin      vault.Origin          `json:"origin"`
+	Revision    string                `json:"revision"`
+	Trust       vault.TrustProjection `json:"trust"`
+	Score       float64               `json:"score"`
 }
 
 // QueryResult is the stable response for CLI knowledge queries.
@@ -296,6 +297,7 @@ func (e *engine) query(question string, options QueryOptions) QueryResult {
 			Description: truncateRunes(hit.document.Description, maxDescriptionRune),
 			Origin:      hit.document.Origin,
 			Revision:    hit.document.Revision,
+			Trust:       hit.document.Trust,
 			Score:       roundScore(hit.score),
 		})
 	}

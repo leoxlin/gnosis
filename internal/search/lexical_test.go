@@ -182,6 +182,24 @@ func TestQueryBoundsContextAndTruncatesDescription(t *testing.T) {
 	}
 }
 
+func TestQueryProjectsDocumentTrust(t *testing.T) {
+	trust := vault.TrustProjection{
+		Origin:   vault.Origin{Vault: "test", Kind: vault.OriginLocal},
+		Revision: "sha256:test",
+		Status:   "verified",
+	}
+	engine := newEngine([]vault.Document{{
+		Path: "trusted.md", URI: "gnosis://test/trusted.md", Title: "Trusted",
+		Body: "trust projection", Trust: trust,
+	}})
+
+	result := engine.query("trust projection", QueryOptions{Top: 1, MaxRead: 1, MaxDepth: 1})
+	if len(result.Candidates) != 1 || result.Candidates[0].Trust.Status != "verified" ||
+		result.Candidates[0].Trust.Revision != "sha256:test" {
+		t.Fatalf("candidate = %+v", result.Candidates)
+	}
+}
+
 func TestQueryMaxReadZeroReturnsNoPageRecommendations(t *testing.T) {
 	page := document("page.md")
 	page.Title, page.Body = "Page", "search term"

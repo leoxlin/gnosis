@@ -45,8 +45,8 @@ func newSearchKnowledgeCommand(options *rootOptions, stdout io.Writer) *cobra.Co
 			}
 			selector, err := parseFields(
 				fields,
-				[]string{"uri", "title", "type", "score"},
-				[]string{"uri", "type", "title", "description", "revision", "score"},
+				[]string{"uri", "title", "type", "score", "trust"},
+				[]string{"uri", "type", "title", "description", "revision", "score", "trust"},
 			)
 			if err != nil {
 				return newUsageError(err)
@@ -82,7 +82,7 @@ func newSearchKnowledgeCommand(options *rootOptions, stdout io.Writer) *cobra.Co
 		&fields,
 		"fields",
 		"",
-		"candidate fields: uri, type, title, description, revision, score",
+		"candidate fields: uri, type, title, description, revision, score, trust",
 	)
 	return command
 }
@@ -117,6 +117,8 @@ func writeSearchResult(output io.Writer, selector fieldSelector, result search.Q
 				return candidate.Revision, true
 			case "score":
 				return candidate.Score, true
+			case "trust":
+				return trustObject(candidate.Trust), true
 			default:
 				return nil, false
 			}

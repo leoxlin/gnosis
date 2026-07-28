@@ -31,7 +31,7 @@ func ConceptRecords(root, conceptType string) (ConceptRecordCatalog, error) {
 	if err != nil {
 		return nil, fmt.Errorf("concepts: %w", err)
 	}
-	pages, err := vault.pages()
+	pages, err := vault.resolvedPages()
 	if err != nil {
 		return nil, fmt.Errorf("concepts: %w", err)
 	}
@@ -56,7 +56,7 @@ func Concepts(root, conceptType string) (ConceptCatalog, error) {
 	if err != nil {
 		return ConceptCatalog{}, fmt.Errorf("concepts: %w", err)
 	}
-	pages, err := vault.pages()
+	pages, err := vault.resolvedPages()
 	if err != nil {
 		return ConceptCatalog{}, fmt.Errorf("concepts: %w", err)
 	}

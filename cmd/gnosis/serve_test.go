@@ -67,6 +67,9 @@ func TestHTTPAPIAndUI(t *testing.T) {
 	if len(pages.Pages) < 2 {
 		t.Fatalf("pages = %+v", pages)
 	}
+	if pages.Pages[0].Trust.Revision == "" {
+		t.Fatalf("page-list trust = %+v", pages.Pages[0].Trust)
+	}
 
 	var page vault.Page
 	pageURL := server.URL + "/api/v1/page?uri=" + url.QueryEscape("gnosis://test/note.md")
@@ -75,6 +78,9 @@ func TestHTTPAPIAndUI(t *testing.T) {
 	}
 	if page.Document.URI != "gnosis://test/note.md" || !strings.Contains(page.Markdown, "gnosis://test/procedure.md") {
 		t.Fatalf("page = %+v", page)
+	}
+	if page.Document.Trust.Status != "reviewed" || page.Document.Trust.Revision != page.Document.Revision {
+		t.Fatalf("page trust = %+v", page.Document.Trust)
 	}
 
 	var rendered struct {
@@ -105,6 +111,10 @@ func TestHTTPAPIAndUI(t *testing.T) {
 	}
 	if len(search.Candidates) != 1 || search.Candidates[0].URI != "gnosis://test/note.md" {
 		t.Fatalf("search = %+v", search)
+	}
+	if search.Candidates[0].Trust.Status != page.Document.Trust.Status ||
+		search.Candidates[0].Trust.Revision != page.Document.Trust.Revision {
+		t.Fatalf("search trust = %+v, page trust = %+v", search.Candidates[0].Trust, page.Document.Trust)
 	}
 
 	var failure map[string]string
@@ -283,6 +293,9 @@ func TestMCPTools(t *testing.T) {
 	if concepts.Concepts[0]["uri"] != "gnosis://test/note.md" {
 		t.Fatalf("concept = %+v", concepts.Concepts[0])
 	}
+	if concepts.Concepts[0]["trust"] == nil {
+		t.Fatalf("concept trust = %+v", concepts.Concepts[0])
+	}
 
 	pageResult := callMCPTool(t, session, "get_page", map[string]any{
 		"uri": "gnosis://test/note.md",
@@ -291,6 +304,21 @@ func TestMCPTools(t *testing.T) {
 	decodeMCPResult(t, pageResult, &page)
 	if page.Document.URI != "gnosis://test/note.md" || page.Document.Revision == "" {
 		t.Fatalf("page = %+v", page)
+	}
+	if page.Document.Trust.Status != "reviewed" ||
+		page.Document.Trust.Revision != page.Document.Revision {
+		t.Fatalf("page trust = %+v", page.Document.Trust)
+	}
+
+	currentResult := callMCPTool(t, session, "get_page", map[string]any{
+		"uri":             "gnosis://test/old.md",
+		"resolve_current": true,
+	})
+	var old vault.Page
+	decodeMCPResult(t, currentResult, &old)
+	if old.Document.URI != "gnosis://test/old.md" || old.CurrentResolution == nil ||
+		old.CurrentResolution.Current != "gnosis://test/note.md" {
+		t.Fatalf("resolved page = %+v", old)
 	}
 
 	searchResult := callMCPTool(t, session, "search_knowledge", map[string]any{
@@ -307,6 +335,10 @@ func TestMCPTools(t *testing.T) {
 	}
 	if query.Candidates[0].Revision == "" || query.Candidates[0].Origin.Vault != "test" {
 		t.Fatalf("candidate provenance = %+v", query.Candidates[0])
+	}
+	if query.Candidates[0].Trust.Status != page.Document.Trust.Status ||
+		query.Candidates[0].Trust.Revision != page.Document.Trust.Revision {
+		t.Fatalf("candidate trust = %+v", query.Candidates[0].Trust)
 	}
 }
 
@@ -740,9 +772,18 @@ func mcpTestVault(t *testing.T) string {
 type: Note
 title: Keep it small
 description: Prefer the smallest adequate design.
+status: reviewed
+confidence: 0.9
 ---
 
-Use the simplest design that satisfies the current requirement.
+Use the simplest design that satisfies the current requirement. ^[inferred]
+`)
+	writeCommandFile(t, workspace, "old.md", `---
+type: Concept
+title: Old guidance
+status: archived
+superseded_by: note.md
+---
 `)
 	return workspace
 }
@@ -754,6 +795,8 @@ func httpTestVault(t *testing.T) string {
 type: Note
 title: Keep it small
 description: Prefer the smallest adequate design.
+status: reviewed
+confidence: 0.9
 ---
 
 Follow the [implementation procedure](procedure.md).

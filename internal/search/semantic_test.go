@@ -322,6 +322,10 @@ Beta harbor shipping knowledge.
 	if firstRevision == "" || result.Candidates[0].Origin.Vault != "semantic-test" {
 		t.Fatalf("candidate provenance = %+v", result.Candidates[0])
 	}
+	if result.Candidates[0].Trust.Revision != firstRevision ||
+		result.Candidates[0].Trust.Origin.Vault != "semantic-test" {
+		t.Fatalf("candidate trust = %+v", result.Candidates[0].Trust)
+	}
 
 	if err := os.WriteFile(alphaPath, []byte(`---
 type: Reference

@@ -37,18 +37,19 @@ allows an intentional local shadow of a lower-precedence page.
 | Command | Purpose | Flags |
 |---|---|---|
 | `gnosis get vaults` | List effective vaults and precedence | `--fields vault,kind,root,precedence` |
-| `gnosis get concepts [type]` | List Concept Types or records of one exact type | `--fields uri,type,title,description,revision` |
-| `gnosis get pages [uri]` | List pages or read one exact page | `--fields uri,type,title,description,revision`, `--full` |
-| `gnosis get procedures [uri]` | List invocable Procedures or read one contract | `--tags <tag,...>`, `--fields uri,type,title,description,revision,invocation,tags`, `--full` |
+| `gnosis get concepts [type]` | List Concept Types or records of one exact type | `--fields uri,type,title,description,revision,trust` |
+| `gnosis get pages [uri]` | List pages or read one exact page | `--fields uri,type,title,description,revision,trust`, `--full`, `--resolve-current` |
+| `gnosis get procedures [uri]` | List invocable Procedures or read one contract | `--tags <tag,...>`, `--fields uri,type,title,description,revision,trust,invocation,tags`, `--full` |
 
-`--full` requires a URI. `--fields` applies only to list output. Every tag
-passed to `--tags` must match.
+`--full` and `--resolve-current` require a URI. `--fields` applies only to list
+output. Every tag passed to `--tags` must match. `--resolve-current` retains the
+requested page and adds its bounded supersession result.
 
 ### Search and traverse
 
 | Command | Purpose | Flags |
 |---|---|---|
-| `gnosis search knowledge <question>` | Rank relevant knowledge pages | `--backend vector\|lexical`, `--top <n>`, `--max-read <n>`, `--depth <n>`, `--fields uri,type,title,description,revision,score` |
+| `gnosis search knowledge <question>` | Rank relevant knowledge pages | `--backend vector\|lexical`, `--top <n>`, `--max-read <n>`, `--depth <n>`, `--fields uri,type,title,description,revision,score,trust` |
 | `gnosis graph neighbors <uri>` | List adjacent typed links | `--direction out\|in\|both`, `--relation <type>` repeatable |
 | `gnosis graph path <from-uri> <to-uri>` | Find a bounded path | `--direction out\|in\|both`, `--relation <type>` repeatable, `--depth <n>` |
 

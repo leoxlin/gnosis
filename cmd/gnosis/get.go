@@ -113,12 +113,12 @@ func newGetConceptsCommand(options *rootOptions, stdout io.Writer) *cobra.Comman
 			}
 			defaults := []string{"type", "description", "uri"}
 			if conceptType != "" {
-				defaults = []string{"uri", "title", "type"}
+				defaults = []string{"uri", "title", "type", "trust"}
 			}
 			selector, err := parseFields(
 				fields,
 				defaults,
-				[]string{"uri", "type", "title", "description", "revision"},
+				[]string{"uri", "type", "title", "description", "revision", "trust"},
 			)
 			if err != nil {
 				return newUsageError(err)
@@ -137,7 +137,7 @@ func newGetConceptsCommand(options *rootOptions, stdout io.Writer) *cobra.Comman
 		&fields,
 		"fields",
 		"",
-		"comma-separated fields: uri, type, title, description, revision",
+		"comma-separated fields: uri, type, title, description, revision, trust",
 	)
 	return command
 }
@@ -157,7 +157,7 @@ func writeConceptTypes(
 				return conceptType.Description, true
 			case "uri":
 				return conceptType.URI, true
-			case "title", "revision":
+			case "title", "revision", "trust":
 				return "", true
 			default:
 				return nil, false
@@ -195,6 +195,7 @@ func writeConceptList(
 func newGetPagesCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
 	var fields string
 	var isFull bool
+	var resolveCurrent bool
 	command := &cobra.Command{
 		Use:   "pages [gnosis-uri] [flags]",
 		Short: "List effective pages or read one exact page",
@@ -207,6 +208,9 @@ func newGetPagesCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
 				if command.Flags().Changed("full") {
 					return newUsageError(errors.New("get pages: --full requires a gnosis uri"))
 				}
+				if command.Flags().Changed("resolve-current") {
+					return newUsageError(errors.New("get pages: --resolve-current requires a gnosis uri"))
+				}
 				return listPages(options.vaultPath, fields, stdout)
 			}
 			if command.Flags().Changed("fields") {
@@ -216,7 +220,7 @@ func newGetPagesCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
 			if !vault.IsCanonicalURI(uri) {
 				return newUsageError(errors.New("get pages: argument must be a gnosis uri"))
 			}
-			return getPage(options.vaultPath, uri, isFull, stdout)
+			return getPage(options.vaultPath, uri, isFull, resolveCurrent, stdout)
 		},
 	}
 	flags := command.Flags()
@@ -224,17 +228,18 @@ func newGetPagesCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
 		&fields,
 		"fields",
 		"",
-		"list fields: uri, type, title, description, revision",
+		"list fields: uri, type, title, description, revision, trust",
 	)
 	flags.BoolVar(&isFull, "full", false, "include complete page Markdown")
+	flags.BoolVar(&resolveCurrent, "resolve-current", false, "follow the bounded supersession chain")
 	return command
 }
 
 func listPages(vaultPath, fields string, stdout io.Writer) error {
 	selector, err := parseFields(
 		fields,
-		[]string{"uri", "title", "type"},
-		[]string{"uri", "type", "title", "description", "revision"},
+		[]string{"uri", "title", "type", "trust"},
+		[]string{"uri", "type", "title", "description", "revision", "trust"},
 	)
 	if err != nil {
 		return newUsageError(err)
@@ -256,17 +261,31 @@ func listPages(vaultPath, fields string, stdout io.Writer) error {
 	))
 }
 
-func getPage(vaultPath, uri string, isFull bool, stdout io.Writer) error {
-	page, err := vault.ReadPage(vaultPath, uri)
+func getPage(vaultPath, uri string, isFull, resolveCurrent bool, stdout io.Writer) error {
+	page, err := vault.ReadPageWithOptions(
+		vaultPath,
+		uri,
+		vault.ReadOptions{ResolveCurrent: resolveCurrent},
+	)
 	if err != nil {
 		return fmt.Errorf("get pages: %w", err)
 	}
 	markdown, total, isTruncated := truncate(page.Markdown, isFull)
+	pageFields := []toon.Field{
+		{Key: "document", Value: documentObject(page.Document)},
+		{Key: "markdown", Value: markdown},
+	}
+	if page.CurrentResolution != nil {
+		pageFields = append(pageFields, toon.Field{
+			Key: "current_resolution", Value: toon.NewObject(
+				toon.Field{Key: "status", Value: string(page.CurrentResolution.Status)},
+				toon.Field{Key: "current", Value: page.CurrentResolution.Current},
+				toon.Field{Key: "chain", Value: page.CurrentResolution.Chain},
+			),
+		})
+	}
 	fields := []toon.Field{
-		{Key: "page", Value: toon.NewObject(
-			toon.Field{Key: "document", Value: documentObject(page.Document)},
-			toon.Field{Key: "markdown", Value: markdown},
-		)},
+		{Key: "page", Value: toon.NewObject(pageFields...)},
 		{Key: "content_chars", Value: total},
 		{Key: "truncated", Value: isTruncated},
 	}
@@ -314,7 +333,7 @@ func newGetProceduresCommand(options *rootOptions, stdout io.Writer) *cobra.Comm
 		&fields,
 		"fields",
 		"",
-		"list fields: uri, type, title, description, revision, invocation, tags",
+		"list fields: uri, type, title, description, revision, trust, invocation, tags",
 	)
 	flags.StringSliceVar(&tags, "tags", nil, "require all procedure tags")
 	flags.BoolVar(&isFull, "full", false, "include the complete execution contract")
@@ -324,8 +343,8 @@ func newGetProceduresCommand(options *rootOptions, stdout io.Writer) *cobra.Comm
 func listProcedures(vaultPath string, tags []string, fields string, stdout io.Writer) error {
 	selector, err := parseFields(
 		fields,
-		[]string{"uri", "title", "description"},
-		[]string{"uri", "type", "title", "description", "revision", "invocation", "tags"},
+		[]string{"uri", "title", "description", "trust"},
+		[]string{"uri", "type", "title", "description", "revision", "trust", "invocation", "tags"},
 	)
 	if err != nil {
 		return newUsageError(err)
@@ -340,6 +359,9 @@ func listProcedures(vaultPath string, tags []string, fields string, stdout io.Wr
 		rows = append(rows, selector.object(func(name string) (any, bool) {
 			value, ok := record[name]
 			if ok {
+				if trust, isTrust := value.(vault.TrustProjection); isTrust {
+					return trustObject(trust), true
+				}
 				return value, true
 			}
 			if name == "tags" {
@@ -454,6 +476,8 @@ func documentRows(selector fieldSelector, documents []vault.DocumentRef) []toon.
 				return document.Description, true
 			case "revision":
 				return document.Revision, true
+			case "trust":
+				return trustObject(document.Trust), true
 			default:
 				return nil, false
 			}
@@ -476,5 +500,71 @@ func documentObject(document vault.DocumentRef) toon.Object {
 			toon.Field{Key: "precedence", Value: document.Origin.Precedence},
 		)},
 		toon.Field{Key: "revision", Value: document.Revision},
+		toon.Field{Key: "trust", Value: trustObject(document.Trust)},
 	)
+}
+
+func trustObject(trust vault.TrustProjection) toon.Object {
+	fields := []toon.Field{
+		{Key: "origin", Value: toon.NewObject(
+			toon.Field{Key: "vault", Value: trust.Origin.Vault},
+			toon.Field{Key: "kind", Value: string(trust.Origin.Kind)},
+			toon.Field{Key: "root", Value: trust.Origin.Root},
+			toon.Field{Key: "path", Value: trust.Origin.Path},
+			toon.Field{Key: "precedence", Value: trust.Origin.Precedence},
+		)},
+		{Key: "revision", Value: trust.Revision},
+	}
+	for _, field := range []struct {
+		key   string
+		value string
+	}{
+		{"status", trust.Status},
+		{"source", trust.Source},
+		{"valid_from", trust.ValidFrom},
+		{"valid_until", trust.ValidUntil},
+		{"observed_at", trust.ObservedAt},
+		{"occurred_at", trust.OccurredAt},
+		{"tier", trust.Tier},
+	} {
+		if field.value != "" {
+			fields = append(fields, toon.Field{Key: field.key, Value: field.value})
+		}
+	}
+	if trust.Confidence != nil {
+		fields = append(fields, toon.Field{Key: "confidence", Value: *trust.Confidence})
+	}
+	if trust.SupersededBy != nil {
+		fields = append(fields, toon.Field{
+			Key: "superseded_by", Value: toon.NewObject(
+				toon.Field{Key: "authored", Value: trust.SupersededBy.Authored},
+				toon.Field{Key: "uri", Value: trust.SupersededBy.URI},
+			),
+		})
+	}
+	if trust.Current != nil {
+		fields = append(fields, toon.Field{Key: "current", Value: *trust.Current})
+	}
+	if len(trust.Claims) > 0 {
+		claims := make([]toon.Object, 0, len(trust.Claims))
+		for _, claim := range trust.Claims {
+			claims = append(claims, toon.NewObject(
+				toon.Field{Key: "kind", Value: claim.Kind},
+				toon.Field{Key: "line", Value: claim.Line},
+				toon.Field{Key: "column", Value: claim.Column},
+			))
+		}
+		fields = append(fields, toon.Field{Key: "claims", Value: claims})
+	}
+	if len(trust.Contradictions) > 0 {
+		contradictions := make([]toon.Object, 0, len(trust.Contradictions))
+		for _, contradiction := range trust.Contradictions {
+			contradictions = append(contradictions, toon.NewObject(
+				toon.Field{Key: "uri", Value: contradiction.URI},
+				toon.Field{Key: "relation", Value: contradiction.Relation},
+			))
+		}
+		fields = append(fields, toon.Field{Key: "contradictions", Value: contradictions})
+	}
+	return toon.NewObject(fields...)
 }

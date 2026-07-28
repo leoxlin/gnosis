@@ -146,7 +146,20 @@ func servePage(vaultPath string) http.HandlerFunc {
 			writeHTTPError(w, http.StatusBadRequest, errors.New("uri must be a gnosis URI"))
 			return
 		}
-		page, err := vault.ReadPage(vaultPath, uri)
+		resolveCurrent := false
+		if raw := request.URL.Query().Get("resolve_current"); raw != "" {
+			parsed, err := strconv.ParseBool(raw)
+			if err != nil {
+				writeHTTPError(w, http.StatusBadRequest, errors.New("resolve_current must be true or false"))
+				return
+			}
+			resolveCurrent = parsed
+		}
+		page, err := vault.ReadPageWithOptions(
+			vaultPath,
+			uri,
+			vault.ReadOptions{ResolveCurrent: resolveCurrent},
+		)
 		if err != nil {
 			writeHTTPError(w, http.StatusNotFound, err)
 			return
