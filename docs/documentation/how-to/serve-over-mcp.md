@@ -7,16 +7,22 @@ gnosis --vault /path/to/workspace serve mcp
 ```
 
 Configure the agent to start that command as an MCP subprocess. The server
-offers six tools:
+offers eight tools:
 
 - `get_vaults`
 - `get_concepts`
 - `get_page`
+- `get_procedures`
+- `trace_graph`
 - `search_knowledge`
 - `add_memory`
 - `search_memory`
 
-Knowledge tools read the effective vault. The memory tools require
+Knowledge tools read the effective vault. `get_procedures` discovers eligible
+model-invocable Procedures by all-match tags or reads one exact validated
+contract. `trace_graph` returns a path or at most 100 deterministically ordered
+neighbor edges; truncated neighbor results direct callers to refine direction
+or relationship filters. The memory tools require
 `GNOSIS_MEMORY_USER_ID` and `GNOSIS_MEMORY_AGENT_ID` and can write through the
 selected memory backend.
 

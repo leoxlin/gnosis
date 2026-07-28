@@ -79,7 +79,10 @@ func DiscoverProcesses(root string, requestedTags []string) (ConceptRecordCatalo
 			return nil, invalidProcedure(page.document.URI, problems)
 		}
 
-		records = append(records, page.authoredRecord())
+		record := page.authoredRecord()
+		record["invocation"] = eligibility.invocation
+		record["tags"] = append([]string(nil), eligibility.tags...)
+		records = append(records, record)
 	}
 	sort.Slice(records, func(i, j int) bool {
 		return records[i]["uri"].(string) < records[j]["uri"].(string)

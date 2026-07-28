@@ -177,8 +177,8 @@ func TestHTTPMCP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Tools) != 6 {
-		t.Fatalf("tools = %d, want 6", len(listed.Tools))
+	if len(listed.Tools) != 8 {
+		t.Fatalf("tools = %d, want 8", len(listed.Tools))
 	}
 	result := callMCPTool(t, session, "get_page", map[string]any{
 		"uri": "gnosis://test/note.md",
@@ -274,9 +274,11 @@ func TestMCPTools(t *testing.T) {
 		"add_memory",
 		"get_concepts",
 		"get_page",
+		"get_procedures",
 		"get_vaults",
 		"search_knowledge",
 		"search_memory",
+		"trace_graph",
 	}
 	if strings.Join(names, ",") != strings.Join(want, ",") {
 		t.Fatalf("tools = %v, want %v", names, want)
@@ -344,6 +346,210 @@ func TestMCPTools(t *testing.T) {
 	if query.Candidates[0].Trust.Status != page.Document.Trust.Status ||
 		query.Candidates[0].Trust.Revision != page.Document.Trust.Revision {
 		t.Fatalf("candidate trust = %+v", query.Candidates[0].Trust)
+	}
+}
+
+func TestMCPGraphAndProcedureParity(t *testing.T) {
+	workspace := mcpTestVault(t)
+	writeMCPGraphProcedureFixtures(t, workspace)
+	session := connectMCPServer(t, newMCPServer(workspace))
+
+	neighborsResult := callMCPTool(t, session, "trace_graph", map[string]any{
+		"uri":       "gnosis://test/source.md",
+		"direction": "out",
+		"limit":     1,
+	})
+	var graph traceGraphOutput
+	decodeMCPResult(t, neighborsResult, &graph)
+	wantNeighbors, err := vault.TraceNeighbors(
+		workspace, "gnosis://test/source.md", vault.DirectionOut, nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if graph.Mode != "neighbors" || graph.Neighbors == nil ||
+		graph.Neighbors.Total != len(wantNeighbors.Edges) ||
+		len(graph.Neighbors.Edges) != 1 || !graph.Neighbors.Truncated ||
+		len(graph.Neighbors.Continuation) != 1 ||
+		graph.Neighbors.Node.Revision != wantNeighbors.Node.Revision ||
+		!sameGraphEdge(graph.Neighbors.Edges[0], wantNeighbors.Edges[0]) {
+		t.Fatalf("neighbors = %+v, want parity with %+v", graph, wantNeighbors)
+	}
+
+	pathResult := callMCPTool(t, session, "trace_graph", map[string]any{
+		"uri":        "gnosis://test/source.md",
+		"target_uri": "gnosis://test/target.md",
+		"direction":  "out",
+		"relations":  []string{"supports"},
+		"depth":      2,
+	})
+	decodeMCPResult(t, pathResult, &graph)
+	wantPath, err := vault.TracePath(
+		workspace,
+		"gnosis://test/source.md",
+		"gnosis://test/target.md",
+		vault.DirectionOut,
+		[]string{"supports"},
+		2,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if graph.Mode != "path" || graph.Path == nil ||
+		graph.Path.Status != wantPath.Status ||
+		len(graph.Path.Nodes) != len(wantPath.Nodes) ||
+		len(graph.Path.Edges) != len(wantPath.Edges) ||
+		graph.Path.Nodes[1].Origin != wantPath.Nodes[1].Origin ||
+		graph.Path.Nodes[1].Revision != wantPath.Nodes[1].Revision ||
+		!sameGraphEdge(graph.Path.Edges[0], wantPath.Edges[0]) {
+		t.Fatalf("path = %+v, want parity with %+v", graph, wantPath)
+	}
+
+	discoveryResult := callMCPTool(t, session, "get_procedures", map[string]any{
+		"tags": []string{"test", "mcp"},
+	})
+	var procedures getProceduresOutput
+	decodeMCPResult(t, discoveryResult, &procedures)
+	wantCatalog, err := vault.DiscoverProcesses(workspace, []string{"test", "mcp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if procedures.Mode != "discovery" || len(procedures.Procedures) != 1 ||
+		len(wantCatalog["procedures"]) != 1 {
+		t.Fatalf("procedures = %+v, want parity with %+v", procedures, wantCatalog)
+	}
+	wantProcedure := wantCatalog["procedures"][0]
+	wantTrust := wantProcedure["trust"].(vault.TrustProjection)
+	gotTrust, ok := procedures.Procedures[0]["trust"].(map[string]any)
+	if !ok {
+		t.Fatalf("procedure trust = %#v", procedures.Procedures[0]["trust"])
+	}
+	gotOrigin, ok := gotTrust["origin"].(map[string]any)
+	if !ok {
+		t.Fatalf("procedure origin = %#v", gotTrust["origin"])
+	}
+	if procedures.Procedures[0]["uri"] != wantProcedure["uri"] ||
+		procedures.Procedures[0]["invocation"] != "model" ||
+		gotTrust["revision"] != wantTrust.Revision ||
+		gotOrigin["vault"] != wantTrust.Origin.Vault ||
+		gotOrigin["kind"] != string(wantTrust.Origin.Kind) {
+		t.Fatalf("procedures = %+v, want parity with %+v", procedures, wantCatalog)
+	}
+
+	contractResult := callMCPTool(t, session, "get_procedures", map[string]any{
+		"uri": "gnosis://test/procedures/model.md",
+	})
+	decodeMCPResult(t, contractResult, &procedures)
+	wantContract, err := vault.InvokeProcess(workspace, "gnosis://test/procedures/model.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if procedures.Mode != "contract" || procedures.Procedure == nil ||
+		procedures.Procedure.Process.Revision != wantContract.Process.Revision ||
+		procedures.Procedure.Process.Origin != wantContract.Process.Origin ||
+		procedures.Procedure.Sections != wantContract.Sections ||
+		len(procedures.Procedure.Steps) != len(wantContract.Steps) {
+		t.Fatalf("procedure = %+v, want parity with %+v", procedures, wantContract)
+	}
+}
+
+func TestMCPGraphAndProcedureErrorsKeepSessionUsable(t *testing.T) {
+	workspace := mcpTestVault(t)
+	writeMCPGraphProcedureFixtures(t, workspace)
+	session := connectMCPServer(t, newMCPServer(workspace))
+	tests := []struct {
+		name      string
+		tool      string
+		arguments map[string]any
+	}{
+		{name: "source uri", tool: "trace_graph", arguments: map[string]any{"uri": "bad"}},
+		{name: "target uri", tool: "trace_graph", arguments: map[string]any{
+			"uri": "gnosis://test/source.md", "target_uri": "bad",
+		}},
+		{name: "direction", tool: "trace_graph", arguments: map[string]any{
+			"uri": "gnosis://test/source.md", "direction": "sideways",
+		}},
+		{name: "relation", tool: "trace_graph", arguments: map[string]any{
+			"uri": "gnosis://test/source.md", "relations": []string{" "},
+		}},
+		{name: "neighbor depth", tool: "trace_graph", arguments: map[string]any{
+			"uri": "gnosis://test/source.md", "depth": 1,
+		}},
+		{name: "path depth", tool: "trace_graph", arguments: map[string]any{
+			"uri": "gnosis://test/source.md", "target_uri": "gnosis://test/target.md", "depth": -1,
+		}},
+		{name: "neighbor limit", tool: "trace_graph", arguments: map[string]any{
+			"uri": "gnosis://test/source.md", "limit": 0,
+		}},
+		{name: "path limit", tool: "trace_graph", arguments: map[string]any{
+			"uri": "gnosis://test/source.md", "target_uri": "gnosis://test/target.md", "limit": 1,
+		}},
+		{name: "procedure uri", tool: "get_procedures", arguments: map[string]any{"uri": "bad"}},
+		{name: "contract tags", tool: "get_procedures", arguments: map[string]any{
+			"uri": "gnosis://test/procedures/model.md", "tags": []string{"test"},
+		}},
+		{name: "empty tag", tool: "get_procedures", arguments: map[string]any{"tags": []string{""}}},
+		{name: "invalid contract", tool: "get_procedures", arguments: map[string]any{
+			"uri": "gnosis://test/procedures/invalid.md",
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result, err := session.CallTool(context.Background(), &mcp.CallToolParams{
+				Name: test.tool, Arguments: test.arguments,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !result.IsError {
+				t.Fatalf("result = %+v, want tool error", result)
+			}
+			if err := session.Ping(context.Background(), nil); err != nil {
+				t.Fatalf("session failed after tool error: %v", err)
+			}
+		})
+	}
+}
+
+func TestMCPProcedureDiscoveryDoesNotChangeCatalogs(t *testing.T) {
+	workspace := mcpTestVault(t)
+	session := connectMCPServer(t, newMCPServer(workspace))
+	ctx := context.Background()
+	beforeTools, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforePrompts, err := session.ListPrompts(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	writeCommandFile(t, workspace, "procedures/added.md", validMCPProcedure("Added", "catalog"))
+	result := callMCPTool(t, session, "get_procedures", map[string]any{
+		"tags": []string{"catalog"},
+	})
+	var procedures getProceduresOutput
+	decodeMCPResult(t, result, &procedures)
+	if len(procedures.Procedures) != 1 ||
+		procedures.Procedures[0]["uri"] != "gnosis://test/procedures/added.md" {
+		t.Fatalf("procedures = %+v", procedures)
+	}
+
+	afterTools, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	afterPrompts, err := session.ListPrompts(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(afterTools.Tools) != len(beforeTools.Tools) ||
+		len(afterPrompts.Prompts) != len(beforePrompts.Prompts) {
+		t.Fatalf(
+			"catalogs changed: tools %d -> %d, prompts %d -> %d",
+			len(beforeTools.Tools), len(afterTools.Tools),
+			len(beforePrompts.Prompts), len(afterPrompts.Prompts),
+		)
 	}
 }
 
@@ -706,8 +912,8 @@ func TestMCPSubprocess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Tools) != 6 {
-		t.Fatalf("tools = %d, want 6", len(listed.Tools))
+	if len(listed.Tools) != 8 {
+		t.Fatalf("tools = %d, want 8", len(listed.Tools))
 	}
 	var hasAdd, hasSearch bool
 	for _, tool := range listed.Tools {
@@ -925,6 +1131,77 @@ superseded_by: note.md
 	return workspace
 }
 
+func writeMCPGraphProcedureFixtures(t *testing.T, workspace string) {
+	writeCommandFile(t, workspace, "gnosis.toml", `[vault]
+vault_name = "test"
+vault_root = "."
+vault_index = false
+vault_log = false
+
+[[vaults]]
+vault_name = "imported"
+vault_root = "imported"
+`)
+	writeCommandFile(t, workspace, "imported/gnosis.toml", `[vault]
+vault_name = "imported"
+vault_root = "."
+vault_index = false
+vault_log = false
+`)
+	writeCommandFile(t, workspace, "imported/target.md", `---
+type: Note
+title: Shadowed target
+description: Lower-precedence target.
+---
+`)
+	writeCommandFile(t, workspace, "source.md", `---
+type: Note
+title: Source
+description: Graph source.
+relationships:
+  - type: supports
+    target: target.md
+  - type: supports
+    target: other.md
+---
+`)
+	writeCommandFile(t, workspace, "target.md", `---
+type: Note
+title: Effective target
+description: Higher-precedence target.
+---
+`)
+	writeCommandFile(t, workspace, "other.md", `---
+type: Note
+title: Other target
+description: Another graph target.
+---
+`)
+	writeCommandFile(
+		t, workspace, "procedures/model.md", validMCPProcedure("Model procedure", "mcp"),
+	)
+	writeCommandFile(t, workspace, "procedures/invalid.md", `---
+type: Procedure
+title: Invalid procedure
+description: An invalid explicit Procedure.
+tags: [test]
+invocation: explicit
+---
+`)
+}
+
+func validMCPProcedure(title, tag string) string {
+	return "---\n" +
+		"type: Procedure\n" +
+		"title: " + title + "\n" +
+		"description: A valid MCP test Procedure.\n" +
+		"tags: [test, " + tag + "]\n" +
+		"---\n\n" +
+		"## Inputs\n\nFacts.\n\n" +
+		"## Process\n\n1. Act.\n\n" +
+		"## Completion\n\nThe action is complete.\n"
+}
+
 func httpTestVault(t *testing.T) string {
 	t.Helper()
 	workspace := commandVault(t)
@@ -974,6 +1251,18 @@ func hasGraphEdge(edges []vault.GraphEdge, from, to string) bool {
 		}
 	}
 	return false
+}
+
+func sameGraphEdge(left, right vault.GraphEdge) bool {
+	return left.From.URI == right.From.URI &&
+		left.From.Origin == right.From.Origin &&
+		left.From.Revision == right.From.Revision &&
+		left.To.URI == right.To.URI &&
+		left.To.Origin == right.To.Origin &&
+		left.To.Revision == right.To.Revision &&
+		left.Relation == right.Relation &&
+		left.Raw == right.Raw &&
+		left.Source == right.Source
 }
 
 type readyWriter struct {

@@ -15,6 +15,7 @@ import (
 )
 
 const mcpPageResourceTemplate = "gnosis://{vault}/{+path}"
+const maxMCPGraphNeighbors = 100
 
 type emptyInput struct{}
 
@@ -48,6 +49,39 @@ type addMemoryInput struct {
 type searchMemoryInput struct {
 	Query string `json:"query" jsonschema:"memory search query"`
 	Limit *int   `json:"limit,omitempty" jsonschema:"maximum memories to return, from 1 through 20"`
+}
+
+type traceGraphInput struct {
+	URI       string   `json:"uri" jsonschema:"canonical source gnosis URI"`
+	TargetURI string   `json:"target_uri,omitempty" jsonschema:"canonical target gnosis URI for path mode"`
+	Direction string   `json:"direction,omitempty" jsonschema:"edge direction: out, in, or both"`
+	Relations []string `json:"relations,omitempty" jsonschema:"relationship type filters"`
+	Depth     *int     `json:"depth,omitempty" jsonschema:"maximum path depth"`
+	Limit     *int     `json:"limit,omitempty" jsonschema:"maximum neighbor edges, from 1 through 100"`
+}
+
+type boundedGraphNeighbors struct {
+	vault.GraphNeighbors
+	Total        int      `json:"total"`
+	Truncated    bool     `json:"truncated"`
+	Continuation []string `json:"continuation,omitempty"`
+}
+
+type traceGraphOutput struct {
+	Mode      string                 `json:"mode"`
+	Neighbors *boundedGraphNeighbors `json:"neighbors,omitempty"`
+	Path      *vault.GraphPath       `json:"path,omitempty"`
+}
+
+type getProceduresInput struct {
+	URI  string   `json:"uri,omitempty" jsonschema:"canonical Procedure gnosis URI"`
+	Tags []string `json:"tags,omitempty" jsonschema:"require all Procedure tags in discovery mode"`
+}
+
+type getProceduresOutput struct {
+	Mode       string                   `json:"mode"`
+	Procedures []map[string]any         `json:"procedures,omitempty"`
+	Procedure  *vault.ProcessInvocation `json:"procedure,omitempty"`
 }
 
 func newMCPServer(vaultPath string) *mcp.Server {
@@ -90,6 +124,20 @@ func newMCPServer(vaultPath string) *mcp.Server {
 		return nil, result, err
 	})
 	mcp.AddTool(server, &mcp.Tool{
+		Name:        "trace_graph",
+		Description: "Trace bounded graph neighbors or a path between canonical gnosis URIs",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, input traceGraphInput) (*mcp.CallToolResult, traceGraphOutput, error) {
+		result, err := traceMCPGraph(vaultPath, input)
+		return nil, result, err
+	})
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_procedures",
+		Description: "Discover eligible Procedures by tags or read one exact validated contract",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, input getProceduresInput) (*mcp.CallToolResult, getProceduresOutput, error) {
+		result, err := getMCPProcedures(vaultPath, input)
+		return nil, result, err
+	})
+	mcp.AddTool(server, &mcp.Tool{
 		Name:        "add_memory",
 		Description: "Store one durable memory in the configured user and agent scope",
 	}, func(ctx context.Context, _ *mcp.CallToolRequest, input addMemoryInput) (*mcp.CallToolResult, agentmemory.Result, error) {
@@ -112,6 +160,110 @@ func newMCPServer(vaultPath string) *mcp.Server {
 		return nil, result, err
 	})
 	return server
+}
+
+func traceMCPGraph(vaultPath string, input traceGraphInput) (traceGraphOutput, error) {
+	input.URI = strings.TrimSpace(input.URI)
+	input.TargetURI = strings.TrimSpace(input.TargetURI)
+	if !vault.IsCanonicalURI(input.URI) {
+		return traceGraphOutput{}, errors.New("trace graph: uri must be a canonical gnosis URI")
+	}
+	if input.Direction == "" {
+		input.Direction = string(vault.DirectionBoth)
+	}
+	if err := validateDirection(input.Direction); err != nil {
+		return traceGraphOutput{}, fmt.Errorf("trace graph: %w", err)
+	}
+	for _, relation := range input.Relations {
+		if strings.TrimSpace(relation) == "" {
+			return traceGraphOutput{}, errors.New("trace graph: relations must not contain empty values")
+		}
+	}
+
+	if input.TargetURI == "" {
+		if input.Depth != nil {
+			return traceGraphOutput{}, errors.New("trace graph: depth is available only in path mode")
+		}
+		limit := maxMCPGraphNeighbors
+		if input.Limit != nil {
+			limit = *input.Limit
+		}
+		if limit < 1 || limit > maxMCPGraphNeighbors {
+			return traceGraphOutput{}, fmt.Errorf(
+				"trace graph: limit must be between 1 and %d", maxMCPGraphNeighbors,
+			)
+		}
+		result, err := vault.TraceNeighbors(
+			vaultPath, input.URI, vault.Direction(input.Direction), input.Relations,
+		)
+		if err != nil {
+			return traceGraphOutput{}, err
+		}
+		total := len(result.Edges)
+		bounded := boundedGraphNeighbors{GraphNeighbors: result, Total: total}
+		if total > limit {
+			bounded.Edges = bounded.Edges[:limit]
+			bounded.Truncated = true
+			bounded.Continuation = []string{
+				"Refine direction or relations to continue with a deterministic subset.",
+			}
+		}
+		return traceGraphOutput{Mode: "neighbors", Neighbors: &bounded}, nil
+	}
+
+	if !vault.IsCanonicalURI(input.TargetURI) {
+		return traceGraphOutput{}, errors.New("trace graph: target_uri must be a canonical gnosis URI")
+	}
+	if input.Limit != nil {
+		return traceGraphOutput{}, errors.New("trace graph: limit is available only in neighbor mode")
+	}
+	depth := 3
+	if input.Depth != nil {
+		depth = *input.Depth
+	}
+	if depth < 0 {
+		return traceGraphOutput{}, errors.New("trace graph: depth must be zero or greater")
+	}
+	result, err := vault.TracePath(
+		vaultPath,
+		input.URI,
+		input.TargetURI,
+		vault.Direction(input.Direction),
+		input.Relations,
+		depth,
+	)
+	if err != nil {
+		return traceGraphOutput{}, err
+	}
+	return traceGraphOutput{Mode: "path", Path: &result}, nil
+}
+
+func getMCPProcedures(vaultPath string, input getProceduresInput) (getProceduresOutput, error) {
+	input.URI = strings.TrimSpace(input.URI)
+	for index, tag := range input.Tags {
+		input.Tags[index] = strings.TrimSpace(tag)
+		if input.Tags[index] == "" {
+			return getProceduresOutput{}, errors.New("get procedures: tags must not contain empty values")
+		}
+	}
+	if input.URI == "" {
+		catalog, err := vault.DiscoverProcesses(vaultPath, input.Tags)
+		if err != nil {
+			return getProceduresOutput{}, err
+		}
+		return getProceduresOutput{Mode: "discovery", Procedures: catalog["procedures"]}, nil
+	}
+	if !vault.IsCanonicalURI(input.URI) {
+		return getProceduresOutput{}, errors.New("get procedures: uri must be a canonical gnosis URI")
+	}
+	if len(input.Tags) != 0 {
+		return getProceduresOutput{}, errors.New("get procedures: tags are available only in discovery mode")
+	}
+	procedure, err := vault.InvokeProcess(vaultPath, input.URI)
+	if err != nil {
+		return getProceduresOutput{}, err
+	}
+	return getProceduresOutput{Mode: "contract", Procedure: &procedure}, nil
 }
 
 func addMCPResources(server *mcp.Server, vaultPath string) {

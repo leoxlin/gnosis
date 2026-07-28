@@ -73,7 +73,7 @@ Both commands require `GNOSIS_MEMORY_USER_ID` and
 | `gnosis index vault` | Generate enabled Markdown indexes | — |
 | `gnosis index knowledge` | Synchronize the vector index | — |
 | `gnosis validate vault` | Validate structure, frontmatter, links, and contracts | — |
-| `gnosis serve mcp` | Serve six MCP tools over stdio | — |
+| `gnosis serve mcp` | Serve eight MCP tools over stdio | — |
 | `gnosis serve http` | Serve the atlas, JSON API, and streamable MCP | `--address <host:port>` |
 | `gnosis version` | Print the installed version | — |
 | `gnosis completion <shell>` | Generate a shell completion script | shell-specific flags |
@@ -86,6 +86,8 @@ most 100 descriptors per page with an opaque continuation cursor. Clients may
 also discover the `gnosis://{vault}/{+path}` resource template. Resource reads
 return the effective page's rendered Markdown, concrete origin, and revision;
 `get_page` remains the model-controlled tool for exact reads.
+The same catalog includes `trace_graph` for bounded neighbors and paths plus
+`get_procedures` for all-match discovery and exact validated contracts.
 
 ## Remote Git targets
 
