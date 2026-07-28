@@ -114,6 +114,9 @@ func newHTTPHandlerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bo
 	mux.HandleFunc("GET /api/v1/concepts", serveConcepts(vaultPath))
 	mux.HandleFunc("GET /api/v1/pages", servePages(vaultPath))
 	mux.HandleFunc("GET /api/v1/page", servePage(vaultPath))
+	mux.HandleFunc("GET /api/v1/history", serveHistory(vaultPath))
+	mux.HandleFunc("GET /api/v1/diff", serveDiff(vaultPath))
+	mux.HandleFunc("GET /api/v1/changes", serveChanges(vaultPath))
 	mux.HandleFunc("GET /api/v1/graph", serveGraph(vaultPath))
 	mux.HandleFunc("GET /api/v1/search", serveSearch(vaultPath))
 	mux.HandleFunc("POST /api/v1/context", serveContext(vaultPath))
@@ -199,6 +202,94 @@ func servePage(vaultPath string) http.HandlerFunc {
 		}
 		writeHTTPJSON(w, http.StatusOK, pageResponse{Page: page, HTML: html})
 	}
+}
+
+func serveHistory(vaultPath string) http.HandlerFunc {
+	return func(w http.ResponseWriter, request *http.Request) {
+		limit, err := queryLimit(request, "limit")
+		if err != nil {
+			writeHTTPError(w, http.StatusBadRequest, err)
+			return
+		}
+		result, err := vault.ReadPageHistory(
+			vaultPath,
+			request.URL.Query().Get("uri"),
+			request.URL.Query().Get("cursor"),
+			limit,
+		)
+		if err != nil {
+			writeHistoryHTTPError(w, err)
+			return
+		}
+		writeHTTPJSON(w, http.StatusOK, result)
+	}
+}
+
+func serveDiff(vaultPath string) http.HandlerFunc {
+	return func(w http.ResponseWriter, request *http.Request) {
+		limit, err := queryLimit(request, "limit")
+		if err != nil {
+			writeHTTPError(w, http.StatusBadRequest, err)
+			return
+		}
+		query := request.URL.Query()
+		result, err := vault.DiffPage(
+			vaultPath,
+			query.Get("uri"),
+			query.Get("from"),
+			query.Get("to"),
+			limit,
+		)
+		if err != nil {
+			writeHistoryHTTPError(w, err)
+			return
+		}
+		writeHTTPJSON(w, http.StatusOK, result)
+	}
+}
+
+func serveChanges(vaultPath string) http.HandlerFunc {
+	return func(w http.ResponseWriter, request *http.Request) {
+		limit, err := queryLimit(request, "limit")
+		if err != nil {
+			writeHTTPError(w, http.StatusBadRequest, err)
+			return
+		}
+		result, err := vault.ChangesSince(
+			vaultPath,
+			request.URL.Query().Get("cursor"),
+			limit,
+		)
+		if err != nil {
+			writeHistoryHTTPError(w, err)
+			return
+		}
+		writeHTTPJSON(w, http.StatusOK, result)
+	}
+}
+
+func queryLimit(request *http.Request, name string) (int, error) {
+	raw := request.URL.Query().Get(name)
+	if raw == "" {
+		return 0, nil
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, fmt.Errorf("%s must be an integer", name)
+	}
+	return value, nil
+}
+
+func writeHistoryHTTPError(w http.ResponseWriter, err error) {
+	status := http.StatusBadRequest
+	switch {
+	case errors.Is(err, vault.ErrPageNotFound),
+		errors.Is(err, vault.ErrRevisionNotFound):
+		status = http.StatusNotFound
+	case errors.Is(err, vault.ErrCursorExpired):
+		status = http.StatusGone
+	}
+	writeHTTPError(w, status, err)
 }
 
 // pageResponse adds a rendered HTML view of the Markdown source to the page

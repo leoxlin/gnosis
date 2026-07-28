@@ -7,11 +7,14 @@ gnosis --vault /path/to/workspace serve mcp
 ```
 
 Configure the agent to start that command as an MCP subprocess. The default
-server offers ten tools:
+server offers thirteen tools:
 
 - `get_vaults`
 - `get_concepts`
 - `get_page`
+- `get_history`
+- `get_diff`
+- `get_changes`
 - `get_evidence_context`
 - `get_procedures`
 - `trace_graph`
@@ -56,6 +59,27 @@ Resources let an MCP host select and attach vault pages as application-controlle
 context. The `get_page` tool remains available when the model should choose and
 read a page itself.
 
+Resource support is registered before subscription handling. Clients may
+subscribe to a concrete canonical page URI and unsubscribe through the standard
+MCP resource methods. The server sends `resources/updated` after a successful
+server write, or after a later gnosis operation refreshes the vault and observes
+a changed revision or effective origin. Added and removed effective pages also
+produce `resources/list_changed`. External edits do not produce a notification
+until a gnosis server operation observes them; there is no background watcher
+or polling loop. Subscriptions are session-local and are removed on unsubscribe
+or disconnect.
+
+The three history tools are read-only:
+
+- `get_history` returns bounded newest-first committed history plus any explicit
+  current working revision.
+- `get_diff` compares two exact content revisions of one canonical page.
+- `get_changes` establishes or resumes a committed effective-view cursor.
+
+History and change-feed cursors are opaque. Change cursors are scoped to the
+repository identities and effective-vault composition that created them and
+expire after incompatible history rewrites or pruning.
+
 To serve the browser atlas, JSON API, and streamable MCP together:
 
 ```bash
@@ -74,6 +98,9 @@ The JSON endpoints are:
 - `GET /api/v1/concepts?type=<type>`
 - `GET /api/v1/pages`
 - `GET /api/v1/page?uri=<gnosis-uri>`
+- `GET /api/v1/history?uri=<gnosis-uri>&cursor=<cursor>&limit=<n>`
+- `GET /api/v1/diff?uri=<gnosis-uri>&from=<revision>&to=<revision>&limit=<n>`
+- `GET /api/v1/changes?cursor=<cursor>&limit=<n>`
 - `GET /api/v1/graph`
 - `GET /api/v1/search?question=<question>`
 - `POST /api/v1/context`

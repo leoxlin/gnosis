@@ -55,10 +55,27 @@ failure leaves the one local cache commit intact and returns an error.
 | `gnosis get concepts [type]` | List Concept Types or records of one exact type | `--fields uri,type,title,description,revision,trust` |
 | `gnosis get pages [uri]` | List pages or read one exact page | `--fields uri,type,title,description,revision,trust`, `--full`, `--resolve-current` |
 | `gnosis get procedures [uri]` | List invocable Procedures or read one contract | `--tags <tag,...>`, `--fields uri,type,title,description,revision,trust,invocation,tags`, `--full` |
+| `gnosis get history <uri>` | Read bounded newest-first page history | `--cursor <cursor>`, `--limit <1-100>` |
+| `gnosis get diff <uri>` | Diff two exact content revisions | `--from <revision>`, `--to <revision>`, `--limit <1-100000>` |
+| `gnosis get changes` | Read committed effective-vault changes after a cursor | `--cursor <cursor>`, `--limit <1-100>` |
 
 `--full` and `--resolve-current` require a URI. `--fields` applies only to list
 output. Every tag passed to `--tags` must match. `--resolve-current` retains the
 requested page and adds its bounded supersession result.
+
+History entries keep Git commit identity separate from the SHA-256 content
+revision. When authoritative local Markdown differs from the latest commit,
+`get history` returns an explicit working entry; that entry is not a commit and
+cannot become a change-feed cursor. A non-Git page returns its current revision
+with `history_unavailable` instead of invented history.
+
+`get diff` accepts only revisions available for the selected canonical page and
+returns no partial diff when either endpoint is unknown. `get changes` with no
+cursor establishes a committed baseline. Later calls classify additions,
+updates, archival, supersession, effective removal, and origin replacement.
+Change cursors are opaque and bound to the current repository identities and
+effective-vault composition. A rewritten or pruned baseline expires; establish
+a new baseline instead of attempting to repair Git history.
 
 ### Search and traverse
 
@@ -89,7 +106,7 @@ Both commands require `GNOSIS_MEMORY_USER_ID` and
 | `gnosis index vault` | Generate enabled Markdown indexes | — |
 | `gnosis index knowledge` | Synchronize the vector index | — |
 | `gnosis validate vault` | Validate structure, frontmatter, links, and contracts | — |
-| `gnosis serve mcp` | Serve ten default MCP tools over stdio | `--allow-knowledge-writes` |
+| `gnosis serve mcp` | Serve thirteen default MCP tools over stdio | `--allow-knowledge-writes` |
 | `gnosis serve http` | Serve the atlas, JSON API, and streamable MCP | `--address <host:port>`, `--allow-knowledge-writes` |
 | `gnosis version` | Print the installed version | — |
 | `gnosis completion <shell>` | Generate a shell completion script | shell-specific flags |
@@ -104,6 +121,8 @@ return the effective page's rendered Markdown, concrete origin, and revision;
 `get_page` remains the model-controlled tool for exact reads.
 The same catalog includes `trace_graph` for bounded neighbors and paths plus
 `get_procedures` for all-match discovery and exact validated contracts.
+`get_history`, `get_diff`, and `get_changes` expose the same history contracts
+as the CLI.
 `get_evidence_context` returns the same bounded evidence contract as
 `gnosis context knowledge`.
 `propose_knowledge_change` is always available and has no write side effects.

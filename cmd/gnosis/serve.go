@@ -100,18 +100,42 @@ type applyKnowledgeChangeInput struct {
 	Digest           string `json:"digest" jsonschema:"digest returned by propose_knowledge_change"`
 }
 
+type getHistoryInput struct {
+	URI    string `json:"uri" jsonschema:"canonical gnosis URI"`
+	Cursor string `json:"cursor,omitempty" jsonschema:"opaque continuation cursor"`
+	Limit  *int   `json:"limit,omitempty" jsonschema:"maximum committed entries, from 1 through 100"`
+}
+
+type getDiffInput struct {
+	URI          string `json:"uri" jsonschema:"canonical gnosis URI"`
+	FromRevision string `json:"from_revision" jsonschema:"exact earlier content revision"`
+	ToRevision   string `json:"to_revision" jsonschema:"exact later content revision"`
+	Limit        *int   `json:"limit,omitempty" jsonschema:"maximum diff characters"`
+}
+
+type getChangesInput struct {
+	Cursor string `json:"cursor,omitempty" jsonschema:"opaque committed effective-view cursor"`
+	Limit  *int   `json:"limit,omitempty" jsonschema:"maximum changes, from 1 through 100"`
+}
+
 func newMCPServer(vaultPath string) *mcp.Server {
 	return newMCPServerWithKnowledgeWrites(vaultPath, false)
 }
 
 func newMCPServerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bool) *mcp.Server {
+	observer := newResourceObserver(vaultPath)
 	server := mcp.NewServer(
 		&mcp.Implementation{Name: "gnosis", Version: "0.1.0"},
-		&mcp.ServerOptions{Capabilities: &mcp.ServerCapabilities{
-			Resources: &mcp.ResourceCapabilities{},
-		}},
+		&mcp.ServerOptions{
+			Capabilities: &mcp.ServerCapabilities{
+				Resources: &mcp.ResourceCapabilities{Subscribe: true, ListChanged: true},
+			},
+			SubscribeHandler:   observer.subscribe,
+			UnsubscribeHandler: observer.unsubscribe,
+		},
 	)
-	addMCPResources(server, vaultPath)
+	observer.attach(server)
+	addMCPResources(server, vaultPath, observer)
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_vaults",
 		Description: "List the effective gnosis vaults",
@@ -135,6 +159,35 @@ func newMCPServerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bool
 			vault.ReadOptions{ResolveCurrent: input.ResolveCurrent},
 		)
 		return nil, page, err
+	})
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_history",
+		Description: "Read bounded committed and working history for one canonical page",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, input getHistoryInput) (*mcp.CallToolResult, vault.PageHistoryResult, error) {
+		result, err := vault.ReadPageHistory(
+			vaultPath, input.URI, input.Cursor, intValue(input.Limit),
+		)
+		return nil, result, err
+	})
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_diff",
+		Description: "Diff two exact revisions of one canonical page",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, input getDiffInput) (*mcp.CallToolResult, vault.PageDiffResult, error) {
+		result, err := vault.DiffPage(
+			vaultPath,
+			input.URI,
+			input.FromRevision,
+			input.ToRevision,
+			intValue(input.Limit),
+		)
+		return nil, result, err
+	})
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_changes",
+		Description: "Read committed effective-vault changes after an opaque cursor",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, input getChangesInput) (*mcp.CallToolResult, vault.ChangeFeedResult, error) {
+		result, err := vault.ChangesSince(vaultPath, input.Cursor, intValue(input.Limit))
+		return nil, result, err
 	})
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "search_knowledge",
@@ -203,6 +256,13 @@ func newMCPServerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bool
 		return nil, result, err
 	})
 	return server
+}
+
+func intValue(value *int) int {
+	if value == nil {
+		return 0
+	}
+	return *value
 }
 
 func (input proposeKnowledgeChangeInput) knowledgeChange() vault.KnowledgeChangeInput {
@@ -327,7 +387,7 @@ func getMCPProcedures(vaultPath string, input getProceduresInput) (getProcedures
 	return getProceduresOutput{Mode: "contract", Procedure: &procedure}, nil
 }
 
-func addMCPResources(server *mcp.Server, vaultPath string) {
+func addMCPResources(server *mcp.Server, vaultPath string, observer *resourceObserver) {
 	server.AddResourceTemplate(&mcp.ResourceTemplate{
 		URITemplate: mcpPageResourceTemplate,
 		Name:        "gnosis-page",
@@ -335,61 +395,79 @@ func addMCPResources(server *mcp.Server, vaultPath string) {
 		Description: "Read one effective gnosis page selected by its canonical URI",
 		MIMEType:    vault.ResourceMediaType,
 	}, func(_ context.Context, request *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
-		resource, err := vault.ReadResource(vaultPath, request.Params.URI)
-		if errors.Is(err, vault.ErrPageNotFound) {
-			return nil, mcp.ResourceNotFoundError(request.Params.URI)
-		}
-		if err != nil {
-			return nil, err
-		}
-		return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{{
-			URI:      resource.URI,
-			MIMEType: resource.MediaType,
-			Text:     resource.Markdown,
-			Meta: mcp.Meta{
-				"origin":   resource.Origin,
-				"revision": resource.Revision,
-			},
-		}}}, nil
+		return readMCPPageResource(vaultPath, request.Params.URI)
 	})
 	server.AddReceivingMiddleware(func(next mcp.MethodHandler) mcp.MethodHandler {
 		return func(ctx context.Context, method string, request mcp.Request) (mcp.Result, error) {
-			if method != "resources/list" {
-				return next(ctx, method, request)
-			}
-			params := request.GetParams().(*mcp.ListResourcesParams)
-			cursor := ""
-			if params != nil {
-				cursor = params.Cursor
-			}
-			page, err := vault.ListResourcePage(vaultPath, cursor)
-			if errors.Is(err, vault.ErrInvalidResourceCursor) {
-				return nil, &jsonrpc.Error{Code: jsonrpc.CodeInvalidParams, Message: err.Error()}
+			var result mcp.Result
+			var err error
+			if method == "resources/list" {
+				params := request.GetParams().(*mcp.ListResourcesParams)
+				cursor := ""
+				if params != nil {
+					cursor = params.Cursor
+				}
+				page, listErr := vault.ListResourcePage(vaultPath, cursor)
+				if errors.Is(listErr, vault.ErrInvalidResourceCursor) {
+					return nil, &jsonrpc.Error{
+						Code: jsonrpc.CodeInvalidParams, Message: listErr.Error(),
+					}
+				}
+				if listErr != nil {
+					return nil, listErr
+				}
+				listResult := &mcp.ListResourcesResult{
+					Resources:  make([]*mcp.Resource, 0, len(page.Resources)),
+					NextCursor: page.NextCursor,
+				}
+				for _, resource := range page.Resources {
+					listResult.Resources = append(listResult.Resources, &mcp.Resource{
+						URI:         resource.URI,
+						Name:        resource.URI,
+						Title:       resource.Title,
+						Description: resource.Description,
+						MIMEType:    resource.MediaType,
+						Size:        resource.Size,
+						Meta: mcp.Meta{
+							"origin":   resource.Origin,
+							"revision": resource.Revision,
+						},
+					})
+				}
+				result = listResult
+			} else {
+				result, err = next(ctx, method, request)
 			}
 			if err != nil {
 				return nil, err
 			}
-			result := &mcp.ListResourcesResult{
-				Resources:  make([]*mcp.Resource, 0, len(page.Resources)),
-				NextCursor: page.NextCursor,
-			}
-			for _, resource := range page.Resources {
-				result.Resources = append(result.Resources, &mcp.Resource{
-					URI:         resource.URI,
-					Name:        resource.URI,
-					Title:       resource.Title,
-					Description: resource.Description,
-					MIMEType:    resource.MediaType,
-					Size:        resource.Size,
-					Meta: mcp.Meta{
-						"origin":   resource.Origin,
-						"revision": resource.Revision,
-					},
-				})
+			if err := observer.observe(ctx); err != nil {
+				return nil, err
 			}
 			return result, nil
 		}
 	})
+}
+
+func readMCPPageResource(
+	vaultPath, uri string,
+) (*mcp.ReadResourceResult, error) {
+	resource, err := vault.ReadResource(vaultPath, uri)
+	if errors.Is(err, vault.ErrPageNotFound) {
+		return nil, mcp.ResourceNotFoundError(uri)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{{
+		URI:      resource.URI,
+		MIMEType: resource.MediaType,
+		Text:     resource.Markdown,
+		Meta: mcp.Meta{
+			"origin":   resource.Origin,
+			"revision": resource.Revision,
+		},
+	}}}, nil
 }
 
 func getMCPConcepts(vaultPath, conceptType string) (*mcp.CallToolResult, conceptsOutput, error) {
