@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	agentmemory "gnosis/internal/memory"
 	knowledge "gnosis/internal/search"
@@ -187,6 +188,10 @@ func TestHTTPMCP(t *testing.T) {
 	if page.Document.URI != "gnosis://test/note.md" {
 		t.Fatalf("page = %+v", page)
 	}
+	resource := readMCPResource(t, session, "gnosis://test/note.md")
+	if resource.MIMEType != vault.ResourceMediaType || !strings.Contains(resource.Text, "implementation procedure") {
+		t.Fatalf("resource = %+v", resource)
+	}
 
 	addedResult := callMCPTool(t, session, "add_memory", map[string]any{
 		"text": "I prefer dark mode",
@@ -342,11 +347,96 @@ func TestMCPTools(t *testing.T) {
 	}
 }
 
+func TestMCPResources(t *testing.T) {
+	workspace := mcpTestVault(t)
+	imported := filepath.Join(workspace, "imported")
+	writeCommandFile(t, workspace, "gnosis.toml", `[vault]
+vault_name = "test"
+vault_root = "."
+vault_index = false
+vault_log = false
+
+[[vaults]]
+vault_name = "imported"
+vault_root = "imported"
+`)
+	writeCommandFile(t, imported, "gnosis.toml", `[vault]
+vault_name = "imported"
+vault_root = "."
+vault_index = false
+vault_log = false
+`)
+	writeCommandFile(t, imported, "note.md", "---\ntype: Note\ntitle: Shadowed\n---\n")
+	session := connectMCPServer(t, newMCPServer(workspace))
+	ctx := context.Background()
+
+	templates, err := session.ListResourceTemplates(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(templates.ResourceTemplates) != 1 {
+		t.Fatalf("resource templates = %+v", templates.ResourceTemplates)
+	}
+	template := templates.ResourceTemplates[0]
+	if template.URITemplate != mcpPageResourceTemplate ||
+		template.MIMEType != vault.ResourceMediaType ||
+		!strings.Contains(template.Description, "canonical URI") {
+		t.Fatalf("resource template = %+v", template)
+	}
+
+	listed, err := session.ListResources(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var descriptor *mcp.Resource
+	for i, resource := range listed.Resources {
+		if i > 0 && listed.Resources[i-1].URI >= resource.URI {
+			t.Fatalf("resources are not ordered: %q before %q", listed.Resources[i-1].URI, resource.URI)
+		}
+		if resource.URI == "gnosis://test/note.md" {
+			descriptor = resource
+		}
+		if resource.URI == "gnosis://imported/note.md" {
+			t.Fatal("resource discovery exposed a shadowed page")
+		}
+	}
+	if descriptor == nil || descriptor.Title != "Keep it small" ||
+		descriptor.MIMEType != vault.ResourceMediaType || descriptor.Size == 0 ||
+		descriptor.Meta["revision"] == "" {
+		t.Fatalf("resource descriptor = %+v", descriptor)
+	}
+
+	content := readMCPResource(t, session, descriptor.URI)
+	if content.URI != descriptor.URI || content.MIMEType != vault.ResourceMediaType ||
+		!strings.Contains(content.Text, "simplest design") ||
+		content.Meta["revision"] != descriptor.Meta["revision"] ||
+		content.Meta["origin"] == nil {
+		t.Fatalf("resource content = %+v, descriptor = %+v", content, descriptor)
+	}
+
+	for _, uri := range []string{"gnosis://test/missing.md", "not-a-gnosis-uri"} {
+		_, err := session.ReadResource(ctx, &mcp.ReadResourceParams{URI: uri})
+		assertMCPErrorCode(t, err, mcp.CodeResourceNotFound)
+	}
+	_, err = session.ListResources(ctx, &mcp.ListResourcesParams{Cursor: "not a cursor"})
+	assertMCPErrorCode(t, err, jsonrpc.CodeInvalidParams)
+	if err := session.Ping(ctx, nil); err != nil {
+		t.Fatalf("session failed after resource errors: %v", err)
+	}
+}
+
 func TestMCPDirectRemoteTargetRefreshesDuringServerLifetime(t *testing.T) {
 	fixture := newCommandRemoteFixture(t, "https://example.test/team/mcp-direct.git")
 	session := connectMCPServer(t, newMCPServer(fixture.url))
 	arguments := map[string]any{"uri": "gnosis://remote/notes/remote.md"}
 
+	resources, err := session.ListResources(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resourceTitle(resources.Resources, arguments["uri"].(string)) != "Remote note" {
+		t.Fatalf("initial resources = %+v", resources.Resources)
+	}
 	result := callMCPTool(t, session, "get_page", arguments)
 	var page vault.Page
 	decodeMCPResult(t, result, &page)
@@ -355,6 +445,17 @@ func TestMCPDirectRemoteTargetRefreshesDuringServerLifetime(t *testing.T) {
 	}
 
 	updateCommandRemoteNote(t, fixture, "Refreshed remote note")
+	resource := readMCPResource(t, session, arguments["uri"].(string))
+	if !strings.Contains(resource.Text, "# Refreshed remote note") {
+		t.Fatalf("refreshed resource = %+v", resource)
+	}
+	resources, err = session.ListResources(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resourceTitle(resources.Resources, arguments["uri"].(string)) != "Refreshed remote note" {
+		t.Fatalf("refreshed resources = %+v", resources.Resources)
+	}
 	result = callMCPTool(t, session, "get_page", arguments)
 	decodeMCPResult(t, result, &page)
 	if page.Document.Title != "Refreshed remote note" {
@@ -629,6 +730,13 @@ func TestMCPSubprocess(t *testing.T) {
 	if page.Document.URI != "gnosis://test/note.md" || page.Document.Revision == "" {
 		t.Fatalf("page = %+v", page)
 	}
+	resource, err := session.ReadResource(ctx, &mcp.ReadResourceParams{URI: "gnosis://test/note.md"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(resource.Contents) != 1 || resource.Contents[0].MIMEType != vault.ResourceMediaType {
+		t.Fatalf("resource = %+v", resource)
+	}
 
 	searchResult, err := session.CallTool(ctx, &mcp.CallToolParams{
 		Name: "search_knowledge",
@@ -684,6 +792,35 @@ func callMCPTool(t *testing.T, session *mcp.ClientSession, name string, argument
 		t.Fatalf("%s returned tool error: %s", name, mcpResultText(result))
 	}
 	return result
+}
+
+func readMCPResource(t *testing.T, session *mcp.ClientSession, uri string) *mcp.ResourceContents {
+	t.Helper()
+	result, err := session.ReadResource(context.Background(), &mcp.ReadResourceParams{URI: uri})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Contents) != 1 {
+		t.Fatalf("resource contents = %+v", result.Contents)
+	}
+	return result.Contents[0]
+}
+
+func assertMCPErrorCode(t *testing.T, err error, want int64) {
+	t.Helper()
+	var rpcError *jsonrpc.Error
+	if !errors.As(err, &rpcError) || rpcError.Code != want {
+		t.Fatalf("error = %v, want MCP code %d", err, want)
+	}
+}
+
+func resourceTitle(resources []*mcp.Resource, uri string) string {
+	for _, resource := range resources {
+		if resource.URI == uri {
+			return resource.Title
+		}
+	}
+	return ""
 }
 
 func assertVaultMemoryTools(t *testing.T, session *mcp.ClientSession) {

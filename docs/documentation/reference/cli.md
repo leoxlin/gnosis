@@ -80,6 +80,13 @@ Both commands require `GNOSIS_MEMORY_USER_ID` and
 
 The HTTP address defaults to `127.0.0.1:8080`.
 
+Both MCP transports advertise effective vault pages as `text/markdown`
+resources. Direct resource discovery is ordered by canonical URI and returns at
+most 100 descriptors per page with an opaque continuation cursor. Clients may
+also discover the `gnosis://{vault}/{+path}` resource template. Resource reads
+return the effective page's rendered Markdown, concrete origin, and revision;
+`get_page` remains the model-controlled tool for exact reads.
+
 ## Remote Git targets
 
 gnosis clones each remote into

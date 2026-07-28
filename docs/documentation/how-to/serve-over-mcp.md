@@ -20,6 +20,18 @@ Knowledge tools read the effective vault. The memory tools require
 `GNOSIS_MEMORY_USER_ID` and `GNOSIS_MEMORY_AGENT_ID` and can write through the
 selected memory backend.
 
+The same server exposes effective pages as MCP resources over both transports.
+Clients can:
+
+- List direct `text/markdown` resources in deterministic pages of at most 100.
+- Continue discovery with the opaque cursor returned by the previous page.
+- List the `gnosis://{vault}/{+path}` template for canonical page URIs.
+- Read a resource with its effective origin and revision in `_meta`.
+
+Resources let an MCP host select and attach vault pages as application-controlled
+context. The `get_page` tool remains available when the model should choose and
+read a page itself.
+
 To serve the browser atlas, JSON API, and streamable MCP together:
 
 ```bash

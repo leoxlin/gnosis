@@ -121,7 +121,7 @@ func ReadPageWithOptions(root, selector string, options ReadOptions) (Page, erro
 	}
 	page, ok := selectPage(pages, selector)
 	if !ok {
-		return Page{}, fmt.Errorf("no document found with URI %q", selector)
+		return Page{}, fmt.Errorf("%w with URI %q", ErrPageNotFound, selector)
 	}
 	markdown, err := renderDocumentLinks(page, pages)
 	if err != nil {

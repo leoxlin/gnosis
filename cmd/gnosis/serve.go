@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 	agentmemory "gnosis/internal/memory"
 	"gnosis/internal/search"
 	"gnosis/internal/vault"
 )
+
+const mcpPageResourceTemplate = "gnosis://{vault}/{+path}"
 
 type emptyInput struct{}
 
@@ -48,7 +51,13 @@ type searchMemoryInput struct {
 }
 
 func newMCPServer(vaultPath string) *mcp.Server {
-	server := mcp.NewServer(&mcp.Implementation{Name: "gnosis", Version: "0.1.0"}, nil)
+	server := mcp.NewServer(
+		&mcp.Implementation{Name: "gnosis", Version: "0.1.0"},
+		&mcp.ServerOptions{Capabilities: &mcp.ServerCapabilities{
+			Resources: &mcp.ResourceCapabilities{},
+		}},
+	)
+	addMCPResources(server, vaultPath)
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_vaults",
 		Description: "List the effective gnosis vaults",
@@ -103,6 +112,71 @@ func newMCPServer(vaultPath string) *mcp.Server {
 		return nil, result, err
 	})
 	return server
+}
+
+func addMCPResources(server *mcp.Server, vaultPath string) {
+	server.AddResourceTemplate(&mcp.ResourceTemplate{
+		URITemplate: mcpPageResourceTemplate,
+		Name:        "gnosis-page",
+		Title:       "gnosis page",
+		Description: "Read one effective gnosis page selected by its canonical URI",
+		MIMEType:    vault.ResourceMediaType,
+	}, func(_ context.Context, request *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+		resource, err := vault.ReadResource(vaultPath, request.Params.URI)
+		if errors.Is(err, vault.ErrPageNotFound) {
+			return nil, mcp.ResourceNotFoundError(request.Params.URI)
+		}
+		if err != nil {
+			return nil, err
+		}
+		return &mcp.ReadResourceResult{Contents: []*mcp.ResourceContents{{
+			URI:      resource.URI,
+			MIMEType: resource.MediaType,
+			Text:     resource.Markdown,
+			Meta: mcp.Meta{
+				"origin":   resource.Origin,
+				"revision": resource.Revision,
+			},
+		}}}, nil
+	})
+	server.AddReceivingMiddleware(func(next mcp.MethodHandler) mcp.MethodHandler {
+		return func(ctx context.Context, method string, request mcp.Request) (mcp.Result, error) {
+			if method != "resources/list" {
+				return next(ctx, method, request)
+			}
+			params := request.GetParams().(*mcp.ListResourcesParams)
+			cursor := ""
+			if params != nil {
+				cursor = params.Cursor
+			}
+			page, err := vault.ListResourcePage(vaultPath, cursor)
+			if errors.Is(err, vault.ErrInvalidResourceCursor) {
+				return nil, &jsonrpc.Error{Code: jsonrpc.CodeInvalidParams, Message: err.Error()}
+			}
+			if err != nil {
+				return nil, err
+			}
+			result := &mcp.ListResourcesResult{
+				Resources:  make([]*mcp.Resource, 0, len(page.Resources)),
+				NextCursor: page.NextCursor,
+			}
+			for _, resource := range page.Resources {
+				result.Resources = append(result.Resources, &mcp.Resource{
+					URI:         resource.URI,
+					Name:        resource.URI,
+					Title:       resource.Title,
+					Description: resource.Description,
+					MIMEType:    resource.MediaType,
+					Size:        resource.Size,
+					Meta: mcp.Meta{
+						"origin":   resource.Origin,
+						"revision": resource.Revision,
+					},
+				})
+			}
+			return result, nil
+		}
+	})
 }
 
 func getMCPConcepts(vaultPath, conceptType string) (*mcp.CallToolResult, conceptsOutput, error) {
