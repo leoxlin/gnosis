@@ -99,12 +99,15 @@ The JSON endpoints are:
 
 - `GET /api/v1/vaults`
 - `GET /api/v1/concepts?type=<type>`
-- `GET /api/v1/pages`
+- `GET /api/v1/pages?limit=<n>&cursor=<cursor>&q=<text>&type=<type>`
 - `GET /api/v1/page?uri=<gnosis-uri>`
 - `GET /api/v1/history?uri=<gnosis-uri>&cursor=<cursor>&limit=<n>`
 - `GET /api/v1/diff?uri=<gnosis-uri>&from=<revision>&to=<revision>&limit=<n>`
 - `GET /api/v1/changes?cursor=<cursor>&limit=<n>`
 - `GET /api/v1/graph`
+- `GET /api/v1/graph/neighbors?uri=<gnosis-uri>&direction=<out|in|both>&relation=<relation>&limit=<n>`
+- `GET /api/v1/graph/path?uri=<gnosis-uri>&target=<gnosis-uri>&direction=<out|in|both>&relation=<relation>&depth=<n>`
+- `GET /api/v1/procedures?tag=<tag>` or `GET /api/v1/procedures?uri=<gnosis-uri>`
 - `GET /api/v1/search?question=<question>`
 - `POST /api/v1/context`
 - `POST /api/v1/audit/knowledge`

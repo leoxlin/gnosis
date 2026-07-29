@@ -59,7 +59,11 @@ const api = async (path, options = {}) => {
   return data;
 };
 
-const views = ["dashboard", "graph", "pages", "concepts", "search", "vaults"];
+const views = ["dashboard", "pages", "concepts", "search", "procedures", "vaults"];
+
+// maxHoodNodes is the hard cap for the reader's bounded ego-graph; beyond it
+// the UI asks for narrower direction or relation filters instead of rendering.
+const maxHoodNodes = 300;
 
 const parseHash = () => {
   const hash = location.hash.replace(/^#\/?/, "");
@@ -79,6 +83,129 @@ const lazy = (component, view, load) => {
 };
 
 const shortRevision = (revision) => (revision || "").replace(/^sha256:/, "").slice(0, 12);
+
+// graphCanvas is the bounded ego-graph renderer retained from the retired
+// global graph view: golden-angle seeding, a short force settle, canvas draw,
+// and click-to-open picking. It renders the reader's neighborhood nodes.
+const graphCanvas = () => ({
+  hoodCanvas: null,
+  hoodContext: null,
+  hoodFrames: 0,
+
+  color(value) {
+    let hash = 0;
+    for (const character of value) hash = (hash * 31 + character.charCodeAt(0)) | 0;
+    return `hsl(${Math.abs(hash) % 360} 48% 64%)`;
+  },
+
+  resizeGraph() {
+    const canvas = this.$refs.hoodCanvas;
+    if (!canvas || !canvas.clientWidth) return;
+    this.hoodCanvas = canvas;
+    const box = canvas.getBoundingClientRect();
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.floor(box.width * ratio));
+    canvas.height = Math.max(1, Math.floor(box.height * ratio));
+    this.hoodContext = canvas.getContext("2d");
+    this.hoodContext.setTransform(ratio, 0, 0, ratio, 0, 0);
+    this.drawGraph();
+  },
+
+  settleGraph() {
+    if (!this.hoodNodes.length || this.hoodFrames > 180) {
+      this.drawGraph();
+      return;
+    }
+    const nodes = this.hoodNodes;
+    for (let i = 0; i < nodes.length; i++) {
+      nodes[i].dx = 0;
+      nodes[i].dy = 0;
+      for (let j = i + 1; j < nodes.length; j++) {
+        const x = nodes[j].x - nodes[i].x;
+        const y = nodes[j].y - nodes[i].y;
+        const distance = Math.max(0.002, x * x + y * y);
+        const force = Math.min(0.00012 / distance, 0.012);
+        nodes[i].dx -= x * force;
+        nodes[i].dy -= y * force;
+        nodes[j].dx += x * force;
+        nodes[j].dy += y * force;
+      }
+    }
+    for (const edge of this.hoodEdges) {
+      if (!edge.fromNode || !edge.toNode) continue;
+      const x = edge.toNode.x - edge.fromNode.x;
+      const y = edge.toNode.y - edge.fromNode.y;
+      const force = Math.max(0, Math.hypot(x, y) - 0.16) * 0.018;
+      edge.fromNode.dx += x * force;
+      edge.fromNode.dy += y * force;
+      edge.toNode.dx -= x * force;
+      edge.toNode.dy -= y * force;
+    }
+    for (const node of nodes) {
+      node.dx += (0.5 - node.x) * 0.00035;
+      node.dy += (0.5 - node.y) * 0.00035;
+      node.x = Math.min(0.94, Math.max(0.06, node.x + node.dx));
+      node.y = Math.min(0.91, Math.max(0.09, node.y + node.dy));
+    }
+    this.hoodFrames++;
+    this.drawGraph();
+    requestAnimationFrame(() => this.settleGraph());
+  },
+
+  drawGraph() {
+    if (!this.hoodContext || !this.hoodCanvas) return;
+    const box = this.hoodCanvas.getBoundingClientRect();
+    const context = this.hoodContext;
+    context.clearRect(0, 0, box.width, box.height);
+    context.strokeStyle = "#4b5d56aa";
+    context.lineWidth = 1;
+    for (const edge of this.hoodEdges) {
+      if (!edge.fromNode || !edge.toNode) continue;
+      context.beginPath();
+      context.moveTo(edge.fromNode.x * box.width, edge.fromNode.y * box.height);
+      context.lineTo(edge.toNode.x * box.width, edge.toNode.y * box.height);
+      context.stroke();
+    }
+    for (const node of this.hoodNodes) {
+      const x = node.x * box.width;
+      const y = node.y * box.height;
+      context.fillStyle = this.color(node.type);
+      context.beginPath();
+      context.arc(x, y, 5, 0, Math.PI * 2);
+      context.fill();
+      if (node.uri === this.uri) {
+        context.strokeStyle = "#e8b86d";
+        context.lineWidth = 2;
+        context.beginPath();
+        context.arc(x, y, 8, 0, Math.PI * 2);
+        context.stroke();
+      }
+      if (this.hoodNodes.length < 55) {
+        context.fillStyle = "#d8d9d2";
+        context.font = "11px ui-monospace, monospace";
+        context.fillText(node.title, x + 9, y + 4);
+      }
+    }
+  },
+
+  pickGraph(event) {
+    if (!this.hoodCanvas) return;
+    const box = this.hoodCanvas.getBoundingClientRect();
+    let closest = null;
+    let distance = 15;
+    for (const node of this.hoodNodes) {
+      const current = Math.hypot(
+        node.x * box.width - (event.clientX - box.left),
+        node.y * box.height - (event.clientY - box.top),
+      );
+      if (current < distance) {
+        closest = node;
+        distance = current;
+      }
+    }
+    if (closest && closest.uri !== this.uri) this.$store.app.openPage(closest.uri);
+  },
+});
 
 document.addEventListener("alpine:init", () => {
   Alpine.store("app", {
@@ -134,14 +261,18 @@ document.addEventListener("alpine:init", () => {
           api("/api/v1/vaults"),
           api("/api/v1/concepts"),
         ]);
+        // the pages endpoint is paginated: the exact count comes from total,
+        // and the per-type breakdown is only honest when one page holds all.
         const list = (pages.pages || []).map((page) => ({ type: "", ...page }));
         const byType = {};
-        for (const page of list) {
-          const type = page.type || "unknown";
-          byType[type] = (byType[type] || 0) + 1;
+        if (!pages.next_cursor) {
+          for (const page of list) {
+            const type = page.type || "unknown";
+            byType[type] = (byType[type] || 0) + 1;
+          }
         }
         this.pulse = {
-          pages: list.length,
+          pages: pages.total ?? list.length,
           vaults: (vaults.vaults || []).length,
           types: (concepts.concept_types || []).length,
           byType: Object.entries(byType).sort((a, b) => b[1] - a[1]),
@@ -208,201 +339,119 @@ document.addEventListener("alpine:init", () => {
     },
   }));
 
-  Alpine.data("graphView", () => ({
-    nodes: [],
-    edges: [],
-    types: [],
-    query: "",
-    type: "",
-    loaded: false,
-    error: "",
-    frames: 0,
-    context: null,
-
-    init() {
-      this.canvas = this.$refs.canvas;
-      window.addEventListener("resize", () => this.resize());
-      lazy(this, "graph", () => {
-        this.$nextTick(() => {
-          this.resize();
-          if (!this.loaded) this.load();
-        });
-      });
-    },
-
-    color(value) {
-      let hash = 0;
-      for (const character of value) hash = (hash * 31 + character.charCodeAt(0)) | 0;
-      return `hsl(${Math.abs(hash) % 360} 48% 64%)`;
-    },
-
-    matches(node) {
-      const query = this.query.toLowerCase();
-      const text = `${node.title} ${node.type} ${node.description || ""}`.toLowerCase();
-      return (!this.type || node.type === this.type) && (!query || text.includes(query));
-    },
-
-    visible() {
-      return this.nodes.filter((node) => this.matches(node));
-    },
-
-    async load() {
-      this.error = "";
-      try {
-        const graph = await api("/api/v1/graph");
-        const nodes = (graph.nodes || []).map((node) => {
-          const normalized = { type: "", description: "", uri: "", ...node };
-          normalized.title = normalized.title || normalized.uri;
-          return normalized;
-        });
-        const count = Math.max(1, nodes.length);
-        this.nodes = nodes.map((node, index) => {
-          const angle = index * 2.399963229728653;
-          const radius = 0.08 + 0.34 * Math.sqrt((index + 1) / count);
-          return { ...node, x: 0.5 + Math.cos(angle) * radius, y: 0.5 + Math.sin(angle) * radius };
-        });
-        const byURI = new Map(this.nodes.map((node) => [node.uri, node]));
-        this.edges = (graph.edges || [])
-          .filter((edge) => edge.from && edge.to && edge.from.uri && edge.to.uri)
-          .map((edge) => ({
-            ...edge,
-            fromNode: byURI.get(edge.from.uri),
-            toNode: byURI.get(edge.to.uri),
-          }));
-        this.types = [...new Set(this.nodes.map((node) => node.type))].sort();
-        this.loaded = true;
-        this.settle();
-      } catch (error) {
-        this.error = error.message;
-      }
-    },
-
-    resize() {
-      if (!this.canvas || !this.canvas.clientWidth) return;
-      const box = this.canvas.getBoundingClientRect();
-      const ratio = window.devicePixelRatio || 1;
-      this.canvas.width = Math.max(1, Math.floor(box.width * ratio));
-      this.canvas.height = Math.max(1, Math.floor(box.height * ratio));
-      this.context = this.canvas.getContext("2d");
-      this.context.setTransform(ratio, 0, 0, ratio, 0, 0);
-      this.draw();
-    },
-
-    settle() {
-      if (!this.nodes.length || this.frames > 180) {
-        this.draw();
-        return;
-      }
-      for (let i = 0; i < this.nodes.length; i++) {
-        this.nodes[i].dx = 0;
-        this.nodes[i].dy = 0;
-        for (let j = i + 1; j < this.nodes.length; j++) {
-          const x = this.nodes[j].x - this.nodes[i].x;
-          const y = this.nodes[j].y - this.nodes[i].y;
-          const distance = Math.max(0.002, x * x + y * y);
-          const force = Math.min(0.00012 / distance, 0.012);
-          this.nodes[i].dx -= x * force;
-          this.nodes[i].dy -= y * force;
-          this.nodes[j].dx += x * force;
-          this.nodes[j].dy += y * force;
-        }
-      }
-      for (const edge of this.edges) {
-        if (!edge.fromNode || !edge.toNode) continue;
-        const x = edge.toNode.x - edge.fromNode.x;
-        const y = edge.toNode.y - edge.fromNode.y;
-        const force = Math.max(0, Math.hypot(x, y) - 0.16) * 0.018;
-        edge.fromNode.dx += x * force;
-        edge.fromNode.dy += y * force;
-        edge.toNode.dx -= x * force;
-        edge.toNode.dy -= y * force;
-      }
-      for (const node of this.nodes) {
-        node.dx += (0.5 - node.x) * 0.00035;
-        node.dy += (0.5 - node.y) * 0.00035;
-        node.x = Math.min(0.94, Math.max(0.06, node.x + node.dx));
-        node.y = Math.min(0.91, Math.max(0.09, node.y + node.dy));
-      }
-      this.frames++;
-      this.draw();
-      requestAnimationFrame(() => this.settle());
-    },
-
-    draw() {
-      if (!this.context) return;
-      const box = this.canvas.getBoundingClientRect();
-      const context = this.context;
-      context.clearRect(0, 0, box.width, box.height);
-      const visible = new Set(this.visible().map((node) => node.uri));
-      for (const edge of this.edges) {
-        if (!edge.fromNode || !edge.toNode) continue;
-        const active = (!this.query && !this.type) || (visible.has(edge.from.uri) && visible.has(edge.to.uri));
-        context.strokeStyle = active ? "#4b5d56aa" : "#29332f55";
-        context.lineWidth = active ? 1 : 0.6;
-        context.beginPath();
-        context.moveTo(edge.fromNode.x * box.width, edge.fromNode.y * box.height);
-        context.lineTo(edge.toNode.x * box.width, edge.toNode.y * box.height);
-        context.stroke();
-      }
-      for (const node of this.nodes) {
-        const active = this.matches(node);
-        const x = node.x * box.width;
-        const y = node.y * box.height;
-        context.globalAlpha = active ? 1 : 0.18;
-        context.fillStyle = this.color(node.type);
-        context.beginPath();
-        context.arc(x, y, 5, 0, Math.PI * 2);
-        context.fill();
-        if (this.nodes.length < 55 && active) {
-          context.fillStyle = "#d8d9d2";
-          context.font = "11px ui-monospace, monospace";
-          context.fillText(node.title, x + 9, y + 4);
-        }
-      }
-      context.globalAlpha = 1;
-    },
-
-    pick(event) {
-      const box = this.canvas.getBoundingClientRect();
-      let closest = null;
-      let distance = 15;
-      for (const node of this.nodes) {
-        const current = Math.hypot(
-          node.x * box.width - (event.clientX - box.left),
-          node.y * box.height - (event.clientY - box.top),
-        );
-        if (current < distance) {
-          closest = node;
-          distance = current;
-        }
-      }
-      if (closest) this.$store.app.openPage(closest.uri);
-    },
-  }));
-
   Alpine.data("pagesView", () => ({
     pages: [],
+    total: 0,
+    cursor: "",
     query: "",
     type: "",
+    types: [],
+    loading: false,
     loaded: false,
     error: "",
+    expired: false,
 
     init() {
+      // query/type edits restart pagination against the server (debounced by
+      // x-model on the input) instead of filtering a client-side dump.
+      this.$watch("query", () => this.restart());
+      this.$watch("type", () => this.restart());
       lazy(this, "pages", () => {
         if (!this.loaded) this.load();
+        if (!this.types.length) this.loadTypes();
       });
     },
 
-    async load() {
-      this.error = "";
+    // loadTypes feeds the type filter from the bounded concept-type catalog.
+    async loadTypes() {
       try {
-        const data = await api("/api/v1/pages");
-        this.pages = (data.pages || []).map((page) => ({
+        const data = await api("/api/v1/concepts");
+        this.types = (data.concept_types || []).map((concept) => concept.type).sort();
+      } catch (error) {
+        // a failed type catalog only limits the filter; the list still loads.
+      }
+    },
+
+    restart() {
+      if (!this.loaded) return;
+      this.pages = [];
+      this.cursor = "";
+      this.total = 0;
+      this.expired = false;
+      this.error = "";
+      this.load();
+    },
+
+    async load(cursor = "") {
+      if (this.loading) return;
+      this.loading = true;
+      this.error = "";
+      this.expired = false;
+      try {
+        const params = new URLSearchParams();
+        if (this.query.trim()) params.set("q", this.query.trim());
+        if (this.type) params.set("type", this.type);
+        if (cursor) params.set("cursor", cursor);
+        const suffix = params.toString();
+        const data = await api("/api/v1/pages" + (suffix ? "?" + suffix : ""));
+        const batch = (data.pages || []).map((page) => ({
           title: "",
           type: "",
           description: "",
           uri: "",
           ...page,
+        }));
+        this.pages = cursor ? this.pages.concat(batch) : batch;
+        this.total = data.total ?? this.pages.length;
+        this.cursor = data.next_cursor || "";
+        this.loaded = true;
+      } catch (error) {
+        if (cursor && error.status === 410) {
+          this.cursor = "";
+          this.expired = true;
+        } else {
+          this.error = error.message;
+        }
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    restartExpired() {
+      this.pages = [];
+      this.expired = false;
+      this.load();
+    },
+  }));
+
+  Alpine.data("proceduresView", () => ({
+    procedures: [],
+    selected: "",
+    contract: null,
+    loading: false,
+    contractLoading: false,
+    loaded: false,
+    error: "",
+    contractError: "",
+
+    init() {
+      lazy(this, "procedures", () => {
+        if (!this.loaded) this.load();
+      });
+    },
+
+    short: shortRevision,
+
+    async load() {
+      this.error = "";
+      try {
+        const data = await api("/api/v1/procedures");
+        this.procedures = (data.procedures || []).map((procedure) => ({
+          title: "",
+          description: "",
+          tags: [],
+          trust: {},
+          ...procedure,
         }));
         this.loaded = true;
       } catch (error) {
@@ -410,16 +459,33 @@ document.addEventListener("alpine:init", () => {
       }
     },
 
-    types() {
-      return [...new Set(this.pages.map((page) => page.type))].sort();
+    retry() {
+      if (!this.loaded) {
+        this.load();
+        return;
+      }
+      if (this.selected) {
+        const uri = this.selected;
+        this.selected = "";
+        this.choose(uri);
+      }
     },
 
-    visible() {
-      const query = this.query.toLowerCase();
-      return this.pages.filter((page) => {
-        const text = `${page.title} ${page.type} ${page.description || ""} ${page.uri}`.toLowerCase();
-        return (!this.type || page.type === this.type) && (!query || text.includes(query));
-      });
+    // choose reads one exact execution contract; the view never executes it.
+    async choose(uri) {
+      if (this.contractLoading || this.selected === uri) return;
+      this.selected = uri;
+      this.contract = null;
+      this.contractError = "";
+      this.contractLoading = true;
+      try {
+        const data = await api("/api/v1/procedures?uri=" + encodeURIComponent(uri));
+        this.contract = data.procedure;
+      } catch (error) {
+        this.contractError = error.message;
+      } finally {
+        this.contractLoading = false;
+      }
     },
   }));
 
@@ -558,6 +624,7 @@ document.addEventListener("alpine:init", () => {
   }));
 
   Alpine.data("readerView", () => ({
+    ...graphCanvas(),
     page: null,
     uri: "",
     raw: false,
@@ -575,11 +642,27 @@ document.addEventListener("alpine:init", () => {
     diff: null,
     diffError: "",
     diffLoading: false,
+    hoodDirection: "both",
+    hoodRelation: "",
+    hoodDepth: "1",
+    hoodNodes: [],
+    hoodEdges: [],
+    hoodLoading: false,
+    hoodLoaded: false,
+    hoodError: "",
+    hoodCapped: false,
+    hoodTruncated: false,
+    pathTarget: "",
+    pathDepth: "3",
+    pathResult: null,
+    pathError: "",
+    pathLoading: false,
 
     init() {
       this.$watch("$store.app.route", (route) => {
         if (route.name === "page" && route.uri !== this.uri) this.load(route.uri);
       });
+      window.addEventListener("resize", () => this.resizeGraph());
       const route = Alpine.store("app").route;
       if (route.name === "page") this.load(route.uri);
     },
@@ -595,7 +678,7 @@ document.addEventListener("alpine:init", () => {
       this.page = null;
       this.error = "";
       this.loading = true;
-      this.resetHistory();
+      this.resetPanels();
       try {
         const page = await api("/api/v1/page?uri=" + encodeURIComponent(uri), {
           signal: controller.signal,
@@ -612,7 +695,7 @@ document.addEventListener("alpine:init", () => {
       }
     },
 
-    resetHistory() {
+    resetPanels() {
       this.tab = "content";
       this.history = [];
       this.historyCursor = "";
@@ -624,11 +707,157 @@ document.addEventListener("alpine:init", () => {
       this.diff = null;
       this.diffError = "";
       this.diffLoading = false;
+      this.hoodNodes = [];
+      this.hoodEdges = [];
+      this.hoodLoading = false;
+      this.hoodLoaded = false;
+      this.hoodError = "";
+      this.hoodCapped = false;
+      this.hoodTruncated = false;
+      this.hoodFrames = 0;
+      this.pathTarget = "";
+      this.pathResult = null;
+      this.pathError = "";
+      this.pathLoading = false;
     },
 
     showHistory() {
       this.tab = "history";
       if (!this.historyLoaded && !this.historyLoading) this.loadHistory();
+    },
+
+    showNeighborhood() {
+      this.tab = "neighborhood";
+      this.$nextTick(() => this.resizeGraph());
+      if (!this.hoodLoaded && !this.hoodLoading) this.loadNeighborhood();
+    },
+
+    // loadNeighborhood walks the bounded ego-graph around the open page
+    // through the traversal API: one hop at depth 1, a frontier expansion at
+    // depth 2, always stopping at the hard node cap.
+    async loadNeighborhood() {
+      this.hoodLoading = true;
+      this.hoodError = "";
+      this.hoodCapped = false;
+      this.hoodTruncated = false;
+      const uri = this.uri;
+      const relations = this.hoodRelation
+        .split(",")
+        .map((relation) => relation.trim())
+        .filter(Boolean);
+      const params = (target) => {
+        const search = new URLSearchParams({
+          uri: target,
+          direction: this.hoodDirection,
+          limit: "100",
+        });
+        for (const relation of relations) search.append("relation", relation);
+        return search;
+      };
+      const nodes = new Map();
+      const edges = new Map();
+      const capped = () => nodes.size >= maxHoodNodes;
+      const addEdge = (edge) => {
+        edges.set(`${edge.from.uri} ${edge.relation} ${edge.to.uri}`, edge);
+        for (const endpoint of [edge.from, edge.to]) {
+          if (!nodes.has(endpoint.uri) && !capped()) nodes.set(endpoint.uri, endpoint);
+        }
+      };
+      try {
+        const first = await api("/api/v1/graph/neighbors?" + params(uri));
+        if (uri !== this.uri) return;
+        nodes.set(first.node.uri, first.node);
+        for (const edge of first.edges || []) addEdge(edge);
+        let truncated = first.truncated;
+        if (Number(this.hoodDepth) > 1) {
+          const frontier = [...nodes.keys()].filter((node) => node !== uri);
+          for (const next of frontier) {
+            if (capped()) break;
+            const result = await api("/api/v1/graph/neighbors?" + params(next));
+            if (uri !== this.uri) return;
+            if (result.truncated) truncated = true;
+            for (const edge of result.edges || []) addEdge(edge);
+          }
+        }
+        this.hoodCapped = capped();
+        this.hoodTruncated = truncated;
+        const count = Math.max(1, nodes.size);
+        this.hoodNodes = [...nodes.values()].map((node, index) => {
+          const normalized = { type: "", title: "", uri: "", ...node };
+          normalized.title = normalized.title || normalized.uri;
+          const angle = index * 2.399963229728653;
+          const radius = index === 0 ? 0 : 0.08 + 0.34 * Math.sqrt((index + 1) / count);
+          return { ...normalized, x: 0.5 + Math.cos(angle) * radius, y: 0.5 + Math.sin(angle) * radius };
+        });
+        const byURI = new Map(this.hoodNodes.map((node) => [node.uri, node]));
+        this.hoodEdges = [...edges.values()]
+          .map((edge) => ({
+            ...edge,
+            fromNode: byURI.get(edge.from.uri),
+            toNode: byURI.get(edge.to.uri),
+          }))
+          .filter((edge) => edge.fromNode && edge.toNode);
+        this.hoodLoaded = true;
+        this.hoodFrames = 0;
+        this.$nextTick(() => {
+          this.resizeGraph();
+          this.settleGraph();
+        });
+      } catch (error) {
+        if (uri !== this.uri) return;
+        this.hoodError = error.message;
+      } finally {
+        if (uri === this.uri) this.hoodLoading = false;
+      }
+    },
+
+    reloadNeighborhood() {
+      if (!this.hoodLoaded && !this.hoodError) return;
+      this.hoodLoaded = false;
+      this.loadNeighborhood();
+    },
+
+    // findPath renders the bounded typed path from the open page to a target.
+    async findPath() {
+      const target = this.pathTarget.trim();
+      if (!target || this.pathLoading) return;
+      this.pathLoading = true;
+      this.pathError = "";
+      this.pathResult = null;
+      const uri = this.uri;
+      const depth = this.pathDepth;
+      try {
+        const params = new URLSearchParams({ uri, target, depth });
+        const result = await api("/api/v1/graph/path?" + params);
+        if (uri !== this.uri) return;
+        switch (result.status) {
+          case "found":
+            this.pathResult = result;
+            break;
+          case "unknown_target":
+            this.pathError = `No page exists with URI ${target}. Check the target and try again.`;
+            break;
+          case "unknown_source":
+            this.pathError = "The open page is no longer in the vault.";
+            break;
+          case "depth_exceeded":
+            this.pathError = `A path exists but needs more than ${depth} hops. Increase the depth bound.`;
+            break;
+          default:
+            this.pathError = `No path reaches ${target} within ${depth} hops.`;
+        }
+      } catch (error) {
+        if (uri !== this.uri) return;
+        this.pathError = error.message;
+      } finally {
+        if (uri === this.uri) this.pathLoading = false;
+      }
+    },
+
+    pathStepEdge(index) {
+      return this.pathResult && this.pathResult.edges[index]
+        ? this.pathResult.edges[index].relation
+        : "";
     },
 
     async loadHistory(cursor = "") {

@@ -3,12 +3,14 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -118,6 +120,9 @@ func newHTTPHandlerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bo
 	mux.HandleFunc("GET /api/v1/diff", serveDiff(vaultPath))
 	mux.HandleFunc("GET /api/v1/changes", serveChanges(vaultPath))
 	mux.HandleFunc("GET /api/v1/graph", serveGraph(vaultPath))
+	mux.HandleFunc("GET /api/v1/graph/neighbors", serveGraphNeighbors(vaultPath))
+	mux.HandleFunc("GET /api/v1/graph/path", serveGraphPath(vaultPath))
+	mux.HandleFunc("GET /api/v1/procedures", serveProcedures(vaultPath))
 	mux.HandleFunc("GET /api/v1/search", serveSearch(vaultPath))
 	mux.HandleFunc("POST /api/v1/context", serveContext(vaultPath))
 	mux.HandleFunc("POST /api/v1/audit/knowledge", serveKnowledgeAudit(vaultPath))
@@ -160,15 +165,119 @@ func serveConcepts(vaultPath string) http.HandlerFunc {
 	}
 }
 
+const (
+	defaultPagesLimit = 200
+	maxPagesLimit     = 1000
+)
+
+var (
+	errInvalidPagesCursor = errors.New("invalid pages cursor")
+	errPagesCursorExpired = errors.New("pages cursor expired")
+)
+
+// pagesResponse keeps the legacy {pages} shape and adds bounded pagination:
+// total counts the filtered result set and next_cursor continues the listing.
+type pagesResponse struct {
+	Pages      []vault.DocumentRef `json:"pages"`
+	Total      int                 `json:"total"`
+	NextCursor string              `json:"next_cursor,omitempty"`
+}
+
 func servePages(vaultPath string) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		pages, err := vault.ListPages(vaultPath)
+	return func(w http.ResponseWriter, request *http.Request) {
+		limit, err := queryLimit(request, "limit")
 		if err != nil {
-			writeHTTPError(w, http.StatusInternalServerError, err)
+			writeHTTPError(w, http.StatusBadRequest, err)
 			return
 		}
-		writeHTTPJSON(w, http.StatusOK, map[string]any{"pages": pages})
+		if limit != 0 && (limit < 1 || limit > maxPagesLimit) {
+			writeHTTPError(w, http.StatusBadRequest, fmt.Errorf("limit must be between 1 and %d", maxPagesLimit))
+			return
+		}
+		query := request.URL.Query()
+		result, err := paginatePages(
+			vaultPath,
+			query.Get("cursor"),
+			limit,
+			query.Get("q"),
+			query.Get("type"),
+		)
+		if err != nil {
+			writePagesHTTPError(w, err)
+			return
+		}
+		writeHTTPJSON(w, http.StatusOK, result)
 	}
+}
+
+// paginatePages lists effective pages in deterministic canonical-URI order,
+// filtered server-side by q and type, bounded by limit, and continued through
+// an opaque cursor holding the last URI of the previous page.
+func paginatePages(vaultPath, cursor string, limit int, query, pageType string) (pagesResponse, error) {
+	if limit == 0 {
+		limit = defaultPagesLimit
+	}
+	pages, err := vault.ListPages(vaultPath)
+	if err != nil {
+		return pagesResponse{}, err
+	}
+	filtered := filterPages(pages, query, pageType)
+
+	start := 0
+	if cursor != "" {
+		decoded, err := base64.RawURLEncoding.DecodeString(cursor)
+		if err != nil {
+			return pagesResponse{}, fmt.Errorf("%w: malformed", errInvalidPagesCursor)
+		}
+		previous := string(decoded)
+		start = sort.Search(len(filtered), func(i int) bool { return filtered[i].URI >= previous })
+		if start == len(filtered) || filtered[start].URI != previous {
+			return pagesResponse{}, errPagesCursorExpired
+		}
+		start++
+	}
+	end := min(start+limit, len(filtered))
+	result := pagesResponse{Pages: filtered[start:end], Total: len(filtered)}
+	if end < len(filtered) {
+		result.NextCursor = base64.RawURLEncoding.EncodeToString([]byte(filtered[end-1].URI))
+	}
+	return result, nil
+}
+
+// filterPages applies the server-side q (title, type, description, uri) and
+// exact type filters, matching the filters the document UI used to apply
+// client-side over the full listing.
+func filterPages(pages []vault.DocumentRef, query, pageType string) []vault.DocumentRef {
+	query = strings.ToLower(strings.TrimSpace(query))
+	pageType = strings.TrimSpace(pageType)
+	if query == "" && pageType == "" {
+		return pages
+	}
+	filtered := make([]vault.DocumentRef, 0, len(pages))
+	for _, page := range pages {
+		if pageType != "" && page.Type != pageType {
+			continue
+		}
+		if query != "" {
+			text := strings.ToLower(page.Title + " " + page.Type + " " + page.Description + " " + page.URI)
+			if !strings.Contains(text, query) {
+				continue
+			}
+		}
+		filtered = append(filtered, page)
+	}
+	return filtered
+}
+
+func writePagesHTTPError(w http.ResponseWriter, err error) {
+	status := http.StatusInternalServerError
+	switch {
+	case errors.Is(err, errInvalidPagesCursor):
+		status = http.StatusBadRequest
+	case errors.Is(err, errPagesCursorExpired):
+		status = http.StatusGone
+	}
+	writeHTTPError(w, status, err)
 }
 
 func servePage(vaultPath string) http.HandlerFunc {
@@ -333,6 +442,107 @@ func serveGraph(vaultPath string) http.HandlerFunc {
 			return
 		}
 		writeHTTPJSON(w, http.StatusOK, graph)
+	}
+}
+
+// serveGraphNeighbors adapts the trace_graph neighbor mode: the same vault
+// traversal, validation, and bounded-edge semantics as the MCP tool and CLI.
+func serveGraphNeighbors(vaultPath string) http.HandlerFunc {
+	return func(w http.ResponseWriter, request *http.Request) {
+		query := request.URL.Query()
+		if query.Get("target") != "" {
+			writeHTTPError(w, http.StatusBadRequest, errors.New("target is available only in path mode"))
+			return
+		}
+		input := traceGraphInput{
+			URI:       query.Get("uri"),
+			Direction: query.Get("direction"),
+			Relations: query["relation"],
+		}
+		limit, err := optionalQueryInt(request, "limit")
+		if err != nil {
+			writeHTTPError(w, http.StatusBadRequest, err)
+			return
+		}
+		input.Limit = limit
+		depth, err := optionalQueryInt(request, "depth")
+		if err != nil {
+			writeHTTPError(w, http.StatusBadRequest, err)
+			return
+		}
+		input.Depth = depth
+		result, err := traceMCPGraph(vaultPath, input)
+		if err != nil {
+			writeHTTPError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeHTTPJSON(w, http.StatusOK, result.Neighbors)
+	}
+}
+
+// serveGraphPath adapts the trace_graph path mode: the same bounded path
+// traversal and statuses as the MCP tool and CLI.
+func serveGraphPath(vaultPath string) http.HandlerFunc {
+	return func(w http.ResponseWriter, request *http.Request) {
+		query := request.URL.Query()
+		if strings.TrimSpace(query.Get("target")) == "" {
+			writeHTTPError(w, http.StatusBadRequest, errors.New("target is required in path mode"))
+			return
+		}
+		input := traceGraphInput{
+			URI:       query.Get("uri"),
+			TargetURI: query.Get("target"),
+			Direction: query.Get("direction"),
+			Relations: query["relation"],
+		}
+		depth, err := optionalQueryInt(request, "depth")
+		if err != nil {
+			writeHTTPError(w, http.StatusBadRequest, err)
+			return
+		}
+		input.Depth = depth
+		limit, err := optionalQueryInt(request, "limit")
+		if err != nil {
+			writeHTTPError(w, http.StatusBadRequest, err)
+			return
+		}
+		input.Limit = limit
+		result, err := traceMCPGraph(vaultPath, input)
+		if err != nil {
+			writeHTTPError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeHTTPJSON(w, http.StatusOK, result.Path)
+	}
+}
+
+// optionalQueryInt parses an optional integer query parameter into the
+// pointer shape the MCP input structs use to distinguish absent from zero.
+func optionalQueryInt(request *http.Request, name string) (*int, error) {
+	raw := request.URL.Query().Get(name)
+	if raw == "" {
+		return nil, nil
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil {
+		return nil, fmt.Errorf("%s must be an integer", name)
+	}
+	return &value, nil
+}
+
+// serveProcedures adapts get_procedures discovery and exact-contract reads.
+func serveProcedures(vaultPath string) http.HandlerFunc {
+	return func(w http.ResponseWriter, request *http.Request) {
+		query := request.URL.Query()
+		result, err := getMCPProcedures(vaultPath, getProceduresInput{
+			URI:  query.Get("uri"),
+			Tags: query["tag"],
+		})
+		if err != nil {
+			writeHTTPError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeHTTPJSON(w, http.StatusOK, result)
 	}
 }
 

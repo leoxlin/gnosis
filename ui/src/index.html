@@ -16,10 +16,10 @@
       <nav aria-label="Views">
         <template x-for="item in [
           { name: 'dashboard', label: 'Dashboard' },
-          { name: 'graph', label: 'Graph' },
           { name: 'pages', label: 'Pages' },
           { name: 'concepts', label: 'Concepts' },
           { name: 'search', label: 'Search' },
+          { name: 'procedures', label: 'Procedures' },
           { name: 'vaults', label: 'Vaults' },
         ]" :key="item.name">
           <a
@@ -118,59 +118,28 @@
         </div>
       </section>
 
-      <section x-show="$store.app.is('graph')" x-data="graphView" class="view" aria-label="Knowledge graph">
+      <section x-show="$store.app.is('pages')" x-data="pagesView" class="view" aria-label="Pages">
         <div class="toolbar">
-          <input type="search" placeholder="Filter documents…" autocomplete="off" x-model.debounce.150ms="query" @input="draw()">
-          <select x-model="type" @change="draw()" aria-label="Concept type">
+          <input type="search" placeholder="Filter pages…" autocomplete="off" x-model.debounce.300ms="query">
+          <select x-model="type" aria-label="Concept type">
             <option value="">All concept types</option>
             <template x-for="name in types" :key="name">
               <option :value="name" x-text="name"></option>
             </template>
           </select>
-          <span class="stats" x-text="`${visible().length} of ${nodes.length} documents · ${edges.length} links`"></span>
+          <span class="stats" x-text="`showing ${pages.length} of ${total} pages`"></span>
         </div>
-        <div class="split">
-          <ul class="records" aria-label="Documents">
-            <template x-for="node in visible()" :key="node.uri">
-              <li>
-                <button type="button" @click="$store.app.openPage(node.uri)">
-                  <span class="record-title" x-text="node.title"></span>
-                  <span class="record-meta"><i class="dot" :style="'background:' + color(node.type)"></i><span x-text="node.type"></span></span>
-                </button>
-              </li>
-            </template>
-            <li x-show="loaded && visible().length === 0" class="empty-line">No documents match.</li>
-          </ul>
-          <div class="graph">
-            <canvas x-ref="canvas" role="img" aria-label="Connected gnosis documents" @click="pick($event)"></canvas>
-            <div class="hint">select a node to open the document</div>
-            <div class="empty" x-show="!loaded && !error">Loading graph…</div>
-            <div class="empty" x-show="error">
-              <span class="error" x-text="error"></span>
-              <button type="button" class="action subtle" @click="load()">Retry</button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section x-show="$store.app.is('pages')" x-data="pagesView" class="view" aria-label="Pages">
-        <div class="toolbar">
-          <input type="search" placeholder="Filter pages…" autocomplete="off" x-model.debounce.150ms="query">
-          <select x-model="type" aria-label="Concept type">
-            <option value="">All concept types</option>
-            <template x-for="name in types()" :key="name">
-              <option :value="name" x-text="name"></option>
-            </template>
-          </select>
-          <span class="stats" x-text="`${visible().length} of ${pages.length} pages`"></span>
-        </div>
-        <div class="empty" x-show="!loaded && !error">Loading pages…</div>
+        <div class="empty" x-show="!loaded && !error && !loading">Loading pages…</div>
         <div class="empty" x-show="error">
           <span class="error" x-text="error"></span>
           <button type="button" class="action subtle" @click="load()">Retry</button>
         </div>
+        <div class="empty" x-show="expired">
+          <span class="error">The pages cursor expired while browsing.</span>
+          <button type="button" class="action subtle" @click="restartExpired()">Restart from the beginning</button>
+        </div>
         <div class="cards">
-          <template x-for="page in visible()" :key="page.uri">
+          <template x-for="page in pages" :key="page.uri">
             <button type="button" class="card" @click="$store.app.openPage(page.uri)">
               <span class="record-title" x-text="page.title"></span>
               <span class="record-description" x-text="page.description || 'No description.'"></span>
@@ -181,7 +150,93 @@
             </button>
           </template>
         </div>
-        <div class="empty" x-show="loaded && !error && visible().length === 0">No pages match.</div>
+        <div class="empty" x-show="loaded && !error && pages.length === 0">No pages match.</div>
+        <button type="button" class="action subtle" x-show="cursor" :disabled="loading" @click="load(cursor)" x-text="loading ? 'Loading…' : 'Load more'"></button>
+      </section>
+
+      <section x-show="$store.app.is('procedures')" x-data="proceduresView" class="view" aria-label="Procedures">
+        <div class="split">
+          <ul class="records" aria-label="Procedures">
+            <template x-for="procedure in procedures" :key="procedure.uri">
+              <li>
+                <button type="button" :aria-current="selected === procedure.uri" @click="choose(procedure.uri)">
+                  <span class="record-title" x-text="procedure.title || procedure.uri"></span>
+                  <span class="record-meta" x-text="procedure.description || 'No description.'"></span>
+                  <span class="record-meta">
+                    <template x-for="tag in procedure.tags" :key="tag">
+                      <span class="badge" x-text="tag"></span>
+                    </template>
+                    <span x-text="procedure.trust.origin ? procedure.trust.origin.vault : ''"></span>
+                  </span>
+                </button>
+              </li>
+            </template>
+            <li x-show="!loaded && !error" class="empty-line">Loading procedures…</li>
+            <li x-show="loaded && procedures.length === 0" class="empty-line">No eligible procedures.</li>
+          </ul>
+          <div class="panel">
+            <div class="empty" x-show="error">
+              <span class="error" x-text="error"></span>
+              <button type="button" class="action subtle" @click="retry()">Retry</button>
+            </div>
+            <div class="empty" x-show="!error && !selected && !contractLoading">Select a procedure to read its execution contract.</div>
+            <div class="empty" x-show="contractLoading">Loading contract…</div>
+            <div class="empty" x-show="contractError">
+              <span class="error" x-text="contractError"></span>
+              <button type="button" class="action subtle" @click="retry()">Retry</button>
+            </div>
+            <article class="document" x-show="contract && !contractLoading">
+              <header class="detail-head">
+                <h3 x-text="contract ? contract.process.title : ''"></h3>
+                <p x-text="contract && contract.process.description ? contract.process.description : 'No description.'"></p>
+                <div class="metadata" x-show="contract">
+                  <span><strong>invocation:</strong> <span x-text="contract ? contract.process.invocation : ''"></span></span>
+                  <span><strong>vault:</strong> <span x-text="contract ? contract.process.origin.vault : ''"></span></span>
+                  <span><strong>revision:</strong> <span x-text="contract ? short(contract.process.revision) : ''"></span></span>
+                </div>
+                <div class="metadata" x-show="contract">
+                  <template x-for="tag in contract ? contract.process.tags : []" :key="tag">
+                    <span class="badge" x-text="tag"></span>
+                  </template>
+                </div>
+                <div class="metadata" x-show="contract">
+                  <span class="uri" x-text="contract ? contract.process.uri : ''"></span>
+                </div>
+              </header>
+              <template x-if="contract && contract.steps && contract.steps.length > 0">
+                <div class="history-panel">
+                  <template x-for="step in contract.steps" :key="step.number">
+                    <div class="diff">
+                      <div class="toolbar">
+                        <span class="badge" x-text="'step ' + step.number"></span>
+                        <span class="stats" x-text="step.name"></span>
+                      </div>
+                      <pre x-text="step.sections.knowledge_inputs"></pre>
+                      <pre x-text="step.sections.process"></pre>
+                      <pre x-text="step.sections.completion"></pre>
+                    </div>
+                  </template>
+                </div>
+              </template>
+              <template x-if="contract && (!contract.steps || contract.steps.length === 0)">
+                <div class="history-panel">
+                  <div class="diff">
+                    <div class="toolbar"><span class="badge">knowledge inputs</span></div>
+                    <pre x-text="contract ? contract.sections.knowledge_inputs : ''"></pre>
+                  </div>
+                  <div class="diff">
+                    <div class="toolbar"><span class="badge">process</span></div>
+                    <pre x-text="contract ? contract.sections.process : ''"></pre>
+                  </div>
+                  <div class="diff">
+                    <div class="toolbar"><span class="badge">completion</span></div>
+                    <pre x-text="contract ? contract.sections.completion : ''"></pre>
+                  </div>
+                </div>
+              </template>
+            </article>
+          </div>
+        </div>
       </section>
 
       <section x-show="$store.app.is('concepts')" x-data="conceptsView" class="view" aria-label="Concepts">
@@ -297,6 +352,7 @@
               <h3 x-text="page ? page.document.title : ''"></h3>
               <div class="tabs">
                 <button type="button" class="action subtle" :aria-current="tab === 'content'" @click="tab = 'content'">Content</button>
+                <button type="button" class="action subtle" :aria-current="tab === 'neighborhood'" @click="showNeighborhood()">Neighborhood</button>
                 <button type="button" class="action subtle" :aria-current="tab === 'history'" @click="showHistory()">History</button>
                 <button type="button" class="action subtle" x-show="tab === 'content'" @click="raw = !raw" x-text="raw ? 'Rendered' : 'Source'"></button>
               </div>
@@ -315,6 +371,66 @@
           <div x-show="tab === 'content'">
             <div x-show="page && !raw" class="md" @click="follow($event)" x-html="page ? page.html : ''"></div>
             <pre x-show="page && raw" x-text="page ? page.markdown : ''"></pre>
+          </div>
+          <div x-show="tab === 'neighborhood'" class="history-panel">
+            <div class="toolbar">
+              <select x-model="hoodDirection" @change="reloadNeighborhood()" aria-label="Edge direction">
+                <option value="both">both directions</option>
+                <option value="out">outgoing</option>
+                <option value="in">incoming</option>
+              </select>
+              <input type="search" placeholder="Relations, comma-separated…" autocomplete="off" x-model.debounce.300ms="hoodRelation" @input="reloadNeighborhood()" aria-label="Relation filter">
+              <select x-model="hoodDepth" @change="reloadNeighborhood()" aria-label="Traversal depth">
+                <option value="1">depth 1</option>
+                <option value="2">depth 2</option>
+              </select>
+              <span class="stats" x-show="hoodLoaded" x-text="`${hoodNodes.length} documents · ${hoodEdges.length} links`"></span>
+            </div>
+            <div class="empty" x-show="hoodLoading">Tracing the neighborhood…</div>
+            <div class="empty" x-show="hoodError">
+              <span class="error" x-text="hoodError"></span>
+              <button type="button" class="action subtle" @click="loadNeighborhood()">Retry</button>
+            </div>
+            <div class="empty" x-show="hoodLoaded && hoodCapped">
+              <span class="error">This neighborhood exceeds the 300 document cap.</span>
+              <span>Narrow the direction or relation filters to see a bounded neighborhood.</span>
+            </div>
+            <div class="empty" x-show="hoodLoaded && !hoodCapped && hoodNodes.length <= 1">This page has no typed links matching the filters.</div>
+            <div class="graph bounded" x-show="hoodLoaded && !hoodCapped && hoodNodes.length > 1">
+              <canvas x-ref="hoodCanvas" role="img" aria-label="Bounded neighborhood around the open page" @click="pickGraph($event)"></canvas>
+              <div class="hint">select a node to open the document</div>
+            </div>
+            <p class="stats" x-show="hoodTruncated">Some nodes have more links than the per-node bound; narrow the direction or relation filters for a complete neighborhood.</p>
+            <form class="toolbar search-bar" @submit.prevent="findPath()">
+              <input type="search" placeholder="Target gnosis URI…" autocomplete="off" x-model="pathTarget" required aria-label="Target page URI">
+              <select x-model="pathDepth" aria-label="Path depth bound">
+                <option value="1">1 hop</option>
+                <option value="2">2 hops</option>
+                <option value="3">3 hops</option>
+                <option value="5">5 hops</option>
+                <option value="8">8 hops</option>
+              </select>
+              <button type="submit" class="action" :disabled="pathLoading" x-text="pathLoading ? 'Tracing…' : 'Find path'"></button>
+            </form>
+            <div class="empty" x-show="pathError">
+              <span class="error" x-text="pathError"></span>
+            </div>
+            <div class="diff" x-show="pathResult">
+              <div class="toolbar">
+                <span class="badge" x-text="pathResult ? pathResult.status : ''"></span>
+                <span class="stats" x-text="pathResult ? `${pathResult.nodes.length} documents · ${pathResult.edges.length} links` : ''"></span>
+              </div>
+              <ul class="records">
+                <template x-for="(node, index) in pathResult ? pathResult.nodes : []" :key="node.uri">
+                  <li>
+                    <button type="button" @click="$store.app.openPage(node.uri)">
+                      <span class="record-title" x-text="node.title || node.uri"></span>
+                      <span class="record-meta" x-show="index > 0" x-text="'↑ ' + pathStepEdge(index - 1)"></span>
+                    </button>
+                  </li>
+                </template>
+              </ul>
+            </div>
           </div>
           <div x-show="tab === 'history'" class="history-panel">
             <div class="empty" x-show="historyLoading && history.length === 0">Loading history…</div>
