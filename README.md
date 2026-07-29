@@ -121,6 +121,5 @@ openspec status --change <change-name>
 openspec validate --all --strict --no-interactive
 ```
 
-See [Plan with OpenSpec](docs/documentation/how-to/plan-with-openspec.md) for the
-project workflow and [Code architecture](docs/documentation/explanation/architecture.md)
-for the package layout.
+See [Code architecture](docs/documentation/explanation/architecture.md) for the
+package layout.
