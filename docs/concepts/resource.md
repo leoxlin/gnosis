@@ -1,5 +1,5 @@
 ---
-type: ConceptType
+type: Concept
 title: Resource
 description: A tool, repository, API, service, schema, or dashboard an agent can use or cite.
 path: resources

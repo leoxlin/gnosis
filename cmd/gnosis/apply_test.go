@@ -61,7 +61,7 @@ func TestApplyWorkspaceRejectsInvalidFlagCombinations(t *testing.T) {
 func TestApplyPageAcknowledgesRepeatAsNoOp(t *testing.T) {
 	workspace := commandVault(t)
 	writeCommandFile(t, workspace, "concepts/note.md", `---
-type: ConceptType
+type: Concept
 title: Note
 description: A short general-purpose record.
 path: notes

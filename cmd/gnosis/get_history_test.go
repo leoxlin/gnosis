@@ -84,7 +84,7 @@ vault_index = false
 vault_log = false
 `)
 	writeCommandFile(t, root, "docs/concepts/note.md", `---
-type: ConceptType
+type: Concept
 title: Note
 description: A test note.
 path: .

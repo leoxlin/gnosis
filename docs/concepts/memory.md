@@ -1,5 +1,5 @@
 ---
-type: ConceptType
+type: Concept
 title: Memory
 description: A scoped, self-contained agent memory of a durable fact, preference, or observation.
 path: memories

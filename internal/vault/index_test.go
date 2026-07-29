@@ -9,7 +9,7 @@ import (
 
 func TestGenerateIndexesSkipsRootDocumentation(t *testing.T) {
 	root := t.TempDir()
-	write(t, root, "concepts/note.md", "---\ntype: ConceptType\ntitle: Note\npath: notes\n---\n")
+	write(t, root, "concepts/note.md", "---\ntype: Concept\ntitle: Note\npath: notes\n---\n")
 	write(t, root, "documentation/guide.md", "# Guide\n\nSee [missing](missing.md).\n")
 	write(t, root, "notes/documentation/thing.md", "---\ntype: Note\ntitle: Thing\n---\n")
 	written, err := GenerateIndexes(root, IndexOptions{Overwrite: true})

@@ -161,7 +161,7 @@ func writeURIDestination(rawURI, vaultName, localRoot string) (string, string, e
 func conceptTypePage(pages []*effectivePage, title string) (*effectivePage, error) {
 	matches := make([]*effectivePage, 0, 1)
 	for _, page := range pages {
-		if page.document.Type == "ConceptType" && page.document.Title == title {
+		if page.document.Type == "Concept" && page.document.Title == title {
 			matches = append(matches, page)
 		}
 	}

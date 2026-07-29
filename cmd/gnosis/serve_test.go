@@ -359,7 +359,7 @@ func TestMCPTools(t *testing.T) {
 func TestMCPKnowledgeChangeToolsAreGatedAndWorkOverBothTransports(t *testing.T) {
 	workspace := mcpTestVault(t)
 	writeCommandFile(t, workspace, "types/note.md", `---
-type: ConceptType
+type: Concept
 title: Note
 description: A test note.
 path: notes

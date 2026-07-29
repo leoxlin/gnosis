@@ -54,7 +54,7 @@ func TestValidateRejectsConceptTypeTitleOutsideTypeNameConvention(t *testing.T) 
 	root := t.TempDir()
 	writeConfig(t, root, "[vault]\nvault_index = false\nvault_log = false\n")
 	write(t, root, "concepts/procedure.md", `---
-type: ConceptType
+type: Concept
 title: procedure
 description: A reusable process record.
 ---
@@ -75,7 +75,7 @@ func TestValidateAcceptsConceptTypeTitleUsingTypeNameConvention(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, "[vault]\nvault_index = false\nvault_log = false\n")
 	write(t, root, "concepts/procedure.md", `---
-type: ConceptType
+type: Concept
 title: Procedure
 description: A reusable process record.
 ---

@@ -283,14 +283,14 @@ vault_index = false
 vault_log = false
 `)
 	write(t, root, "types/note.md", `---
-type: ConceptType
+type: Concept
 title: Note
 description: A test note.
 path: notes
 ---
 `)
 	write(t, root, "types/procedure.md", `---
-type: ConceptType
+type: Concept
 title: Procedure
 description: An executable procedure.
 path: procedures

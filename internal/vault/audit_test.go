@@ -70,6 +70,30 @@ vault_log = false
 	}
 }
 
+func TestAuditKnowledgeExemptsConceptBackedTypeDefinitionsFromOrphans(t *testing.T) {
+	root := trustTestVault(t)
+	write(t, root, "concepts/note.md", `---
+type: Concept
+title: Note
+description: A short general-purpose record.
+---
+`)
+	write(t, root, "orphan.md", auditNote("Orphan", "", ""))
+
+	result, err := AuditKnowledge(root, KnowledgeAuditRequest{
+		Classes: []FindingClass{FindingOrphan}, PageLimit: 100, FindingLimit: 100,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasAuditFinding(result.Findings, FindingOrphan, "gnosis://test/concepts/note.md") {
+		t.Fatalf("Concept-backed type definition reported as orphan: %+v", result.Findings)
+	}
+	if !hasAuditFinding(result.Findings, FindingOrphan, "gnosis://test/orphan.md") {
+		t.Fatalf("ordinary orphan missing from findings: %+v", result.Findings)
+	}
+}
+
 func TestAuditKnowledgeValidatesBoundsStalenessAndContinuation(t *testing.T) {
 	root := trustTestVault(t)
 	write(t, root, "a.md", auditNote("A", "", ""))

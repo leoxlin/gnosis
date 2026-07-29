@@ -1,5 +1,5 @@
 ---
-type: ConceptType
+type: Concept
 title: Entity
 description: A person, team, agent, or organization that knowledge is about.
 path: entities

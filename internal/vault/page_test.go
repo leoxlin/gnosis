@@ -16,7 +16,7 @@ vault_index = false
 vault_log = false
 `)
 	write(t, root, "concepts/note.md", `---
-type: ConceptType
+type: Concept
 title: Note
 path: notes
 ---
@@ -113,7 +113,7 @@ vault_root = "."
 vault_index = false
 vault_log = false
 `)
-			write(t, root, "concepts/note.md", "---\ntype: ConceptType\ntitle: Note\npath: notes\n---\n")
+			write(t, root, "concepts/note.md", "---\ntype: Concept\ntitle: Note\npath: notes\n---\n")
 			content := []byte("---\ntype: Note\n" + test.fields + "---\n\n# Note\n")
 
 			if _, err := WriteDocument(root, "gnosis://test/notes/input.md", content, false); err == nil || !strings.Contains(err.Error(), test.want) {
@@ -139,7 +139,7 @@ vault_root = "."
 vault_index = false
 vault_log = false
 `)
-	write(t, root, "concepts/note.md", "---\ntype: ConceptType\ntitle: Note\npath: notes\n---\n")
+	write(t, root, "concepts/note.md", "---\ntype: Concept\ntitle: Note\npath: notes\n---\n")
 
 	tests := []struct {
 		name    string

@@ -133,7 +133,7 @@ func TestGenerateIndexesWritesFolderIndexes(t *testing.T) {
 * Entry.
 `)
 	write(t, root, "concepts/topic.md", `---
-type: ConceptType
+type: Concept
 title: Topic
 description: Definition of a reusable topic record.
 ---

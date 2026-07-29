@@ -10,7 +10,7 @@ import (
 func TestWriteDocumentWritesToURITarget(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, "[vault]\nvault_name = \"Workspace\"\nvault_root = \"local\"\n")
-	write(t, root, "local/types/note.md", "---\ntype: ConceptType\ntitle: Note\npath: notes\n---\n")
+	write(t, root, "local/types/note.md", "---\ntype: Concept\ntitle: Note\npath: notes\n---\n")
 	content := []byte("---\ntype: Note\ntitle: A New Note\n---\n\n# A New Note\n")
 
 	target := "gnosis://Workspace/notes/custom-name.md"
@@ -33,7 +33,7 @@ func TestWriteDocumentAcceptsAnyVaultTargetByPrecedence(t *testing.T) {
 	imported := filepath.Join(workspace, "imported")
 	writeConfig(t, workspace, "[vault]\nvault_name = \"Workspace\"\nvault_root = \"local\"\n\n[[vaults]]\nvault_name = \"Imported\"\nvault_root = \"imported\"\n")
 	writeConfig(t, imported, "[vault]\nvault_name = \"Imported\"\nvault_root = \".\"\n")
-	write(t, workspace, "local/types/note.md", "---\ntype: ConceptType\ntitle: Note\npath: notes\n---\n")
+	write(t, workspace, "local/types/note.md", "---\ntype: Concept\ntitle: Note\npath: notes\n---\n")
 	write(t, imported, "notes/existing.md", "---\ntype: Note\ntitle: Existing\n---\n")
 	content := []byte("---\ntype: Note\ntitle: Any vault\n---\n")
 
@@ -60,7 +60,7 @@ func TestWriteDocumentAcceptsAnyVaultTargetByPrecedence(t *testing.T) {
 func TestWriteDocumentValidatesTargetURIAndConceptPath(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, "[vault]\nvault_name = \"Local\"\nvault_root = \".\"\n")
-	write(t, root, "types/note.md", "---\ntype: ConceptType\ntitle: Note\npath: notes\n---\n")
+	write(t, root, "types/note.md", "---\ntype: Concept\ntitle: Note\npath: notes\n---\n")
 	content := []byte("---\ntype: Note\ntitle: A Note\n---\n")
 
 	for _, test := range []struct {
@@ -92,7 +92,7 @@ func TestWriteDocumentRequiresUpdateToShadowExternalTarget(t *testing.T) {
 	}
 	writeConfig(t, workspace, "[vault]\nvault_name = \"Workspace\"\nvault_root = \"local\"\n\n[[vaults]]\nvault_name = \"Imported\"\nvault_root = \"imported\"\n")
 	writeConfig(t, imported, "[vault]\nvault_name = \"Imported\"\nvault_root = \".\"\n")
-	write(t, workspace, "local/types/note.md", "---\ntype: ConceptType\ntitle: Note\npath: notes\n---\n")
+	write(t, workspace, "local/types/note.md", "---\ntype: Concept\ntitle: Note\npath: notes\n---\n")
 	write(t, imported, "notes/imported-note.md", "---\ntype: Note\ntitle: Imported Note\n---\n")
 	content := []byte("---\ntype: Note\ntitle: Imported Note\n---\n\n# Local\n")
 	target := "gnosis://Workspace/notes/imported-note.md"

@@ -28,13 +28,13 @@ description: Second test page.
 ---
 `)
 	writeCommandFile(t, workspace, "delta.md", `---
-type: Concept
+type: Reference
 title: Delta concept
 description: Third test page.
 ---
 `)
 	writeCommandFile(t, workspace, "gamma.md", `---
-type: Concept
+type: Reference
 title: Gamma concept
 description: Fourth test page.
 ---
@@ -86,7 +86,7 @@ func TestPagesHTTPPagination(t *testing.T) {
 	if !reflect.DeepEqual(pageURIs(filtered), []string{"gnosis://test/gamma.md"}) || filtered.Total != 1 {
 		t.Fatalf("q filter = %+v", filtered)
 	}
-	getHistoryJSON(t, handler, "/api/v1/pages?type=Concept", &filtered)
+	getHistoryJSON(t, handler, "/api/v1/pages?type=Reference", &filtered)
 	if !reflect.DeepEqual(
 		pageURIs(filtered),
 		[]string{"gnosis://test/delta.md", "gnosis://test/gamma.md"},

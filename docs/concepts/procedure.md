@@ -1,5 +1,5 @@
 ---
-type: ConceptType
+type: Concept
 title: Procedure
 description: A discoverable, invocable workflow for vault work.
 path: procedures

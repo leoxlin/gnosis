@@ -1,5 +1,5 @@
 ---
-type: ConceptType
+type: Concept
 title: Reflection
 description: A distilled lesson, heuristic, or failure pattern learned from experience.
 path: reflections

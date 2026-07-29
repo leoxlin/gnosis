@@ -5,6 +5,31 @@ import (
 	"testing"
 )
 
+func TestConceptsDiscoversConceptBackedTypeDefinitions(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "concepts/note.md", `---
+type: Concept
+title: Note
+description: A short general-purpose record.
+---
+`)
+
+	catalog, err := Concepts(root, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, summary := range catalog.ConceptTypes {
+		if summary.Type == "Note" {
+			if summary.Description != "A short general-purpose record." ||
+				summary.URI != "gnosis://Test/concepts/note.md" {
+				t.Fatalf("Note summary = %+v", summary)
+			}
+			return
+		}
+	}
+	t.Fatalf("concept types = %+v, want Note", catalog.ConceptTypes)
+}
+
 func TestConceptRecordsPreserveFrontmatterUnderConceptsKey(t *testing.T) {
 	root := t.TempDir()
 	write(t, root, "policy.md", `---

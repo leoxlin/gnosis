@@ -315,7 +315,7 @@ description: Existing remote page.
 ---
 `)
 	writeTestFile(t, filepath.Join(fixture.seed, "concepts", "note.md"), `---
-type: ConceptType
+type: Concept
 title: Note
 description: A short general-purpose record.
 path: notes
@@ -392,7 +392,7 @@ func TestGitHubWikiBackendPullsAndPublishes(t *testing.T) {
 
 	runGit(t, "init", "--initial-branch=main", seed)
 	writeTestFile(t, filepath.Join(seed, "Home.md"), "---\ntype: Reference\ntitle: Home\ndescription: first\n---\n\n# Home\n\nfirst\n")
-	writeTestFile(t, filepath.Join(seed, "concepts", "note.md"), "---\ntype: ConceptType\ntitle: Note\ndescription: A short general-purpose record.\npath: notes\n---\n\n# Note\n")
+	writeTestFile(t, filepath.Join(seed, "concepts", "note.md"), "---\ntype: Concept\ntitle: Note\ndescription: A short general-purpose record.\npath: notes\n---\n\n# Note\n")
 	runGit(t, "-C", seed, "add", ".")
 	runGit(t, "-C", seed, "commit", "-m", "initial wiki")
 	runGit(t, "clone", "--bare", seed, remote)

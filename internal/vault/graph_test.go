@@ -86,7 +86,7 @@ tags: [test-vault]
 Shared knowledge is read.
 `)
 	write(t, imported, "docs/shared/end.md", `---
-type: Concept
+type: Note
 title: Shared End
 description: Imported shared knowledge.
 ---

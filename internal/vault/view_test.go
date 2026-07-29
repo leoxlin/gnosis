@@ -125,7 +125,7 @@ vault_name = "Workspace"
 vault_root = "."
 `)
 	write(t, root, "concepts/procedure.md", `---
-type: ConceptType
+type: Concept
 title: LocalProcedure
 ---
 `)

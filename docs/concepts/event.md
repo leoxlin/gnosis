@@ -1,5 +1,5 @@
 ---
-type: ConceptType
+type: Concept
 title: Event
 description: A dated episode, action, or observation worth remembering.
 path: events

@@ -22,7 +22,7 @@ invocation: model
 1. Resolve the vault and read its configuration and agent rules. List existing types with `gnosis get concepts` and inspect only relevant definitions with `gnosis get pages '<concept-type URI>' --full`.
 2. Investigate discoverable facts before asking the author. Ask only for category boundaries, examples, and exclusions.
 3. Interview the author one question at a time until the category boundary is clear. If two independent boundaries remain, create two Concept Type records.
-4. Name the category only after its boundary is clear. Apply the completed document with `gnosis apply page 'gnosis://_/concepts/<concept-type>.md' --filename <draft-file>` using `type: ConceptType`, `title`, and `description`; add frontmatter only when a consumer uses it.
+4. Name the category only after its boundary is clear. Apply the completed document with `gnosis apply page 'gnosis://_/concepts/<concept-type>.md' --filename <draft-file>` using `type: Concept`, `title`, and `description`; add frontmatter only when a consumer uses it.
 5. Use a definition paragraph followed by `## Use this for`, an exclusion sentence, `## Minimum record`, and `## Schema`. Keep the schema to required fields and sections.
 6. Run `gnosis index vault --vault <root>` only when `vault_index` is enabled, then run `gnosis validate vault --vault <root>`.
 

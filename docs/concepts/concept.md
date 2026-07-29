@@ -1,5 +1,5 @@
 ---
-type: ConceptType
+type: Concept
 title: Concept
 description: A durable semantic or factual concept.
 path: concepts

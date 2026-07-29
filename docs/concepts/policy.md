@@ -1,5 +1,5 @@
 ---
-type: ConceptType
+type: Concept
 title: Policy
 description: A rule, constraint, or permission that governs what should or must be done.
 path: policies

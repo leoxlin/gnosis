@@ -163,7 +163,7 @@ func validateFile(root, path string, config Config, resolver *documentResolver, 
 
 		if metadata.conceptType != "" {
 			conceptType := metadata.conceptType
-			if conceptType == "ConceptType" {
+			if conceptType == "Concept" {
 				validateConceptTypeName(path, fields, result)
 			}
 			if isProcedureType(conceptType) {

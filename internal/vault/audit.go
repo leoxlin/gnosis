@@ -336,7 +336,7 @@ func detectKnowledgeFindings(
 
 	if selected[FindingOrphan] {
 		for _, page := range pages {
-			if page.document.Type == "ConceptType" || entryPoints[page.document.URI] ||
+			if page.document.Type == "Concept" || entryPoints[page.document.URI] ||
 				len(graph.incoming[page.document.URI]) != 0 {
 				continue
 			}
