@@ -36,7 +36,7 @@
     </aside>
 
     <main>
-      <section x-show="$store.app.is('dashboard')" x-data="dashboardView" class="view" aria-label="Dashboard">
+      <section x-show="$store.app.is('dashboard')" x-data="dashboardView" class="view dashboard" aria-label="Dashboard">
         <form class="toolbar search-bar" @submit.prevent="goSearch()">
           <input type="search" placeholder="Ask the vault a question…" autocomplete="off" x-model="question" required>
           <button type="submit" class="action">Search</button>

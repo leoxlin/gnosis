@@ -29,8 +29,9 @@ nav a[aria-current="page"] { background: var(--panel-2); color: var(--accent); }
 .endpoints { display: flex; gap: 8px; flex-wrap: wrap; margin-top: auto; }
 .pill { border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; font-size: 11px; color: var(--muted); }
 
-main { min-width: 0; padding: 22px; display: grid; align-content: start; }
+main { min-width: 0; padding: 22px; display: grid; }
 .view { display: grid; gap: 16px; align-content: start; }
+.view.dashboard { grid-template-rows: auto minmax(0, 1fr); height: calc(100vh - 44px); }
 
 .toolbar { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
 .toolbar input[type="search"] { flex: 1 1 220px; max-width: 420px; }
@@ -107,11 +108,12 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px #
 .tabs { display: flex; gap: 6px; flex: none; }
 .tabs .action[aria-current="true"] { border-color: var(--accent); color: var(--accent); }
 
-.dash-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
-.dash-panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); padding: 16px 18px; display: grid; gap: 10px; align-content: start; }
+.dash-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-content: stretch; min-height: 0; }
+.dash-panel { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 .dash-panel h2 { margin: 0; font: 650 16px/1.2 ui-serif, Georgia, serif; }
 .dash-panel .empty { min-height: 60px; padding: 12px; }
-.dash-panel .records { max-height: 320px; }
+.dash-panel .pulse, .dash-panel > .records { flex: 1; min-height: 0; overflow: auto; }
+.dash-panel .records { max-height: none; }
 .pulse { display: grid; gap: 10px; }
 .pulse-counts { display: flex; gap: 18px; flex-wrap: wrap; color: var(--muted); font-size: 12px; align-items: baseline; }
 .pulse-counts strong { color: var(--ink); font-size: 18px; font-weight: 650; margin-right: 4px; }
@@ -132,5 +134,8 @@ input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px #
   main { padding: 14px; }
   .split { grid-template-columns: 1fr; }
   .records { max-height: 30vh; }
+  .view.dashboard { height: auto; }
+  .dash-panel .records { max-height: 45vh; }
+  .dash-panel .pulse, .dash-panel > .records { max-height: 45vh; }
   .graph { min-height: 55vh; }
 }
