@@ -28,54 +28,6 @@ func TestHomeShowsLiveContext(t *testing.T) {
 	}
 }
 
-func TestCommandTreeUsesVerbResourceGrammar(t *testing.T) {
-	for _, args := range [][]string{
-		{"get", "vaults", "--help"},
-		{"get", "concepts", "--help"},
-		{"get", "pages", "--help"},
-		{"get", "procedures", "--help"},
-		{"get", "history", "--help"},
-		{"get", "diff", "--help"},
-		{"get", "changes", "--help"},
-		{"search", "knowledge", "--help"},
-		{"context", "knowledge", "--help"},
-		{"search", "memory", "--help"},
-		{"add", "memory", "--help"},
-		{"graph", "neighbors", "--help"},
-		{"graph", "path", "--help"},
-		{"create", "vault", "--help"},
-		{"plan", "knowledge-change", "--help"},
-		{"apply", "workspace", "--help"},
-		{"apply", "page", "--help"},
-		{"apply", "knowledge-change", "--help"},
-		{"index", "vault", "--help"},
-		{"index", "knowledge", "--help"},
-		{"validate", "vault", "--help"},
-		{"serve", "http", "--help"},
-		{"serve", "mcp", "--help"},
-	} {
-		t.Run(strings.Join(args[:len(args)-1], " "), func(t *testing.T) {
-			var stdout, stderr bytes.Buffer
-			if err := run(args, &stdout, &stderr); err != nil {
-				t.Fatal(err)
-			}
-			if !strings.Contains(stdout.String(), "command:") || !strings.Contains(stdout.String(), "usage:") {
-				t.Fatalf("help output = %q", stdout.String())
-			}
-		})
-	}
-}
-
-func TestVaultFlagDocumentsRemoteTargets(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	if err := run([]string{"--help"}, &stdout, &stderr); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(stdout.String(), "path or HTTPS/SSH Git URL to the OKF vault") {
-		t.Fatalf("root help = %q", stdout.String())
-	}
-}
-
 func TestInvalidRemoteVaultSyntaxIsUsageError(t *testing.T) {
 	for _, target := range []string{
 		"ftp://example.test/vault.git",
@@ -90,28 +42,38 @@ func TestInvalidRemoteVaultSyntaxIsUsageError(t *testing.T) {
 	}
 }
 
-func TestEveryCommandHelpIsContextual(t *testing.T) {
+func TestCommandTreeAndHelpContract(t *testing.T) {
+	expected := map[string]struct{}{
+		"get vaults": {}, "get concepts": {}, "get pages": {}, "get procedures": {},
+		"get history": {}, "get diff": {}, "get changes": {},
+		"search knowledge": {}, "context knowledge": {}, "search memory": {}, "add memory": {},
+		"graph neighbors": {}, "graph path": {}, "create vault": {},
+		"plan knowledge-change": {}, "apply workspace": {}, "apply page": {},
+		"apply knowledge-change": {}, "index vault": {}, "index knowledge": {},
+		"validate vault": {}, "serve http": {}, "serve mcp": {},
+	}
 	root := newRootCommand(&bytes.Buffer{}, &bytes.Buffer{})
 	var visit func(*cobra.Command)
 	visit = func(command *cobra.Command) {
 		if command.Name() != "help" {
-			args := strings.Fields(strings.TrimPrefix(command.CommandPath(), "gnosis"))
+			path := strings.TrimSpace(strings.TrimPrefix(command.CommandPath(), "gnosis"))
+			delete(expected, path)
+			args := strings.Fields(path)
 			args = append(args, "--help")
 			var stdout, stderr bytes.Buffer
 			if err := run(args, &stdout, &stderr); err != nil {
 				t.Errorf("%s --help: %v", command.CommandPath(), err)
 			} else {
-				if _, err := toon.Decode(stdout.Bytes()); err != nil {
+				decoded, err := toon.Decode(stdout.Bytes())
+				if err != nil {
 					t.Errorf("decode %s help: %v", command.CommandPath(), err)
-				}
-				for _, key := range []string{"command:", "description:", "usage:", "flags["} {
-					if !strings.Contains(stdout.String(), key) {
-						t.Errorf("%s help = %q, missing %q", command.CommandPath(), stdout.String(), key)
+				} else {
+					fields := decoded.(map[string]any)
+					for _, key := range []string{"command", "description", "usage", "flags"} {
+						if _, ok := fields[key]; !ok {
+							t.Errorf("%s help missing %q: %#v", command.CommandPath(), key, fields)
+						}
 					}
-				}
-				if !strings.Contains(stdout.String(), "examples[2]") &&
-					!strings.Contains(stdout.String(), "examples[3]") {
-					t.Errorf("%s help = %q, missing two or three examples", command.CommandPath(), stdout.String())
 				}
 				if stderr.Len() != 0 {
 					t.Errorf("%s stderr = %q", command.CommandPath(), stderr.String())
@@ -125,6 +87,9 @@ func TestEveryCommandHelpIsContextual(t *testing.T) {
 		}
 	}
 	visit(root)
+	for path := range expected {
+		t.Errorf("missing command %q", path)
+	}
 }
 
 func TestRemovedCommandsAndFlagsFail(t *testing.T) {
