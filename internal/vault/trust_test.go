@@ -116,6 +116,48 @@ unknown_field: value
 	}
 }
 
+func TestTrustProjectionPreservesOrderedMaintenanceAndResolvedTargets(t *testing.T) {
+	root := trustTestVault(t)
+	write(t, root, "target.md", "---\ntype: Concept\ntitle: Target\n---\n")
+	write(t, root, "source.md", `---
+type: Concept
+title: Source
+maintenance:
+  - kind: stale
+    reason: Source changed.
+    observed_at: 2026-07-29T09:00:00Z
+    author: agent-id
+  - kind: duplicate
+    reason: Target is canonical.
+    observed_at: 2026-07-29T09:01:00Z
+    target: gnosis://test/target.md
+  - kind: duplicate
+    reason: Target was removed.
+    observed_at: 2026-07-29T09:02:00Z
+    target: gnosis://test/missing.md
+---
+`)
+
+	page, err := ReadPage(root, "gnosis://test/source.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := page.Document.Trust.Maintenance
+	if len(got) != 3 || got[0].Kind != "stale" || got[0].Author != "agent-id" ||
+		got[1].Target == nil || got[1].Target.URI != "gnosis://test/target.md" ||
+		got[2].Target == nil || got[2].Target.Authored != "gnosis://test/missing.md" ||
+		got[2].Target.URI != "" {
+		t.Fatalf("maintenance = %+v", got)
+	}
+	validation, err := Validate(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.Join(validation.Errors, "\n"), "unresolved maintenance[2] target") {
+		t.Fatalf("validation errors = %v", validation.Errors)
+	}
+}
+
 func TestResolveCurrentReportsCurrentMissingAndCycle(t *testing.T) {
 	root := trustTestVault(t)
 	write(t, root, "old.md", "---\ntype: Concept\ntitle: Old\nsuperseded_by: current.md\n---\n")

@@ -200,7 +200,8 @@ func TestHostedAddAndSearch(t *testing.T) {
 		added.Memories[0].Event != "ADD" ||
 		added.Memories[0].Backend != BackendMem0 ||
 		added.Memories[0].CreatedAt != "2026-07-26T12:00:00Z" ||
-		added.Memories[0].UpdatedAt != "2026-07-26T12:01:00Z" {
+		added.Memories[0].UpdatedAt != "2026-07-26T12:01:00Z" ||
+		len(added.Memories[0].Maintenance) != 0 {
 		t.Fatalf("added = %+v", added)
 	}
 
@@ -305,7 +306,8 @@ func TestVaultAddNoopAndScopedSearch(t *testing.T) {
 		added.Memories[0].Backend != BackendVault ||
 		added.Memories[0].CreatedAt != "2026-07-26T16:00:00Z" ||
 		added.Memories[0].CreatedAt != added.Memories[0].UpdatedAt ||
-		added.Memories[0].Origin == nil {
+		added.Memories[0].Origin == nil ||
+		len(added.Memories[0].Maintenance) != 0 {
 		t.Fatalf("added = %+v", added)
 	}
 	page, err := vault.ReadPage(root, added.Memories[0].ID)
@@ -323,6 +325,21 @@ func TestVaultAddNoopAndScopedSearch(t *testing.T) {
 			t.Fatalf("page = %q, missing %q", page.Markdown, want)
 		}
 	}
+	annotated := strings.Replace(page.Markdown, "---\n\n# Memory", `maintenance:
+  - kind: stale
+    reason: Preference may have changed.
+    observed_at: 2026-07-27T12:00:00Z
+    author: agent-id
+---
+
+# Memory`, 1)
+	if err := os.WriteFile(page.Document.Origin.Path, []byte(annotated), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	annotatedPage, err := vault.ReadPage(root, added.Memories[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	backend.now = func() time.Time { return time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC) }
 	noop, err := service.Add(context.Background(), "I prefer dark mode")
@@ -331,15 +348,16 @@ func TestVaultAddNoopAndScopedSearch(t *testing.T) {
 	}
 	if noop.Memories[0].Event != "NOOP" ||
 		noop.Memories[0].CreatedAt != added.Memories[0].CreatedAt ||
-		noop.Memories[0].UpdatedAt != added.Memories[0].UpdatedAt {
+		noop.Memories[0].UpdatedAt != added.Memories[0].UpdatedAt ||
+		len(noop.Memories[0].Maintenance) != 1 {
 		t.Fatalf("noop = %+v", noop)
 	}
 	unchanged, err := vault.ReadPage(root, added.Memories[0].ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if unchanged.Document.Revision != page.Document.Revision {
-		t.Fatalf("revision changed from %s to %s", page.Document.Revision, unchanged.Document.Revision)
+	if unchanged.Document.Revision != annotatedPage.Document.Revision {
+		t.Fatalf("revision changed from %s to %s", annotatedPage.Document.Revision, unchanged.Document.Revision)
 	}
 
 	other, err := New(Config{UserID: "other", AgentID: "agent"}, root)
@@ -354,7 +372,8 @@ func TestVaultAddNoopAndScopedSearch(t *testing.T) {
 		t.Fatal(err)
 	}
 	if found.Count != 1 || found.Memories[0].ID != added.Memories[0].ID ||
-		found.Memories[0].Score == nil || found.Memories[0].Text != "I prefer dark mode" {
+		found.Memories[0].Score == nil || found.Memories[0].Text != "I prefer dark mode" ||
+		len(found.Memories[0].Maintenance) != 1 {
 		t.Fatalf("found = %+v", found)
 	}
 }

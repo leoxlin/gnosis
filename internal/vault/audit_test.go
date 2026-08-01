@@ -38,6 +38,25 @@ vault_log = false
   - type: uses
     target: retired.md
 `, ""))
+	write(t, root, "authored.md", auditNote("Authored", `maintenance:
+  - kind: stale
+    reason: Source changed.
+    observed_at: 2026-07-29T09:00:00Z
+    author: agent-id
+  - kind: incorrect
+    reason: Claim is false.
+    observed_at: 2026-07-29T09:01:00Z
+  - kind: duplicate
+    reason: Retired is canonical.
+    observed_at: 2026-07-29T09:02:00Z
+    target: gnosis://test/retired.md
+`, ""))
+	write(t, root, "broken-maintenance.md", auditNote("Broken maintenance", `maintenance:
+  - kind: duplicate
+    reason: Target disappeared.
+    observed_at: 2026-07-29T09:03:00Z
+    target: gnosis://test/missing.md
+`, ""))
 
 	before := auditFixtureFiles(t, root)
 	result, err := AuditKnowledge(root, KnowledgeAuditRequest{
@@ -92,6 +111,42 @@ description: A short general-purpose record.
 	if !hasAuditFinding(result.Findings, FindingOrphan, "gnosis://test/orphan.md") {
 		t.Fatalf("ordinary orphan missing from findings: %+v", result.Findings)
 	}
+}
+
+func TestAuditKnowledgeSeparatesAuthoredMaintenanceFromHeuristics(t *testing.T) {
+	root := trustTestVault(t)
+	write(t, root, "canonical.md", auditNote("Same", "", ""))
+	write(t, root, "duplicate.md", auditNote("Same", `maintenance:
+  - kind: duplicate
+    reason: Canonical has the same claim.
+    observed_at: 2026-07-29T09:00:00Z
+    author: agent-id
+    target: gnosis://test/canonical.md
+`, ""))
+
+	result, err := AuditKnowledge(root, KnowledgeAuditRequest{
+		Classes:   []FindingClass{FindingAuthoredDuplicate, FindingDuplicateIdentity},
+		PageLimit: 100, FindingLimit: 100,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasAuditFinding(result.Findings, FindingDuplicateIdentity, "gnosis://test/duplicate.md") {
+		t.Fatalf("authored duplicate also emitted heuristic candidate: %+v", result.Findings)
+	}
+	for _, finding := range result.Findings {
+		if finding.Class != FindingAuthoredDuplicate {
+			continue
+		}
+		if finding.Classification != ClassificationAuthored ||
+			finding.Evidence[0].Reason != "Canonical has the same claim." ||
+			finding.Evidence[0].Author != "agent-id" ||
+			finding.Evidence[0].TargetURI != "gnosis://test/canonical.md" {
+			t.Fatalf("authored finding = %+v", finding)
+		}
+		return
+	}
+	t.Fatalf("missing authored duplicate: %+v", result.Findings)
 }
 
 func TestAuditKnowledgeValidatesBoundsStalenessAndContinuation(t *testing.T) {

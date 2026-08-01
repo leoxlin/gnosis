@@ -122,6 +122,55 @@ func TestWriteDocumentRequiresCurrentLocalVault(t *testing.T) {
 	}
 }
 
+func TestWriteDocumentValidatesMaintenanceTargetsBeforeWriting(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, "[vault]\nvault_name = \"test\"\nvault_root = \".\"\n")
+	write(t, root, "types/note.md", "---\ntype: Concept\ntitle: Note\npath: notes\n---\n")
+	write(t, root, "notes/target.md", "---\ntype: Note\ntitle: Target\n---\n")
+
+	content := func(target string) []byte {
+		return []byte("---\ntype: Note\ntitle: Source\nmaintenance:\n  - kind: duplicate\n    reason: Same claim.\n    observed_at: 2026-07-29T09:00:00Z\n    target: " + target + "\n---\n")
+	}
+	for _, test := range []struct {
+		name, uri, target, want string
+	}{
+		{"missing", "gnosis://test/notes/missing-source.md", "gnosis://test/notes/missing.md", "unresolved"},
+		{"self", "gnosis://test/notes/self.md", "gnosis://test/notes/self.md", "distinct"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := WriteDocument(root, test.uri, content(test.target), false)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %v, want %q", err, test.want)
+			}
+		})
+	}
+
+	source := []byte(`---
+type: Note
+title: Source
+maintenance:
+  - kind: stale
+    reason: Old evidence.
+    observed_at: 2026-07-29T08:59:00Z
+  - kind: duplicate
+    reason: Same claim.
+    observed_at: 2026-07-29T09:00:00Z
+    target: gnosis://test/notes/target.md
+---
+`)
+	if _, err := WriteDocument(root, "gnosis://test/notes/source.md", source, false); err != nil {
+		t.Fatal(err)
+	}
+	page, err := ReadPage(root, "gnosis://test/notes/source.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Document.Trust.Maintenance) != 2 ||
+		page.Document.Trust.Maintenance[1].Target.URI != "gnosis://test/notes/target.md" {
+		t.Fatalf("maintenance = %+v", page.Document.Trust.Maintenance)
+	}
+}
+
 func TestWriteGeneratedFileSkipsUnchangedContent(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "index.md")
 	if err := os.WriteFile(path, []byte("same"), 0o644); err != nil {

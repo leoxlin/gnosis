@@ -125,6 +125,7 @@ func writeMemoryResult(output io.Writer, result agentmemory.Result) error {
 			{key: "created_at", value: record.CreatedAt, include: record.CreatedAt != ""},
 			{key: "updated_at", value: record.UpdatedAt, include: record.UpdatedAt != ""},
 			{key: "origin", value: origin, include: record.Origin != nil},
+			{key: "maintenance", value: maintenanceObjects(record.Maintenance), include: len(record.Maintenance) > 0},
 		} {
 			if optional.include {
 				fields = append(fields, toon.Field{Key: optional.key, Value: optional.value})

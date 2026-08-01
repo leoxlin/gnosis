@@ -569,5 +569,31 @@ func trustObject(trust vault.TrustProjection) toon.Object {
 		}
 		fields = append(fields, toon.Field{Key: "contradictions", Value: contradictions})
 	}
+	if len(trust.Maintenance) > 0 {
+		fields = append(fields, toon.Field{Key: "maintenance", Value: maintenanceObjects(trust.Maintenance)})
+	}
 	return toon.NewObject(fields...)
+}
+
+func maintenanceObjects(annotations []vault.MaintenanceAnnotation) []toon.Object {
+	result := make([]toon.Object, 0, len(annotations))
+	for _, annotation := range annotations {
+		fields := []toon.Field{
+			{Key: "kind", Value: annotation.Kind},
+			{Key: "reason", Value: annotation.Reason},
+			{Key: "observed_at", Value: annotation.ObservedAt},
+		}
+		if annotation.Author != "" {
+			fields = append(fields, toon.Field{Key: "author", Value: annotation.Author})
+		}
+		if annotation.Target != nil {
+			target := []toon.Field{{Key: "authored", Value: annotation.Target.Authored}}
+			if annotation.Target.URI != "" {
+				target = append(target, toon.Field{Key: "uri", Value: annotation.Target.URI})
+			}
+			fields = append(fields, toon.Field{Key: "target", Value: toon.NewObject(target...)})
+		}
+		result = append(result, toon.NewObject(fields...))
+	}
+	return result
 }

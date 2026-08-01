@@ -44,15 +44,16 @@ type Config struct {
 
 // Record is the compact backend-neutral form of a memory.
 type Record struct {
-	ID        string         `json:"id"`
-	Text      string         `json:"text"`
-	Event     string         `json:"event,omitempty"`
-	Score     *float64       `json:"score,omitempty"`
-	Metadata  map[string]any `json:"metadata,omitempty"`
-	CreatedAt string         `json:"created_at,omitempty"`
-	UpdatedAt string         `json:"updated_at,omitempty"`
-	Backend   string         `json:"backend"`
-	Origin    *vault.Origin  `json:"origin,omitempty"`
+	ID          string                        `json:"id"`
+	Text        string                        `json:"text"`
+	Event       string                        `json:"event,omitempty"`
+	Score       *float64                      `json:"score,omitempty"`
+	Metadata    map[string]any                `json:"metadata,omitempty"`
+	CreatedAt   string                        `json:"created_at,omitempty"`
+	UpdatedAt   string                        `json:"updated_at,omitempty"`
+	Backend     string                        `json:"backend"`
+	Origin      *vault.Origin                 `json:"origin,omitempty"`
+	Maintenance []vault.MaintenanceAnnotation `json:"maintenance,omitempty"`
 }
 
 // Result contains bounded memory records.
@@ -350,14 +351,15 @@ func recordFromDocument(document vault.Document, score *float64) Record {
 	origin := document.Origin
 	metadata, _ := document.Metadata["metadata"].(map[string]any)
 	return Record{
-		ID:        document.URI,
-		Text:      memoryText(document.Body),
-		Score:     score,
-		Metadata:  metadata,
-		CreatedAt: metadataString(document.Metadata, "created_at"),
-		UpdatedAt: metadataString(document.Metadata, "updated_at"),
-		Backend:   BackendVault,
-		Origin:    &origin,
+		ID:          document.URI,
+		Text:        memoryText(document.Body),
+		Score:       score,
+		Metadata:    metadata,
+		CreatedAt:   metadataString(document.Metadata, "created_at"),
+		UpdatedAt:   metadataString(document.Metadata, "updated_at"),
+		Backend:     BackendVault,
+		Origin:      &origin,
+		Maintenance: document.Trust.Maintenance,
 	}
 }
 

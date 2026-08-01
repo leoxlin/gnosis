@@ -160,6 +160,9 @@ func validateFile(root, path string, config Config, resolver *documentResolver, 
 			result.Warnings = append(result.Warnings, fmt.Sprintf("%s: empty markdown body", path))
 		}
 		validateRelationships(root, path, fields, config, resolver, result)
+		if effective != nil {
+			validateMaintenance(effective, resolver, result)
+		}
 
 		if metadata.conceptType != "" {
 			conceptType := metadata.conceptType
@@ -174,6 +177,26 @@ func validateFile(root, path string, config Config, resolver *documentResolver, 
 
 	validateReservedName(path, body, result)
 	validateLinks(root, path, text, config, resolver, result)
+}
+
+func validateMaintenance(page *effectivePage, resolver *documentResolver, result *Result) {
+	for index, annotation := range page.document.Maintenance {
+		if annotation.Target == nil {
+			continue
+		}
+		resolution, include, err := resolver.resolvePage(page, annotation.Target.Authored)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: maintenance[%d] target: %v", page.path, index, err))
+			continue
+		}
+		if !include || !resolution.document || resolution.uri == "" {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: unresolved maintenance[%d] target %s", page.path, index, annotation.Target.Authored))
+			continue
+		}
+		if resolution.uri == page.document.URI {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: maintenance[%d] target must be distinct from its page", page.path, index))
+		}
+	}
 }
 
 func validateConceptTypeName(path string, fields frontmatterFields, result *Result) {

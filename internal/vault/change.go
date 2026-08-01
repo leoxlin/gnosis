@@ -286,7 +286,8 @@ var knownKnowledgeMetadata = map[string]bool{
 	"aliases": true, "applies_to": true, "claims": true, "confidence": true,
 	"contradictions": true, "description": true, "effects": true, "entities": true,
 	"invocation": true, "kind": true, "path": true, "relationships": true,
-	"scope": true, "source": true, "status": true, "summary": true,
+	"maintenance": true,
+	"scope":       true, "source": true, "status": true, "summary": true,
 	"superseded_by": true, "tags": true, "tier": true, "title": true,
 	"type": true, "valid_from": true,
 }

@@ -47,6 +47,7 @@ type Document struct {
 	Edges       []Edge
 	Origin      Origin
 	Revision    string
+	Maintenance []MaintenanceAnnotation
 	Trust       TrustProjection
 }
 

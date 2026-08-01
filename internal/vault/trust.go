@@ -13,20 +13,36 @@ const maxSupersessionDepth = 32
 
 // TrustProjection is the shared agent-facing evidence and lifecycle envelope.
 type TrustProjection struct {
-	Origin         Origin          `json:"origin"`
-	Revision       string          `json:"revision"`
-	Status         string          `json:"status,omitempty"`
-	Confidence     *float64        `json:"confidence,omitempty"`
-	Source         string          `json:"source,omitempty"`
-	ValidFrom      string          `json:"valid_from,omitempty"`
-	ValidUntil     string          `json:"valid_until,omitempty"`
-	ObservedAt     string          `json:"observed_at,omitempty"`
-	OccurredAt     string          `json:"occurred_at,omitempty"`
-	Tier           string          `json:"tier,omitempty"`
-	SupersededBy   *Supersession   `json:"superseded_by,omitempty"`
-	Current        *bool           `json:"current,omitempty"`
-	Claims         []ClaimSignal   `json:"claims,omitempty"`
-	Contradictions []Contradiction `json:"contradictions,omitempty"`
+	Origin         Origin                  `json:"origin"`
+	Revision       string                  `json:"revision"`
+	Status         string                  `json:"status,omitempty"`
+	Confidence     *float64                `json:"confidence,omitempty"`
+	Source         string                  `json:"source,omitempty"`
+	ValidFrom      string                  `json:"valid_from,omitempty"`
+	ValidUntil     string                  `json:"valid_until,omitempty"`
+	ObservedAt     string                  `json:"observed_at,omitempty"`
+	OccurredAt     string                  `json:"occurred_at,omitempty"`
+	Tier           string                  `json:"tier,omitempty"`
+	SupersededBy   *Supersession           `json:"superseded_by,omitempty"`
+	Current        *bool                   `json:"current,omitempty"`
+	Claims         []ClaimSignal           `json:"claims,omitempty"`
+	Contradictions []Contradiction         `json:"contradictions,omitempty"`
+	Maintenance    []MaintenanceAnnotation `json:"maintenance,omitempty"`
+}
+
+// MaintenanceAnnotation is one authored maintenance judgment.
+type MaintenanceAnnotation struct {
+	Kind       string             `json:"kind"`
+	Reason     string             `json:"reason"`
+	ObservedAt string             `json:"observed_at"`
+	Author     string             `json:"author,omitempty"`
+	Target     *MaintenanceTarget `json:"target,omitempty"`
+}
+
+// MaintenanceTarget preserves an authored duplicate target and its effective identity.
+type MaintenanceTarget struct {
+	Authored string `json:"authored"`
+	URI      string `json:"uri,omitempty"`
 }
 
 // Supersession preserves the authored target and its effective identity.
@@ -67,21 +83,34 @@ type CurrentResolution struct {
 
 func initialTrust(document Document) TrustProjection {
 	trust := TrustProjection{
-		Origin:     document.Origin,
-		Revision:   document.Revision,
-		Status:     metadataScalar(document.Metadata, "status"),
-		Source:     metadataScalar(document.Metadata, "source"),
-		ValidFrom:  metadataTime(document.Metadata, "valid_from"),
-		ValidUntil: metadataTime(document.Metadata, "valid_until"),
-		ObservedAt: metadataTime(document.Metadata, "observed_at"),
-		OccurredAt: metadataTime(document.Metadata, "occurred_at"),
-		Tier:       metadataScalar(document.Metadata, "tier"),
-		Claims:     claimSignals(document.Body),
+		Origin:      document.Origin,
+		Revision:    document.Revision,
+		Status:      metadataScalar(document.Metadata, "status"),
+		Source:      metadataScalar(document.Metadata, "source"),
+		ValidFrom:   metadataTime(document.Metadata, "valid_from"),
+		ValidUntil:  metadataTime(document.Metadata, "valid_until"),
+		ObservedAt:  metadataTime(document.Metadata, "observed_at"),
+		OccurredAt:  metadataTime(document.Metadata, "occurred_at"),
+		Tier:        metadataScalar(document.Metadata, "tier"),
+		Claims:      claimSignals(document.Body),
+		Maintenance: copyMaintenance(document.Maintenance),
 	}
 	if confidence, ok := metadataNumber(document.Metadata, "confidence"); ok {
 		trust.Confidence = &confidence
 	}
 	return trust
+}
+
+func copyMaintenance(source []MaintenanceAnnotation) []MaintenanceAnnotation {
+	result := make([]MaintenanceAnnotation, len(source))
+	for index, annotation := range source {
+		result[index] = annotation
+		if annotation.Target != nil {
+			target := *annotation.Target
+			result[index].Target = &target
+		}
+	}
+	return result
 }
 
 func metadataScalar(metadata map[string]any, key string) string {
@@ -141,6 +170,19 @@ func projectTrust(pages []*effectivePage) error {
 					Raw:      raw,
 					Source:   "frontmatter.superseded_by",
 				})
+			}
+		}
+		for index := range trust.Maintenance {
+			annotation := &trust.Maintenance[index]
+			if annotation.Target == nil {
+				continue
+			}
+			resolution, include, err := resolver.resolvePage(page, annotation.Target.Authored)
+			if err != nil {
+				return err
+			}
+			if include && resolution.document {
+				annotation.Target.URI = resolution.uri
 			}
 		}
 		page.document.Trust = trust

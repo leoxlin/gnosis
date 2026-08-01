@@ -131,6 +131,35 @@ vault_log = false
 	}
 }
 
+func TestMaintenanceFrontmatterValidation(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  string
+	}{
+		{"mapping", "  kind: stale\n", "sequence of mappings"},
+		{"unknown kind", "- kind: old\n  reason: old\n  observed_at: 2026-07-29T09:00:00Z\n", "must be stale, incorrect, or duplicate"},
+		{"missing reason", "- kind: stale\n  observed_at: 2026-07-29T09:00:00Z\n", `missing non-empty "reason"`},
+		{"invalid time", "- kind: stale\n  reason: old\n  observed_at: yesterday\n", "must be RFC3339"},
+		{"missing duplicate target", "- kind: duplicate\n  reason: same\n  observed_at: 2026-07-29T09:00:00Z\n", `missing non-empty "target"`},
+		{"noncanonical duplicate target", "- kind: duplicate\n  reason: same\n  observed_at: 2026-07-29T09:00:00Z\n  target: other.md\n", "canonical gnosis URI"},
+		{"target on stale", "- kind: stale\n  reason: old\n  observed_at: 2026-07-29T09:00:00Z\n  target: gnosis://test/other.md\n", "must not have a target"},
+		{"unknown field", "- kind: stale\n  reason: old\n  observed_at: 2026-07-29T09:00:00Z\n  extra: value\n", "unknown field"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			parsed, err := parsePage([]byte("---\ntype: Note\nmaintenance:\n" + test.value + "---\n"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, problems := interpretPageMetadata(parsed.fields)
+			if len(problems) == 0 || !strings.Contains(problems[0].Error(), test.want) {
+				t.Fatalf("problems = %v, want %q", problems, test.want)
+			}
+		})
+	}
+}
+
 func TestWriteRejectsPageStructuresThatResolvedReadsReject(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]

@@ -24,16 +24,20 @@ var ErrInvalidAuditCursor = errors.New("invalid audit cursor")
 type FindingClass string
 
 const (
-	FindingOrphan                 FindingClass = "orphan"
-	FindingDuplicateIdentity      FindingClass = "duplicate_identity"
-	FindingAmbiguity              FindingClass = "ambiguity"
-	FindingContradiction          FindingClass = "contradiction"
-	FindingStale                  FindingClass = "stale"
-	FindingBrokenSupersession     FindingClass = "broken_supersession"
-	FindingCyclicSupersession     FindingClass = "cyclic_supersession"
-	FindingNonCurrentSuccessor    FindingClass = "non_current_supersession"
-	FindingTagFragmentation       FindingClass = "tag_fragmentation"
-	FindingActiveReferenceRetired FindingClass = "active_reference_retired"
+	FindingOrphan                  FindingClass = "orphan"
+	FindingDuplicateIdentity       FindingClass = "duplicate_identity"
+	FindingAmbiguity               FindingClass = "ambiguity"
+	FindingContradiction           FindingClass = "contradiction"
+	FindingStale                   FindingClass = "stale"
+	FindingBrokenSupersession      FindingClass = "broken_supersession"
+	FindingCyclicSupersession      FindingClass = "cyclic_supersession"
+	FindingNonCurrentSuccessor     FindingClass = "non_current_supersession"
+	FindingTagFragmentation        FindingClass = "tag_fragmentation"
+	FindingActiveReferenceRetired  FindingClass = "active_reference_retired"
+	FindingAuthoredStale           FindingClass = "authored_stale"
+	FindingAuthoredIncorrect       FindingClass = "authored_incorrect"
+	FindingAuthoredDuplicate       FindingClass = "authored_duplicate"
+	FindingBrokenMaintenanceTarget FindingClass = "broken_maintenance_target"
 )
 
 var AllFindingClasses = []FindingClass{
@@ -47,6 +51,10 @@ var AllFindingClasses = []FindingClass{
 	FindingNonCurrentSuccessor,
 	FindingTagFragmentation,
 	FindingActiveReferenceRetired,
+	FindingAuthoredStale,
+	FindingAuthoredIncorrect,
+	FindingAuthoredDuplicate,
+	FindingBrokenMaintenanceTarget,
 }
 
 var DefaultFindingClasses = []FindingClass{
@@ -59,6 +67,10 @@ var DefaultFindingClasses = []FindingClass{
 	FindingNonCurrentSuccessor,
 	FindingTagFragmentation,
 	FindingActiveReferenceRetired,
+	FindingAuthoredStale,
+	FindingAuthoredIncorrect,
+	FindingAuthoredDuplicate,
+	FindingBrokenMaintenanceTarget,
 }
 
 type FindingClassification string
@@ -66,6 +78,7 @@ type FindingClassification string
 const (
 	ClassificationFact      FindingClassification = "fact"
 	ClassificationCandidate FindingClassification = "candidate"
+	ClassificationAuthored  FindingClassification = "authored"
 )
 
 type FindingSeverity string
@@ -92,6 +105,8 @@ type AuditEvidence struct {
 	Timestamp string `json:"timestamp,omitempty"`
 	Line      int    `json:"line,omitempty"`
 	Column    int    `json:"column,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+	Author    string `json:"author,omitempty"`
 }
 
 type KnowledgeFinding struct {
@@ -334,6 +349,54 @@ func detectKnowledgeFindings(
 	findings := []KnowledgeFinding{}
 	omissions := []AuditOmission{}
 
+	if selected[FindingAuthoredStale] || selected[FindingAuthoredIncorrect] ||
+		selected[FindingAuthoredDuplicate] || selected[FindingBrokenMaintenanceTarget] {
+		for _, page := range pages {
+			for _, annotation := range page.document.Trust.Maintenance {
+				class := FindingAuthoredStale
+				severity := SeverityMedium
+				switch annotation.Kind {
+				case "incorrect":
+					class, severity = FindingAuthoredIncorrect, SeverityHigh
+				case "duplicate":
+					class = FindingAuthoredDuplicate
+				}
+				if selected[class] {
+					evidence := AuditEvidence{
+						Kind: annotation.Kind, URI: page.document.URI,
+						Reason: annotation.Reason, Author: annotation.Author,
+						Timestamp: annotation.ObservedAt,
+					}
+					uris := []string{page.document.URI}
+					if annotation.Target != nil {
+						evidence.Value = annotation.Target.Authored
+						evidence.TargetURI = annotation.Target.URI
+						if annotation.Target.URI != "" {
+							uris = append(uris, annotation.Target.URI)
+						}
+					}
+					findings = append(findings, newFinding(
+						class, ClassificationAuthored, severity, ConfidenceHigh,
+						uris, []AuditEvidence{evidence}, maintainVaultProcedure, false,
+					))
+				}
+				if annotation.Target != nil && annotation.Target.URI == "" &&
+					selected[FindingBrokenMaintenanceTarget] {
+					findings = append(findings, newFinding(
+						FindingBrokenMaintenanceTarget, ClassificationFact,
+						SeverityHigh, ConfidenceHigh, []string{page.document.URI},
+						[]AuditEvidence{{
+							Kind: "maintenance_target", URI: page.document.URI,
+							Value: annotation.Target.Authored, Reason: annotation.Reason,
+							Author: annotation.Author, Timestamp: annotation.ObservedAt,
+						}},
+						maintainVaultProcedure, false,
+					))
+				}
+			}
+		}
+	}
+
 	if selected[FindingOrphan] {
 		for _, page := range pages {
 			if page.document.Type == "Concept" || entryPoints[page.document.URI] ||
@@ -458,6 +521,18 @@ func detectKnowledgeFindings(
 		}
 		for key, group := range groups {
 			if len(group.pages) < 2 {
+				continue
+			}
+			authoredDuplicate := false
+			for _, page := range group.pages {
+				for _, annotation := range page.document.Trust.Maintenance {
+					if annotation.Kind == "duplicate" && annotation.Target != nil &&
+						group.pages[annotation.Target.URI] != nil {
+						authoredDuplicate = true
+					}
+				}
+			}
+			if authoredDuplicate {
 				continue
 			}
 			parts := strings.SplitN(key, "\x00", 2)

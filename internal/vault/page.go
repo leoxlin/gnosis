@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/adrg/frontmatter"
 	"go.yaml.in/yaml/v4"
@@ -28,6 +29,7 @@ type pageMetadata struct {
 	description string
 	tags        []string
 	aliases     []string
+	maintenance []MaintenanceAnnotation
 }
 
 type relationshipSpec struct {
@@ -165,7 +167,92 @@ func interpretPageMetadata(fields frontmatterFields) (pageMetadata, []error) {
 	if err != nil {
 		problems = append(problems, err)
 	}
+	metadata.maintenance, err = maintenanceAnnotations(fields)
+	if err != nil {
+		problems = append(problems, err)
+	}
 	return metadata, problems
+}
+
+func maintenanceAnnotations(fields frontmatterFields) ([]MaintenanceAnnotation, error) {
+	value, exists := fields["maintenance"]
+	if !exists || value == nil {
+		return nil, nil
+	}
+	if _, ok := value.([]any); !ok {
+		return nil, fmt.Errorf("frontmatter %q must be a sequence of mappings", "maintenance")
+	}
+	encoded, err := yaml.Marshal(value)
+	if err != nil {
+		return nil, fmt.Errorf("frontmatter %q must be a sequence of mappings", "maintenance")
+	}
+	var items []map[string]any
+	if err := yaml.Unmarshal(encoded, &items); err != nil {
+		return nil, fmt.Errorf("frontmatter %q must be a sequence of mappings", "maintenance")
+	}
+	annotations := make([]MaintenanceAnnotation, 0, len(items))
+	for index, fields := range items {
+		for key := range fields {
+			switch key {
+			case "kind", "reason", "observed_at", "author", "target":
+			default:
+				return nil, fmt.Errorf("maintenance[%d] has unknown field %q", index, key)
+			}
+		}
+		required := func(key string) (string, error) {
+			raw, exists := fields[key]
+			value, ok := raw.(string)
+			if !exists || !ok || strings.TrimSpace(value) == "" {
+				return "", fmt.Errorf("maintenance[%d] missing non-empty %q", index, key)
+			}
+			return strings.TrimSpace(value), nil
+		}
+		kind, err := required("kind")
+		if err != nil {
+			return nil, err
+		}
+		if kind != "stale" && kind != "incorrect" && kind != "duplicate" {
+			return nil, fmt.Errorf("maintenance[%d] kind %q must be stale, incorrect, or duplicate", index, kind)
+		}
+		reason, err := required("reason")
+		if err != nil {
+			return nil, err
+		}
+		observedAt := metadataTime(fields, "observed_at")
+		if observedAt == "" {
+			return nil, fmt.Errorf("maintenance[%d] missing valid RFC3339 %q", index, "observed_at")
+		}
+		observed, err := time.Parse(time.RFC3339, observedAt)
+		if err != nil {
+			return nil, fmt.Errorf("maintenance[%d] %q must be RFC3339", index, "observed_at")
+		}
+		annotation := MaintenanceAnnotation{
+			Kind: kind, Reason: reason, ObservedAt: observed.UTC().Format(time.RFC3339Nano),
+		}
+		if raw, exists := fields["author"]; exists {
+			author, ok := raw.(string)
+			if !ok {
+				return nil, fmt.Errorf("maintenance[%d] %q must be a scalar", index, "author")
+			}
+			annotation.Author = strings.TrimSpace(author)
+		}
+		rawTarget, hasTarget := fields["target"]
+		target, targetScalar := rawTarget.(string)
+		target = strings.TrimSpace(target)
+		if kind == "duplicate" {
+			if !hasTarget || !targetScalar || target == "" {
+				return nil, fmt.Errorf("maintenance[%d] duplicate missing non-empty %q", index, "target")
+			}
+			if !IsCanonicalURI(target) {
+				return nil, fmt.Errorf("maintenance[%d] duplicate target %q must be a canonical gnosis URI", index, target)
+			}
+			annotation.Target = &MaintenanceTarget{Authored: target}
+		} else if hasTarget {
+			return nil, fmt.Errorf("maintenance[%d] kind %q must not have a target", index, kind)
+		}
+		annotations = append(annotations, annotation)
+	}
+	return annotations, nil
 }
 
 func relationshipSpecs(fields frontmatterFields) ([]relationshipSpec, error) {
@@ -256,6 +343,7 @@ func buildEffectivePage(root, path string, data []byte, origin Origin, parsed pa
 	}
 	page.document.Aliases = metadata.aliases
 	page.document.Tags = metadata.tags
+	page.document.Maintenance = metadata.maintenance
 	page.document.Body = parsed.body
 	page.document.Trust = initialTrust(page.document)
 	return page, nil

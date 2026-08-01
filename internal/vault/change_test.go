@@ -118,6 +118,50 @@ retained
 	}
 }
 
+func TestKnowledgeChangeTreatsMaintenanceAsAuthoredMetadata(t *testing.T) {
+	root := knowledgeChangeVault(t)
+	write(t, root, "notes/existing.md", `---
+type: Note
+title: Existing
+description: existing
+extension_field: keep-me
+maintenance:
+  - kind: stale
+    reason: Source changed.
+    observed_at: 2026-07-29T09:00:00Z
+---
+
+first
+`)
+	page, err := ReadPage(root, "gnosis://test/notes/existing.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := KnowledgeChangeInput{
+		URI:              "gnosis://test/notes/existing.md",
+		Candidate:        validChangeNote("Existing", "updated"),
+		ExpectedRevision: page.Document.Revision,
+	}
+	plan, err := PlanKnowledgeChange(root, input)
+	if err != nil || !plan.Applicable {
+		t.Fatalf("plan = %+v err = %v", plan, err)
+	}
+	if !strings.Contains(plan.Diff, "-maintenance:") {
+		t.Fatalf("diff does not clear maintenance: %s", plan.Diff)
+	}
+	if _, err := ApplyKnowledgeChange(root, input, plan.Digest); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(root, "notes", "existing.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "maintenance:") ||
+		!strings.Contains(string(data), "extension_field: keep-me") {
+		t.Fatalf("updated page = %s", data)
+	}
+}
+
 func TestKnowledgeChangeClassifiesNoOpAndUpdateRelationships(t *testing.T) {
 	root := knowledgeChangeVault(t)
 	write(t, root, "notes/target.md", validChangeNote("Target", "target"))

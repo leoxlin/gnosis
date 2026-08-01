@@ -39,6 +39,25 @@ duplicated, stale, or poorly connected.
    `superseded_by` link instead of silently deleting history. Treat candidates
    as author decisions, not proven identities or meaning conflicts.
 
+   Authored maintenance annotations appear with the `authored` classification:
+
+   ```yaml
+   maintenance:
+     - kind: stale
+       reason: Upstream policy changed.
+       observed_at: 2026-07-29T09:00:00Z
+       author: agent-id
+     - kind: duplicate
+       reason: The canonical page contains the same claim.
+       observed_at: 2026-07-29T09:01:00Z
+       target: gnosis://vault/policies/canonical.md
+   ```
+
+   Valid kinds are `stale`, `incorrect`, and `duplicate`. Every annotation
+   requires `reason` and an RFC3339 `observed_at`; only `duplicate` accepts and
+   requires a distinct, resolvable canonical `target` when written. Audits
+   report these judgments and broken targets without changing annotations.
+
 5. If pages mention known records without links, load and follow:
 
    ```bash

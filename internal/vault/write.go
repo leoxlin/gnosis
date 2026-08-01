@@ -110,8 +110,12 @@ func (vault *effectiveVault) prepareDocumentWrite(uri string, content []byte, up
 	}
 	resolverPages := append([]*effectivePage(nil), pages...)
 	resolverPages = append(resolverPages, candidate)
-	if _, err := newDocumentResolver(resolverPages).resolvePageLinks(candidate); err != nil {
+	resolver := newDocumentResolver(resolverPages)
+	if _, err := resolver.resolvePageLinks(candidate); err != nil {
 		return preparedDocumentWrite{}, fmt.Errorf("write: input links: %w", err)
+	}
+	if err := validateMaintenanceCandidate(candidate, resolver); err != nil {
+		return preparedDocumentWrite{}, fmt.Errorf("write: input maintenance: %w", err)
 	}
 	return preparedDocumentWrite{
 		content:     content,
@@ -120,6 +124,25 @@ func (vault *effectiveVault) prepareDocumentWrite(uri string, content []byte, up
 		pages:       pages,
 		config:      targetConfig,
 	}, nil
+}
+
+func validateMaintenanceCandidate(page *effectivePage, resolver *documentResolver) error {
+	for index, annotation := range page.document.Maintenance {
+		if annotation.Target == nil {
+			continue
+		}
+		resolution, include, err := resolver.resolvePage(page, annotation.Target.Authored)
+		if err != nil {
+			return fmt.Errorf("maintenance[%d] target: %w", index, err)
+		}
+		if !include || !resolution.document || resolution.uri == "" {
+			return fmt.Errorf("unresolved maintenance[%d] target %s", index, annotation.Target.Authored)
+		}
+		if resolution.uri == page.document.URI {
+			return fmt.Errorf("maintenance[%d] target must be distinct from its page", index)
+		}
+	}
+	return nil
 }
 
 func (vault *effectiveVault) writePreparedDocument(prepared preparedDocumentWrite) (string, error) {
