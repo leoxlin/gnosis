@@ -12,6 +12,7 @@ import (
 	evidencecontext "gnosis/internal/evidencecontext"
 	agentmemory "gnosis/internal/memory"
 	"gnosis/internal/search"
+	agenttrace "gnosis/internal/trace"
 	"gnosis/internal/vault"
 )
 
@@ -50,6 +51,15 @@ type addMemoryInput struct {
 type searchMemoryInput struct {
 	Query string `json:"query" jsonschema:"memory search query"`
 	Limit *int   `json:"limit,omitempty" jsonschema:"maximum memories to return, from 1 through 20"`
+}
+
+type recordTraceInput struct {
+	RunID      string         `json:"run_id" jsonschema:"non-empty run identity, at most 256 bytes"`
+	Sequence   int64          `json:"sequence" jsonschema:"non-negative run sequence"`
+	Kind       string         `json:"kind" jsonschema:"trace kind: run, plan, tool, patch, test, failure, or outcome"`
+	OccurredAt string         `json:"occurred_at" jsonschema:"RFC 3339 occurrence time"`
+	Content    string         `json:"content" jsonschema:"non-empty trace content, at most 65536 bytes"`
+	Metadata   map[string]any `json:"metadata,omitempty" jsonschema:"optional JSON metadata, at most 65536 encoded bytes"`
 }
 
 type traceGraphInput struct {
@@ -260,6 +270,20 @@ func newMCPServerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bool
 			return nil, agentmemory.Result{}, err
 		}
 		result, err := client.Search(ctx, input.Query, input.Limit)
+		return nil, result, err
+	})
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "record_trace",
+		Description: "Append one explicit agent-run trace entry to configured local storage",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, input recordTraceInput) (*mcp.CallToolResult, agenttrace.Result, error) {
+		store, err := agenttrace.NewFromEnv()
+		if err != nil {
+			return nil, agenttrace.Result{}, err
+		}
+		result, err := store.Record(agenttrace.Input{
+			RunID: input.RunID, Sequence: input.Sequence, Kind: input.Kind,
+			OccurredAt: input.OccurredAt, Content: input.Content, Metadata: input.Metadata,
+		})
 		return nil, result, err
 	})
 	return server

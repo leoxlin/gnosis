@@ -224,6 +224,7 @@ func TestMCPTools(t *testing.T) {
 		"get_procedures",
 		"get_vaults",
 		"propose_knowledge_change",
+		"record_trace",
 		"search_knowledge",
 		"search_memory",
 		"trace_graph",
