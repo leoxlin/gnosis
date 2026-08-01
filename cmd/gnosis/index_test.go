@@ -34,6 +34,8 @@ func TestWriteSemanticIndexResultUsesTOON(t *testing.T) {
 		Chunks:      3,
 		Scope:       "scope",
 		Fingerprint: "fingerprint",
+		Backend:     "sqlite",
+		Path:        "/tmp/semantic.db",
 	}
 
 	var output bytes.Buffer
@@ -42,7 +44,8 @@ func TestWriteSemanticIndexResultUsesTOON(t *testing.T) {
 	}
 	for _, value := range []string{
 		"action: index", "resource: knowledge", "status: synchronized",
-		"documents: 2", "chunks: 3", "scope: scope", "fingerprint: fingerprint",
+		"backend: sqlite", "documents: 2", "chunks: 3", "scope: scope",
+		"fingerprint: fingerprint", "path: /tmp/semantic.db",
 	} {
 		if !strings.Contains(output.String(), value) {
 			t.Fatalf("output = %q, missing %q", output.String(), value)

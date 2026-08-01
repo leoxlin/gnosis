@@ -12,7 +12,7 @@ CLI / HTTP / MCP
         ├── memory service ── vault or Mem0
         ├── knowledge change ─ validate / diff / conditional write
         │
-        └── search ────────── lexical or pgvector
+        └── search ────────── lexical, SQLite, or pgvector
                 │
               vault
                 │
@@ -25,7 +25,8 @@ scaffolding, and storage backends. It does not depend on search.
 
 `internal/search` builds bounded retrieval over the effective vault view.
 Lexical retrieval works directly from live documents. Semantic retrieval adds
-an optional PostgreSQL/pgvector index.
+an optional disposable SQLite or PostgreSQL/pgvector index behind one shared
+storage contract.
 
 `internal/memory` selects either the vault or Mem0 and exposes one scoped
 add/search service. The command, MCP, and HTTP layers call these packages rather

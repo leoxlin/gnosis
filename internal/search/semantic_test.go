@@ -17,7 +17,9 @@ import (
 )
 
 func TestSemanticConfigFromEnv(t *testing.T) {
+	t.Setenv("GNOSIS_VECTOR_BACKEND", "")
 	t.Setenv("GNOSIS_DATABASE_URL", "")
+	t.Setenv("GNOSIS_SQLITE_VECTOR_PATH", "")
 	t.Setenv("GNOSIS_EMBEDDING_URL", "")
 	t.Setenv("GNOSIS_EMBEDDING_MODEL", "")
 
@@ -55,9 +57,56 @@ func TestSemanticConfigFromEnv(t *testing.T) {
 	if first.EmbeddingsAPIKey != "embedding-secret" {
 		t.Fatalf("api key = %q", first.EmbeddingsAPIKey)
 	}
+	if first.Backend != "pgvector" {
+		t.Fatalf("backend = %q", first.Backend)
+	}
 	t.Setenv("GNOSIS_EMBEDDING_URL", "ftp://example.com/embeddings")
 	if _, err := SemanticConfigFromEnv(root); err == nil || !strings.Contains(err.Error(), "http or https") {
 		t.Fatalf("unsupported embeddings scheme error = %v", err)
+	}
+
+	t.Setenv("GNOSIS_EMBEDDING_URL", "http://localhost:11434/v1/embeddings")
+	t.Setenv("GNOSIS_DATABASE_URL", "")
+	t.Setenv("GNOSIS_VECTOR_BACKEND", "sqlite")
+	cache := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cache)
+	writeConfig(t, root, `[vault]
+vault_name = "sqlite-test"
+vault_root = "."
+vault_index = false
+vault_log = false
+`)
+	sqliteConfig, err := SemanticConfigFromEnv(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantPath := filepath.Join(cache, "gnosis", "sqlite-test", "semantic.db")
+	if sqliteConfig.SQLitePath != wantPath {
+		t.Fatalf("SQLite path = %q, want %q", sqliteConfig.SQLitePath, wantPath)
+	}
+
+	override := filepath.Join(t.TempDir(), "index.db")
+	t.Setenv("GNOSIS_SQLITE_VECTOR_PATH", override)
+	sqliteConfig, err = SemanticConfigFromEnv(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sqliteConfig.SQLitePath != override {
+		t.Fatalf("SQLite override = %q", sqliteConfig.SQLitePath)
+	}
+	t.Setenv("GNOSIS_SQLITE_VECTOR_PATH", "relative.db")
+	if _, err := SemanticConfigFromEnv(root); err == nil || !strings.Contains(err.Error(), "must be absolute") {
+		t.Fatalf("relative SQLite path error = %v", err)
+	}
+	t.Setenv("GNOSIS_SQLITE_VECTOR_PATH", override)
+	t.Setenv("GNOSIS_DATABASE_URL", "postgres://localhost/gnosis")
+	if _, err := SemanticConfigFromEnv(root); err == nil || !strings.Contains(err.Error(), "conflicts") {
+		t.Fatalf("conflicting backend error = %v", err)
+	}
+	t.Setenv("GNOSIS_DATABASE_URL", "")
+	t.Setenv("GNOSIS_VECTOR_BACKEND", "other")
+	if _, err := SemanticConfigFromEnv(root); err == nil || !strings.Contains(err.Error(), "GNOSIS_VECTOR_BACKEND") {
+		t.Fatalf("unknown backend error = %v", err)
 	}
 }
 
@@ -236,12 +285,27 @@ func TestVectorLiteral(t *testing.T) {
 	}
 }
 
-func TestSemanticIndexIntegration(t *testing.T) {
-	databaseURL := os.Getenv("GNOSIS_TEST_DATABASE_URL")
-	if databaseURL == "" {
-		t.Skip("GNOSIS_TEST_DATABASE_URL is not set")
-	}
+func TestSemanticIndexContract(t *testing.T) {
+	t.Run("sqlite", func(t *testing.T) {
+		runSemanticIndexContract(t, SemanticConfig{
+			Backend:    "sqlite",
+			SQLitePath: filepath.Join(t.TempDir(), "semantic.db"),
+		})
+	})
+	t.Run("pgvector", func(t *testing.T) {
+		databaseURL := os.Getenv("GNOSIS_TEST_DATABASE_URL")
+		if databaseURL == "" {
+			t.Skip("GNOSIS_TEST_DATABASE_URL is not set")
+		}
+		runSemanticIndexContract(t, SemanticConfig{
+			Backend:     "pgvector",
+			DatabaseURL: databaseURL,
+		})
+	})
+}
 
+func runSemanticIndexContract(t *testing.T, config SemanticConfig) {
+	t.Helper()
 	embeddings := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		var body embeddingRequest
 		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
@@ -288,20 +352,19 @@ description: Ships and ocean cargo.
 
 Beta harbor shipping knowledge.
 `)
-	config := SemanticConfig{
-		DatabaseURL:     databaseURL,
-		EmbeddingsURL:   embeddings.URL,
-		EmbeddingsModel: "test-model",
-		Scope:           documentFingerprint([]vault.Document{{URI: root, Revision: t.Name()}}),
-		HTTPClient:      embeddings.Client(),
+	config.EmbeddingsURL = embeddings.URL
+	config.EmbeddingsModel = "test-model"
+	config.Scope = documentFingerprint([]vault.Document{{URI: root, Revision: t.Name()}})
+	config.HTTPClient = embeddings.Client()
+	if semanticBackend(config) == "pgvector" {
+		defer deleteSemanticScope(t, config)
 	}
-	defer deleteSemanticScope(t, config)
 
 	indexed, err := SyncSemanticIndex(context.Background(), root, config)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if indexed.Documents < 2 || indexed.Chunks < indexed.Documents {
+	if indexed.Documents < 2 || indexed.Chunks < indexed.Documents || indexed.Backend != semanticBackend(config) {
 		t.Fatalf("index result = %+v", indexed)
 	}
 

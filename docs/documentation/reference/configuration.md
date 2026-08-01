@@ -80,13 +80,16 @@ not supported.
 
 | Variable | Meaning |
 |---|---|
-| `GNOSIS_DATABASE_URL` | PostgreSQL connection string |
+| `GNOSIS_VECTOR_BACKEND` | Vector storage: `pgvector` (default) or `sqlite` |
+| `GNOSIS_DATABASE_URL` | PostgreSQL connection string required by pgvector |
+| `GNOSIS_SQLITE_VECTOR_PATH` | Optional absolute SQLite index path |
 | `GNOSIS_EMBEDDING_URL` | OpenAI-compatible embeddings endpoint |
 | `GNOSIS_EMBEDDING_MODEL` | Embedding model identifier |
 | `GNOSIS_EMBEDDING_API_KEY` | Endpoint credential |
 
-These variables configure `gnosis index knowledge` and vector search. Lexical
-search does not need them.
+SQLite defaults to `<user-cache>/gnosis/<vault-name>/semantic.db`. These
+variables configure `gnosis index knowledge` and vector search. Lexical search
+does not need them.
 
 ## Memory environment
 

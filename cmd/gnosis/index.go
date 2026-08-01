@@ -65,15 +65,20 @@ func newIndexKnowledgeCommand(options *rootOptions, stdout io.Writer) *cobra.Com
 }
 
 func writeSemanticIndexResult(output io.Writer, result search.SemanticIndexResult) error {
-	return writeTOON(output, toon.NewObject(
+	fields := []toon.Field{
 		toon.Field{Key: "action", Value: "index"},
 		toon.Field{Key: "resource", Value: "knowledge"},
 		toon.Field{Key: "status", Value: "synchronized"},
+		toon.Field{Key: "backend", Value: result.Backend},
 		toon.Field{Key: "documents", Value: result.Documents},
 		toon.Field{Key: "chunks", Value: result.Chunks},
 		toon.Field{Key: "scope", Value: result.Scope},
 		toon.Field{Key: "fingerprint", Value: result.Fingerprint},
-	))
+	}
+	if result.Path != "" {
+		fields = append(fields, toon.Field{Key: "path", Value: result.Path})
+	}
+	return writeTOON(output, toon.NewObject(fields...))
 }
 
 func runIndex(vaultPath string, stdout io.Writer) error {
