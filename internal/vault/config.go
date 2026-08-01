@@ -22,11 +22,34 @@ const (
 
 // Config is the gnosis configuration for local and declared vaults.
 type Config struct {
-	Vault  VaultConfig           `toml:"vault"`
-	Vaults []DeclaredVaultConfig `toml:"vaults"`
-	Hooks  []HookConfig          `toml:"hooks"`
-	GitHub []GitHubConfig        `toml:"github"`
+	Vault      VaultConfig           `toml:"vault"`
+	Vaults     []DeclaredVaultConfig `toml:"vaults"`
+	Hooks      []HookConfig          `toml:"hooks"`
+	GitHub     []GitHubConfig        `toml:"github"`
+	CodeScopes []CodeScopeConfig     `toml:"code_scopes"`
 }
+
+// CodeScopeConfig binds one named code index to a local Git repository.
+type CodeScopeConfig struct {
+	Name           string   `toml:"name"`
+	Root           string   `toml:"root"`
+	Languages      []string `toml:"languages"`
+	MaxFiles       int      `toml:"max_files"`
+	MaxFileBytes   int64    `toml:"max_file_bytes"`
+	MaxRecords     int      `toml:"max_records"`
+	MaxDiagnostics int      `toml:"max_diagnostics"`
+	MaxResults     int      `toml:"max_results"`
+	MaxTraversal   int      `toml:"max_traversal"`
+}
+
+const (
+	DefaultCodeMaxFiles       = 10_000
+	DefaultCodeMaxFileBytes   = 2 << 20
+	DefaultCodeMaxRecords     = 500_000
+	DefaultCodeMaxDiagnostics = 10_000
+	DefaultCodeMaxResults     = 100
+	DefaultCodeMaxTraversal   = 1_000
+)
 
 // VaultConfig holds local vault settings.
 type VaultConfig struct {
@@ -264,7 +287,105 @@ func validateConfig(config Config, root string) error {
 	if err := validateGitHubConfigs(config.GitHub); err != nil {
 		return err
 	}
+	if err := validateCodeScopes(config.CodeScopes, root); err != nil {
+		return err
+	}
 	return nil
+}
+
+// CodeScope resolves one explicitly configured code scope from the workspace.
+func CodeScope(start, name string) (CodeScopeConfig, error) {
+	path, err := findConfigPath(start)
+	if err != nil {
+		return CodeScopeConfig{}, err
+	}
+	if path == "" {
+		return CodeScopeConfig{}, fmt.Errorf("no gnosis configuration found")
+	}
+	config, err := loadConfigPath(path)
+	if err != nil {
+		return CodeScopeConfig{}, err
+	}
+	for _, scope := range config.CodeScopes {
+		if scope.Name == name {
+			scope = scope.withDefaults()
+			if !filepath.IsAbs(scope.Root) {
+				scope.Root = filepath.Join(filepath.Dir(path), scope.Root)
+			}
+			resolved, err := filepath.EvalSymlinks(scope.Root)
+			if err != nil {
+				return CodeScopeConfig{}, fmt.Errorf("resolve code scope %q: %w", name, err)
+			}
+			scope.Root, err = filepath.Abs(resolved)
+			return scope, err
+		}
+	}
+	return CodeScopeConfig{}, fmt.Errorf("code scope %q is not configured", name)
+}
+
+func validateCodeScopes(scopes []CodeScopeConfig, root string) error {
+	seen := map[string]bool{}
+	for index, scope := range scopes {
+		prefix := fmt.Sprintf("code_scopes[%d]", index)
+		if strings.TrimSpace(scope.Name) == "" || strings.ContainsAny(scope.Name, "/\\\x00") {
+			return fmt.Errorf("%s.name must be a non-empty canonical name", prefix)
+		}
+		if seen[scope.Name] {
+			return fmt.Errorf("%s.name %q is duplicated", prefix, scope.Name)
+		}
+		seen[scope.Name] = true
+		if strings.TrimSpace(scope.Root) == "" {
+			return fmt.Errorf("%s.root must not be empty", prefix)
+		}
+		resolved := scope.Root
+		if !filepath.IsAbs(resolved) {
+			resolved = filepath.Join(root, resolved)
+		}
+		if _, err := filepath.EvalSymlinks(resolved); err != nil {
+			return fmt.Errorf("%s.root: %w", prefix, err)
+		}
+		languages := map[string]bool{}
+		for _, language := range scope.Languages {
+			canonical := strings.ToLower(strings.TrimSpace(language))
+			if language != canonical || canonical == "" || strings.ContainsAny(canonical, "/\\.\x00") {
+				return fmt.Errorf("%s.languages contains invalid language %q", prefix, language)
+			}
+			if languages[canonical] {
+				return fmt.Errorf("%s.languages contains duplicate %q", prefix, language)
+			}
+			languages[canonical] = true
+		}
+		if len(languages) == 0 {
+			return fmt.Errorf("%s.languages must not be empty", prefix)
+		}
+		defaults := scope.withDefaults()
+		if defaults.MaxFiles < 1 || defaults.MaxFileBytes < 1 || defaults.MaxRecords < 1 || defaults.MaxDiagnostics < 1 || defaults.MaxResults < 1 || defaults.MaxTraversal < 1 {
+			return fmt.Errorf("%s bounds must be positive", prefix)
+		}
+	}
+	return nil
+}
+
+func (scope CodeScopeConfig) withDefaults() CodeScopeConfig {
+	if scope.MaxFiles == 0 {
+		scope.MaxFiles = DefaultCodeMaxFiles
+	}
+	if scope.MaxFileBytes == 0 {
+		scope.MaxFileBytes = DefaultCodeMaxFileBytes
+	}
+	if scope.MaxRecords == 0 {
+		scope.MaxRecords = DefaultCodeMaxRecords
+	}
+	if scope.MaxDiagnostics == 0 {
+		scope.MaxDiagnostics = DefaultCodeMaxDiagnostics
+	}
+	if scope.MaxResults == 0 {
+		scope.MaxResults = DefaultCodeMaxResults
+	}
+	if scope.MaxTraversal == 0 {
+		scope.MaxTraversal = DefaultCodeMaxTraversal
+	}
+	return scope
 }
 
 // GitHubRepositoryConfig loads one explicitly allowed repository for the selected vault root.

@@ -26,6 +26,7 @@ func newGraphCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
 	command.AddCommand(
 		newGraphNeighborsCommand(options, stdout),
 		newGraphPathCommand(options, stdout),
+		newGraphCodeCommand(options, stdout),
 	)
 	return command
 }

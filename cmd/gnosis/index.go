@@ -26,6 +26,7 @@ func newIndexCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
 	command.AddCommand(
 		newIndexVaultCommand(options, stdout),
 		newIndexKnowledgeCommand(options, stdout),
+		newIndexCodeCommand(options, stdout),
 	)
 	return command
 }

@@ -63,6 +63,8 @@ func TestCommandTreeAndHelpContract(t *testing.T) {
 		"graph neighbors": {}, "graph path": {}, "create vault": {},
 		"plan knowledge-change": {}, "apply workspace": {}, "apply page": {},
 		"apply knowledge-change": {}, "index vault": {}, "index knowledge": {},
+		"index code": {}, "parsers list": {}, "parsers install": {}, "parsers status": {},
+		"search code": {}, "get code-symbol": {}, "get code-index-status": {}, "get code-diagnostics": {}, "graph code": {},
 		"validate vault": {}, "serve http": {}, "serve mcp": {}, "ingest github": {},
 	}
 	root := newRootCommand(&bytes.Buffer{}, &bytes.Buffer{})

@@ -33,6 +33,9 @@ func newGetCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
 		newGetHistoryCommand(options, stdout),
 		newGetDiffCommand(options, stdout),
 		newGetChangesCommand(options, stdout),
+		newGetCodeSymbolCommand(options, stdout),
+		newGetCodeStatusCommand(options, stdout),
+		newGetCodeDiagnosticsCommand(options, stdout),
 	)
 	return command
 }

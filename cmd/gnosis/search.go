@@ -26,6 +26,7 @@ func newSearchCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
 	command.AddCommand(
 		newSearchKnowledgeCommand(options, stdout),
 		newSearchMemoryCommand(options, stdout),
+		newSearchCodeCommand(options, stdout),
 	)
 	return command
 }

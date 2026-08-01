@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"slices"
 	"strings"
 	"testing"
 
@@ -127,6 +128,7 @@ func (f *fakeClient) ListObjectsV2(_ context.Context, input *s3.ListObjectsV2Inp
 			keys = append(keys, key)
 		}
 	}
+	slices.Sort(keys)
 	start := 0
 	if input.ContinuationToken != nil {
 		start = 1

@@ -1,6 +1,6 @@
 module gnosis
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/adrg/frontmatter v0.2.0
@@ -15,6 +15,8 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.9
 	github.com/toon-format/toon-go v0.0.0-20251202084852-7ca0e27c4e8c
+	github.com/tree-sitter/go-tree-sitter v0.25.0
+	github.com/xberg-io/tree-sitter-language-pack/packages/go v1.13.7
 	github.com/yuin/goldmark v1.8.2
 	go.yaml.in/yaml/v4 v4.0.0-rc.6
 )
@@ -49,6 +51,7 @@ require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/kr/text v0.2.0 // indirect
+	github.com/mattn/go-pointer v0.0.1 // indirect
 	github.com/ncruces/go-sqlite3-wasm/v3 v3.2.35303 // indirect
 	github.com/ncruces/julianday v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.15.0 // indirect

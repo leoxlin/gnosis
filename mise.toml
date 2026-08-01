@@ -1,5 +1,5 @@
 [tools]
-go = "1.25"
+go = "1.26.4"
 node = "22.12.0"
 
 # Put the dev shim on PATH so `gnosis` runs from source via `go run`.
@@ -74,6 +74,10 @@ done
 [tasks.test]
 description = "Run all Go tests"
 run = "go test ./..."
+
+[tasks.setup-codeintel]
+description = "Install the verified native language-pack library for code-intelligence builds"
+run = "sh scripts/setup-codeintel.sh"
 
 [tasks.checks]
 description = "Run layout, Go, build, and gnosis vault validation"

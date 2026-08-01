@@ -19,6 +19,8 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"gnosis/internal/codeintel"
+	"gnosis/internal/codeintel/analyzer"
 	agentmemory "gnosis/internal/memory"
 	knowledge "gnosis/internal/search"
 	"gnosis/internal/vault"
@@ -216,6 +218,9 @@ func TestMCPTools(t *testing.T) {
 		"add_memory",
 		"audit_knowledge",
 		"get_changes",
+		"get_code_diagnostics",
+		"get_code_index_status",
+		"get_code_symbol",
 		"get_concepts",
 		"get_diff",
 		"get_evidence_context",
@@ -227,8 +232,10 @@ func TestMCPTools(t *testing.T) {
 		"propose_knowledge_change",
 		"propose_run_learning",
 		"record_trace",
+		"search_code",
 		"search_knowledge",
 		"search_memory",
+		"trace_code",
 		"trace_graph",
 	}
 	if strings.Join(names, ",") != strings.Join(want, ",") {
@@ -297,6 +304,121 @@ func TestMCPTools(t *testing.T) {
 	if query.Candidates[0].Trust.Status != page.Document.Trust.Status ||
 		query.Candidates[0].Trust.Revision != page.Document.Trust.Revision {
 		t.Fatalf("candidate trust = %+v", query.Candidates[0].Trust)
+	}
+
+	codeError, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: "search_code", Arguments: map[string]any{"scope": "missing", "query": "Handler"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !codeError.IsError {
+		t.Fatalf("code result = %+v, want tool error", codeError)
+	}
+	afterError := callMCPTool(t, session, "get_concepts", map[string]any{"type": "Note"})
+	decodeMCPResult(t, afterError, &concepts)
+}
+
+type mcpCodeAnalyzer struct{}
+
+func (mcpCodeAnalyzer) Analyze(_ context.Context, request analyzer.AnalysisRequest) (analyzer.AnalysisResult, error) {
+	documents := make([]analyzer.DocumentAnalysis, 0, len(request.Documents))
+	for _, change := range request.Documents {
+		coverage := make([]analyzer.Coverage, 0, len(request.Capabilities))
+		for _, capability := range request.Capabilities {
+			coverage = append(coverage, analyzer.Coverage{Capability: capability, Level: analyzer.Partial})
+		}
+		documents = append(documents, analyzer.DocumentAnalysis{Path: change.Path, Language: change.Language, ContentDigest: change.ContentDigest, Coverage: coverage, Symbols: []analyzer.Symbol{{Kind: "function", Name: "Handler", Span: analyzer.Span{EndByte: 7}}}})
+	}
+	return analyzer.AnalysisResult{Snapshot: request.Snapshot, Complete: true, Documents: documents, Provenance: analyzer.AnalyzerProvenance{Implementation: "fake", ImplementationVersion: "1", ParserRelease: "1", ParserDigest: "digest", ABI: "14", QueryVersion: "1", NormalizerVersion: "1"}}, nil
+}
+
+func (mcpCodeAnalyzer) Close() error { return nil }
+
+func TestMCPCodeToolsHaveTransportParityAndRemainReadOnly(t *testing.T) {
+	workspace := mcpTestVault(t)
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	runCommandGit(t, "-C", workspace, "init")
+	runCommandGit(t, "-C", workspace, "config", "user.email", "test@example.test")
+	runCommandGit(t, "-C", workspace, "config", "user.name", "Test")
+	writeCommandFile(t, workspace, "main.go", "package main\nfunc Handler() {}\n")
+	runCommandGit(t, "-C", workspace, "add", "main.go")
+	runCommandGit(t, "-C", workspace, "commit", "-m", "fixture")
+	writeCommandFile(t, workspace, "gnosis.toml", `[vault]
+vault_name = "test"
+vault_root = "."
+vault_index = false
+vault_log = false
+
+[[code_scopes]]
+name = "app"
+root = "."
+languages = ["go"]
+`)
+	scope, err := codeintel.ResolveScope(workspace, "app")
+	if err != nil {
+		t.Fatal(err)
+	}
+	build, err := codeintel.BuildWithAnalyzer(context.Background(), scope, mcpCodeAnalyzer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	inMemory := connectMCPServer(t, newMCPServer(workspace))
+	httpServer := httptest.NewServer(newHTTPHandler(workspace))
+	t.Cleanup(httpServer.Close)
+	client := mcp.NewClient(&mcp.Implementation{Name: "gnosis-test", Version: "0.0.0"}, nil)
+	httpSession, err := client.Connect(context.Background(), &mcp.StreamableClientTransport{Endpoint: httpServer.URL + "/mcp"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = httpSession.Close() })
+
+	tools := []struct {
+		name      string
+		arguments map[string]any
+	}{
+		{"get_code_index_status", map[string]any{"scope": "app"}},
+		{"search_code", map[string]any{"scope": "app", "query": "Handler", "limit": 1}},
+		{"get_code_diagnostics", map[string]any{"scope": "app", "language": "go"}},
+	}
+	for _, tool := range tools {
+		left := callMCPTool(t, inMemory, tool.name, tool.arguments)
+		right := callMCPTool(t, httpSession, tool.name, tool.arguments)
+		leftJSON, _ := json.Marshal(left.StructuredContent)
+		rightJSON, _ := json.Marshal(right.StructuredContent)
+		if string(leftJSON) != string(rightJSON) {
+			t.Fatalf("%s transport mismatch:\n%s\n%s", tool.name, leftJSON, rightJSON)
+		}
+	}
+	search := callMCPTool(t, inMemory, "search_code", map[string]any{"scope": "app", "query": "Handler"})
+	var found codeintel.SearchResult
+	decodeMCPResult(t, search, &found)
+	if len(found.Symbols) != 1 {
+		t.Fatalf("search = %+v", found)
+	}
+	for _, tool := range []struct {
+		name      string
+		arguments map[string]any
+	}{
+		{"get_code_symbol", map[string]any{"scope": "app", "id": found.Symbols[0].ID}},
+		{"trace_code", map[string]any{"scope": "app", "id": found.Symbols[0].ID, "mode": "neighbors", "limit": 1}},
+	} {
+		left := callMCPTool(t, inMemory, tool.name, tool.arguments)
+		right := callMCPTool(t, httpSession, tool.name, tool.arguments)
+		leftJSON, _ := json.Marshal(left.StructuredContent)
+		rightJSON, _ := json.Marshal(right.StructuredContent)
+		if string(leftJSON) != string(rightJSON) {
+			t.Fatalf("%s transport mismatch:\n%s\n%s", tool.name, leftJSON, rightJSON)
+		}
+	}
+	status := callMCPTool(t, inMemory, "get_code_index_status", map[string]any{"scope": "app"})
+	var decoded codeintel.StatusResult
+	decodeMCPResult(t, status, &decoded)
+	if decoded.Generation != build.Generation || decoded.Status != "current" {
+		t.Fatalf("status = %+v", decoded)
+	}
+	data, err := os.ReadFile(filepath.Join(workspace, "main.go"))
+	if err != nil || string(data) != "package main\nfunc Handler() {}\n" {
+		t.Fatalf("source changed: %q, %v", data, err)
 	}
 }
 

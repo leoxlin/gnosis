@@ -9,6 +9,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
+	"gnosis/internal/codeintel"
 	evidencecontext "gnosis/internal/evidencecontext"
 	agentlearning "gnosis/internal/learning"
 	agentmemory "gnosis/internal/memory"
@@ -150,6 +151,40 @@ type getChangesInput struct {
 	Limit  *int   `json:"limit,omitempty" jsonschema:"maximum changes, from 1 through 100"`
 }
 
+type searchCodeInput struct {
+	Scope    string `json:"scope" jsonschema:"configured code scope"`
+	Query    string `json:"query" jsonschema:"symbol name query"`
+	Language string `json:"language,omitempty" jsonschema:"canonical language filter"`
+	Limit    *int   `json:"limit,omitempty" jsonschema:"maximum symbols to return"`
+}
+
+type getCodeSymbolInput struct {
+	Scope string `json:"scope" jsonschema:"configured code scope"`
+	ID    string `json:"id" jsonschema:"exact normalized code symbol ID"`
+}
+
+type traceCodeInput struct {
+	Scope     string `json:"scope" jsonschema:"configured code scope"`
+	ID        string `json:"id" jsonschema:"exact normalized code symbol ID"`
+	TargetID  string `json:"target_id,omitempty" jsonschema:"exact target symbol ID for path mode"`
+	Mode      string `json:"mode,omitempty" jsonschema:"relations, neighbors, or path"`
+	Direction string `json:"direction,omitempty" jsonschema:"incoming or outgoing"`
+	Depth     *int   `json:"depth,omitempty" jsonschema:"maximum path depth"`
+	Limit     *int   `json:"limit,omitempty" jsonschema:"maximum relations to return"`
+}
+
+type getCodeDiagnosticsInput struct {
+	Scope    string `json:"scope" jsonschema:"configured code scope"`
+	Path     string `json:"path,omitempty" jsonschema:"repository-relative indexed path"`
+	Language string `json:"language,omitempty" jsonschema:"canonical language filter"`
+	Category string `json:"category,omitempty" jsonschema:"diagnostic category filter"`
+	Limit    *int   `json:"limit,omitempty" jsonschema:"maximum diagnostics to return"`
+}
+
+type getCodeStatusInput struct {
+	Scope string `json:"scope" jsonschema:"configured code scope"`
+}
+
 func newMCPServer(vaultPath string) *mcp.Server {
 	return newMCPServerWithKnowledgeWrites(vaultPath, false)
 }
@@ -168,6 +203,7 @@ func newMCPServerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bool
 	)
 	observer.attach(server)
 	addMCPResources(server, vaultPath, observer)
+	addCodeMCPTools(server, vaultPath)
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_vaults",
 		Description: "List the effective gnosis vaults",
@@ -344,6 +380,90 @@ func newMCPServerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bool
 		return nil, result, err
 	})
 	return server
+}
+
+func addCodeMCPTools(server *mcp.Server, workspace string) {
+	mcp.AddTool(server, &mcp.Tool{Name: "search_code", Description: "Search one current configured code index with deterministic bounds"}, func(ctx context.Context, _ *mcp.CallToolRequest, input searchCodeInput) (*mcp.CallToolResult, codeintel.SearchResult, error) {
+		reader, err := currentCodeReader(ctx, workspace, input.Scope)
+		if err != nil {
+			return nil, codeintel.SearchResult{}, err
+		}
+		defer reader.Close()
+		return nil, reader.Search(input.Query, input.Language, intValue(input.Limit)), nil
+	})
+	mcp.AddTool(server, &mcp.Tool{Name: "get_code_symbol", Description: "Read one exact symbol from a current configured code index"}, func(ctx context.Context, _ *mcp.CallToolRequest, input getCodeSymbolInput) (*mcp.CallToolResult, codeintel.SymbolResult, error) {
+		reader, err := currentCodeReader(ctx, workspace, input.Scope)
+		if err != nil {
+			return nil, codeintel.SymbolResult{}, err
+		}
+		defer reader.Close()
+		result, err := reader.ReadSymbol(input.ID)
+		return nil, result, err
+	})
+	mcp.AddTool(server, &mcp.Tool{Name: "trace_code", Description: "Read bounded incoming or outgoing normalized code relations"}, func(ctx context.Context, _ *mcp.CallToolRequest, input traceCodeInput) (*mcp.CallToolResult, codeintel.TraceResult, error) {
+		reader, err := currentCodeReader(ctx, workspace, input.Scope)
+		if err != nil {
+			return nil, codeintel.TraceResult{}, err
+		}
+		defer reader.Close()
+		direction := input.Direction
+		if direction == "" {
+			direction = "outgoing"
+		}
+		if direction != "incoming" && direction != "outgoing" {
+			return nil, codeintel.TraceResult{}, errors.New("direction must be incoming or outgoing")
+		}
+		var result codeintel.TraceResult
+		switch input.Mode {
+		case "", "relations":
+			result, err = reader.Trace(input.ID, direction, intValue(input.Limit))
+		case "neighbors":
+			result, err = reader.Neighbors(input.ID, direction, intValue(input.Limit))
+		case "path":
+			if input.TargetID == "" {
+				return nil, codeintel.TraceResult{}, errors.New("target_id is required for path mode")
+			}
+			result, err = reader.Path(input.ID, input.TargetID, direction, intValue(input.Depth), intValue(input.Limit))
+		default:
+			return nil, codeintel.TraceResult{}, errors.New("mode must be relations, neighbors, or path")
+		}
+		return nil, result, err
+	})
+	mcp.AddTool(server, &mcp.Tool{Name: "get_code_diagnostics", Description: "Read bounded diagnostics from one current configured code index"}, func(ctx context.Context, _ *mcp.CallToolRequest, input getCodeDiagnosticsInput) (*mcp.CallToolResult, codeintel.DiagnosticResult, error) {
+		reader, err := currentCodeReader(ctx, workspace, input.Scope)
+		if err != nil {
+			return nil, codeintel.DiagnosticResult{}, err
+		}
+		defer reader.Close()
+		return nil, reader.Diagnostics(input.Path, input.Language, input.Category, intValue(input.Limit)), nil
+	})
+	mcp.AddTool(server, &mcp.Tool{Name: "get_code_index_status", Description: "Read code-index freshness, counts, coverage provenance, and snapshot identity"}, func(ctx context.Context, _ *mcp.CallToolRequest, input getCodeStatusInput) (*mcp.CallToolResult, codeintel.StatusResult, error) {
+		reader, err := codeintel.Open(workspace, input.Scope)
+		if err != nil {
+			return nil, codeintel.StatusResult{}, err
+		}
+		defer reader.Close()
+		status := reader.Status()
+		if err := reader.CheckCurrent(ctx); err != nil {
+			status.Status = "not_current"
+		}
+		return nil, status, nil
+	})
+}
+
+func currentCodeReader(ctx context.Context, workspace, scope string) (*codeintel.Reader, error) {
+	if strings.TrimSpace(scope) == "" {
+		return nil, errors.New("scope is required")
+	}
+	reader, err := codeintel.Open(workspace, scope)
+	if err != nil {
+		return nil, err
+	}
+	if err := reader.CheckCurrent(ctx); err != nil {
+		reader.Close()
+		return nil, err
+	}
+	return reader, nil
 }
 
 func intValue(value *int) int {

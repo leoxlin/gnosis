@@ -19,6 +19,41 @@ func TestLoadEffectiveVaultRejectsMissingConfiguration(t *testing.T) {
 	}
 }
 
+func TestCodeScopeConfigurationIsExplicitAndBounded(t *testing.T) {
+	root := t.TempDir()
+	writeConfig(t, root, `[[code_scopes]]
+name = "app"
+root = "."
+languages = ["go", "typescript"]
+`)
+	scope, err := CodeScope(root, "app")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if scope.Name != "app" || scope.MaxFiles != DefaultCodeMaxFiles || scope.MaxResults != DefaultCodeMaxResults {
+		t.Fatalf("scope = %+v", scope)
+	}
+	if _, err := CodeScope(root, "missing"); err == nil {
+		t.Fatal("expected unknown scope error")
+	}
+}
+
+func TestCodeScopeConfigurationRejectsInvalidCombinations(t *testing.T) {
+	cases := []string{
+		"[[code_scopes]]\nname = \"app\"\nroot = \".\"\nlanguages = []\n",
+		"[[code_scopes]]\nname = \"app\"\nroot = \".\"\nlanguages = [\"Go\"]\n",
+		"[[code_scopes]]\nname = \"app\"\nroot = \".\"\nlanguages = [\"go\"]\nmax_files = -1\n",
+		"[[code_scopes]]\nname = \"app\"\nroot = \".\"\nlanguages = [\"go\"]\n[[code_scopes]]\nname = \"app\"\nroot = \".\"\nlanguages = [\"go\"]\n",
+	}
+	for _, content := range cases {
+		root := t.TempDir()
+		writeConfig(t, root, content)
+		if _, err := loadConfigPath(filepath.Join(root, "gnosis.toml")); err == nil {
+			t.Fatalf("expected invalid code scope for %q", content)
+		}
+	}
+}
+
 func TestGitHubRepositoryConfigIsScopedAndBounded(t *testing.T) {
 	root := t.TempDir()
 	evidenceDir := filepath.Join(root, "evidence")

@@ -4,3 +4,4 @@
 *.test
 coverage.out
 ui/node_modules/
+internal/codeintel/languagepack/tree-sitter-language-pack_cgo_link.go
