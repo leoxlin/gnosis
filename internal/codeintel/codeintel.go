@@ -661,7 +661,7 @@ type Reader struct {
 	closed    bool
 }
 
-func Open(workspace, scopeName string) (*Reader, error) {
+func openReader(workspace, scopeName string) (*Reader, error) {
 	scope, err := ResolveScope(workspace, scopeName)
 	if err != nil {
 		return nil, err
@@ -696,7 +696,7 @@ func Open(workspace, scopeName string) (*Reader, error) {
 	return nil, errors.New("code-index generation changed during open")
 }
 
-func (reader *Reader) Close() error {
+func (reader *Reader) close() error {
 	if reader.closed {
 		return errors.New("code-index reader is closed")
 	}
@@ -705,7 +705,7 @@ func (reader *Reader) Close() error {
 	return nil
 }
 
-func (reader *Reader) CheckCurrent(ctx context.Context) error {
+func (reader *Reader) checkCurrent(ctx context.Context) error {
 	reader.requireOpen()
 	_, current, _, err := readSnapshot(ctx, reader.scope)
 	if err != nil {

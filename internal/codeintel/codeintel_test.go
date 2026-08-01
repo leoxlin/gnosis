@@ -73,27 +73,31 @@ func TestBuildPublishesOneDeterministicGeneration(t *testing.T) {
 	if first.Generation != second.Generation || first.Documents != 1 || second.Status != "current" {
 		t.Fatalf("first = %+v, second = %+v", first, second)
 	}
-	reader, err := Open(repository, "app")
+	service := NewService(repository)
+	result, err := service.Search(context.Background(), "app", "main", "go", 10)
 	if err != nil {
 		entries := []string{}
 		filepath.Walk(cache, func(path string, _ os.FileInfo, _ error) error { entries = append(entries, path); return nil })
 		t.Fatalf("%v; cache = %v", err, entries)
 	}
-	defer reader.Close()
-	result := reader.Search("main", "go", 10)
 	if result.Total != 1 || len(result.Symbols) != 1 || result.Symbols[0].Name != "Main" {
 		t.Fatalf("search = %+v", result)
 	}
-	trace, err := reader.Trace(result.Symbols[0].ID, "outgoing", 10)
+	trace, err := service.Trace(context.Background(), "app", result.Symbols[0].ID, "outgoing", 10)
 	if err != nil || len(trace.Relations) != 1 || trace.Relations[0].Resolution != analyzer.Resolved || len(trace.Relations[0].Candidates) != 1 {
 		t.Fatalf("trace = %+v, err = %v", trace, err)
 	}
-	if err := reader.CheckCurrent(context.Background()); err != nil {
-		t.Fatal(err)
+	status, err := service.Status(context.Background(), "app")
+	if err != nil || status.Status != "current" {
+		t.Fatalf("status = %+v, err = %v", status, err)
 	}
 	writeTestFile(t, repository, "main.go", "package main\nfunc Changed() {}\n")
-	if err := reader.CheckCurrent(context.Background()); err != ErrNotCurrent {
+	if _, err := service.Search(context.Background(), "app", "changed", "go", 10); !errors.Is(err, ErrNotCurrent) {
 		t.Fatalf("stale error = %v", err)
+	}
+	status, err = service.Status(context.Background(), "app")
+	if err != nil || status.Status != "not_current" {
+		t.Fatalf("stale status = %+v, err = %v", status, err)
 	}
 	if _, err := BuildWithAnalyzer(context.Background(), scope, failingAnalyzer{}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("failed build error = %v", err)
@@ -122,6 +126,12 @@ func TestBuildPublishesOneDeterministicGeneration(t *testing.T) {
 	}
 	if data, err := os.ReadFile(filepath.Join(repository, "main.go")); err != nil || string(data) != "package main\nfunc Changed() {}\n" {
 		t.Fatalf("source changed during disposal: %q, %v", data, err)
+	}
+	if err := service.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Search(context.Background(), "app", "changed", "go", 10); !errors.Is(err, os.ErrClosed) {
+		t.Fatalf("closed service error = %v", err)
 	}
 }
 

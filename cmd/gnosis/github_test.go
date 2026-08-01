@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	toon "github.com/toon-format/toon-go"
+	"gnosis/internal/codeintel"
 	"gnosis/internal/evidence"
 	githubsource "gnosis/internal/github"
 )
@@ -42,7 +43,8 @@ func TestGitHubResultContainsDeterministicOutcomes(t *testing.T) {
 func TestGitHubWebhookRouteIsOptIn(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/github/webhooks/owner/repo", strings.NewReader("{}"))
 	disabled := httptest.NewRecorder()
-	newHTTPHandlerWithCodeService(t.TempDir(), false, false, nil).ServeHTTP(disabled, request)
+	disabledRoot := t.TempDir()
+	newHTTPHandlerWithCodeService(disabledRoot, false, false, codeintel.NewService(disabledRoot)).ServeHTTP(disabled, request)
 	if disabled.Code != http.StatusNotFound {
 		t.Fatalf("disabled status = %d", disabled.Code)
 	}
@@ -62,7 +64,7 @@ webhook_secret_env = "WEBHOOK_SECRET"
 		t.Fatal(err)
 	}
 	enabled := httptest.NewRecorder()
-	newHTTPHandlerWithCodeService(root, false, true, nil).ServeHTTP(enabled, request)
+	newHTTPHandlerWithCodeService(root, false, true, codeintel.NewService(root)).ServeHTTP(enabled, request)
 	if enabled.Code == http.StatusNotFound {
 		t.Fatalf("enabled route was not registered")
 	}

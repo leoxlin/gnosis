@@ -362,8 +362,13 @@ languages = ["go"]
 		t.Fatal(err)
 	}
 
-	inMemory := connectMCPServer(t, newMCPServer(workspace))
-	httpServer := httptest.NewServer(newHTTPHandler(workspace))
+	service, err := codeintel.OpenService(context.Background(), workspace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = service.Close() })
+	inMemory := connectMCPServer(t, newMCPServerWithOptions(workspace, false, service))
+	httpServer := httptest.NewServer(newHTTPHandlerWithCodeService(workspace, false, false, service))
 	t.Cleanup(httpServer.Close)
 	client := mcp.NewClient(&mcp.Implementation{Name: "gnosis-test", Version: "0.0.0"}, nil)
 	httpSession, err := client.Connect(context.Background(), &mcp.StreamableClientTransport{Endpoint: httpServer.URL + "/mcp"}, nil)
@@ -442,7 +447,7 @@ path: notes
 		t.Fatalf("default tools = %+v", defaultTools.Tools)
 	}
 
-	enabledSession := connectMCPServer(t, newMCPServerWithOptions(workspace, true, nil))
+	enabledSession := connectMCPServer(t, newMCPServerWithOptions(workspace, true, codeintel.NewService(workspace)))
 	enabledTools, err := enabledSession.ListTools(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
@@ -517,7 +522,7 @@ description: MCP knowledge change.
 		t.Fatalf("applied = %+v", applied)
 	}
 
-	server := httptest.NewServer(newHTTPHandlerWithCodeService(workspace, true, false, nil))
+	server := httptest.NewServer(newHTTPHandlerWithCodeService(workspace, true, false, codeintel.NewService(workspace)))
 	t.Cleanup(server.Close)
 	client := mcp.NewClient(&mcp.Implementation{Name: "gnosis-test", Version: "0.0.0"}, nil)
 	httpSession, err := client.Connect(context.Background(), &mcp.StreamableClientTransport{

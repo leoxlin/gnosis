@@ -65,15 +65,10 @@ func newSearchCodeCommand(options *rootOptions, stdout io.Writer) *cobra.Command
 			if err != nil {
 				return newUsageError(err)
 			}
-			reader, err := codeintel.Open(options.vaultPath, scope)
+			result, err := codeintel.NewService(options.vaultPath).Search(command.Context(), scope, args[0], language, limit)
 			if err != nil {
 				return err
 			}
-			defer reader.Close()
-			if err := reader.CheckCurrent(command.Context()); err != nil {
-				return err
-			}
-			result := reader.Search(args[0], language, limit)
 			rows := make([]toon.Object, 0, len(result.Symbols))
 			for _, symbol := range result.Symbols {
 				current := symbol
@@ -124,15 +119,7 @@ func newGetCodeSymbolCommand(options *rootOptions, stdout io.Writer) *cobra.Comm
 			if scope == "" {
 				return newUsageError(fmt.Errorf("get code-symbol: --scope is required"))
 			}
-			reader, err := codeintel.Open(options.vaultPath, scope)
-			if err != nil {
-				return err
-			}
-			defer reader.Close()
-			if err := reader.CheckCurrent(command.Context()); err != nil {
-				return err
-			}
-			result, err := reader.ReadSymbol(args[0])
+			result, err := codeintel.NewService(options.vaultPath).ReadSymbol(command.Context(), scope, args[0])
 			if err != nil {
 				return err
 			}
@@ -156,14 +143,9 @@ func newGetCodeStatusCommand(options *rootOptions, stdout io.Writer) *cobra.Comm
 			if scope == "" {
 				return newUsageError(fmt.Errorf("get code-index-status: --scope is required"))
 			}
-			reader, err := codeintel.Open(options.vaultPath, scope)
+			status, err := codeintel.NewService(options.vaultPath).Status(command.Context(), scope)
 			if err != nil {
 				return err
-			}
-			defer reader.Close()
-			status := reader.Status()
-			if err := reader.CheckCurrent(command.Context()); err != nil {
-				status.Status = "not_current"
 			}
 			return writeTOON(stdout, toon.NewObject(toon.Field{Key: "status", Value: status}))
 		},
@@ -182,15 +164,10 @@ func newGetCodeDiagnosticsCommand(options *rootOptions, stdout io.Writer) *cobra
 			if scope == "" {
 				return newUsageError(fmt.Errorf("get code-diagnostics: --scope is required"))
 			}
-			reader, err := codeintel.Open(options.vaultPath, scope)
+			result, err := codeintel.NewService(options.vaultPath).Diagnostics(command.Context(), scope, path, language, category, limit)
 			if err != nil {
 				return err
 			}
-			defer reader.Close()
-			if err := reader.CheckCurrent(command.Context()); err != nil {
-				return err
-			}
-			result := reader.Diagnostics(path, language, category, limit)
 			return writeTOON(stdout, toon.NewObject(
 				toon.Field{Key: "scope", Value: result.Scope}, toon.Field{Key: "generation", Value: result.Generation},
 				toon.Field{Key: "snapshot", Value: result.Snapshot}, toon.Field{Key: "provenance", Value: result.Provenance},
@@ -224,21 +201,15 @@ func newGraphCodeCommand(options *rootOptions, stdout io.Writer) *cobra.Command 
 			if direction != "incoming" && direction != "outgoing" {
 				return newUsageError(fmt.Errorf("graph code: --direction must be incoming or outgoing"))
 			}
-			reader, err := codeintel.Open(options.vaultPath, scope)
-			if err != nil {
-				return err
-			}
-			defer reader.Close()
-			if err := reader.CheckCurrent(command.Context()); err != nil {
-				return err
-			}
+			service := codeintel.NewService(options.vaultPath)
 			var result codeintel.TraceResult
+			var err error
 			if target != "" {
-				result, err = reader.Path(args[0], target, direction, depth, limit)
+				result, err = service.Path(command.Context(), scope, args[0], target, direction, depth, limit)
 			} else if neighbors {
-				result, err = reader.Neighbors(args[0], direction, limit)
+				result, err = service.Neighbors(command.Context(), scope, args[0], direction, limit)
 			} else {
-				result, err = reader.Trace(args[0], direction, limit)
+				result, err = service.Trace(command.Context(), scope, args[0], direction, limit)
 			}
 			if err != nil {
 				return err

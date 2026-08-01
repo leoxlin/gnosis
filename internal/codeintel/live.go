@@ -480,7 +480,7 @@ func (workspace *Workspace) ReadCurrent(ctx context.Context, callback func(*Read
 			if err == nil {
 				reader.freshness = freshness
 				err = callback(reader)
-				reader.Close()
+				err = errors.Join(err, reader.close())
 			}
 			workspace.mu.Lock()
 			workspace.pins[generation]--

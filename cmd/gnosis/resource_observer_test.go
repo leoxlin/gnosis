@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"gnosis/internal/codeintel"
 	"gnosis/internal/vault"
 )
 
@@ -14,7 +15,7 @@ func TestMCPResourceSubscriptionsObserveWritesAndExternalEdits(t *testing.T) {
 	root := historyCommandVault(t)
 	uri := "gnosis://test/note.md"
 	updates := make(chan string, 8)
-	session, _ := connectMCPServerWithOptions(t, newMCPServerWithOptions(root, true, nil), &mcp.ClientOptions{
+	session, _ := connectMCPServerWithOptions(t, newMCPServerWithOptions(root, true, codeintel.NewService(root)), &mcp.ClientOptions{
 		ResourceUpdatedHandler: func(_ context.Context, request *mcp.ResourceUpdatedNotificationRequest) {
 			updates <- request.Params.URI
 		},

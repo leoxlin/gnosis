@@ -119,7 +119,7 @@ func serveHTTPWithOptions(
 }
 
 func newHTTPHandler(vaultPath string) http.Handler {
-	return newHTTPHandlerWithCodeService(vaultPath, false, false, nil)
+	return newHTTPHandlerWithCodeService(vaultPath, false, false, codeintel.NewService(vaultPath))
 }
 
 func newHTTPHandlerWithCodeService(vaultPath string, allowKnowledgeWrites, githubWebhooks bool, codeService *codeintel.Service) http.Handler {
