@@ -135,17 +135,6 @@ func TestS3VaultRejectsCorruptInterruptedAndUncommittedSnapshots(t *testing.T) {
 	}
 }
 
-func TestS3OriginIsStable(t *testing.T) {
-	vault := &effectiveVault{root: "/configuration"}
-	source := vaultSource{vaultRoot: "/configuration", config: Config{Vault: VaultConfig{
-		Backend: s3BackendName, S3Bucket: "bucket", S3Prefix: "team/vault",
-	}}}
-	kind, root := vault.sourceOrigin(source)
-	if kind != OriginS3 || root != "s3://bucket/team/vault" {
-		t.Fatalf("origin = %q, %q", kind, root)
-	}
-}
-
 func TestS3BackedVaultReadsWritesAndIndexes(t *testing.T) {
 	store := newVaultFakeStore()
 	previous := openS3Store
@@ -181,6 +170,10 @@ description: Stored in one committed S3 snapshot.
 	read, err := ReadPage(workspace, "gnosis://team/concepts/s3-page.md")
 	if err != nil || read.Document.Origin.Kind != OriginS3 || read.Document.Origin.Root != "s3://bucket/vault/team" {
 		t.Fatalf("read = %+v, %v", read.Document, err)
+	}
+	history, err := ReadPageHistory(workspace, "gnosis://team/concepts/s3-page.md", "", 0)
+	if err != nil || len(history.Entries) != 1 || history.Entries[0].Origin.Kind != OriginS3 || history.Entries[0].Origin.Root != "s3://bucket/vault/team" {
+		t.Fatalf("history = %+v, %v", history, err)
 	}
 	beforeInvalid := string(store.objects["vault/current"])
 	if _, err := WriteDocument(context.Background(), workspace, "gnosis://team/concepts/invalid.md", []byte("not markdown"), false); err == nil {

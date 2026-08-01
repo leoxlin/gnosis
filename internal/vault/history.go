@@ -397,13 +397,7 @@ func resolveHistoryTarget(root, uri string) (historyTarget, error) {
 			if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
 				continue
 			}
-			kind := OriginImport
-			if source.vaultRoot == vault.root {
-				kind = OriginLocal
-			}
-			target.origin = Origin{
-				Vault: source.config.Vault.Name, Kind: kind, Root: source.path, Path: path,
-			}
+			target.origin = source.originAt(path, 0)
 			target.path = path
 			target.uri = documentURI(source.config.Vault.Name, pagePath)
 			break
@@ -533,7 +527,6 @@ type sourceCursorDescriptor struct {
 	key    string
 	repo   gitRepository
 	prefix string
-	kind   OriginKind
 }
 
 func cursorSources(vault *effectiveVault) ([]changeCursorSource, string, error) {
@@ -580,12 +573,6 @@ func sourceCursorDescriptors(vault *effectiveVault) ([]sourceCursorDescriptor, s
 		))
 		descriptors = append(descriptors, sourceCursorDescriptor{
 			source: source, key: key, repo: repo, prefix: prefix,
-			kind: func() OriginKind {
-				if source.vaultRoot == vault.root {
-					return OriginLocal
-				}
-				return OriginImport
-			}(),
 		})
 		compositionParts = append(compositionParts, key)
 	}
@@ -672,11 +659,7 @@ func committedSnapshot(vault *effectiveVault, cursor []changeCursorSource) (map[
 			}
 		}
 		if descriptor == nil {
-			kind := OriginImport
-			if source.vaultRoot == vault.root {
-				kind = OriginLocal
-			}
-			if err := appendWorkingSnapshot(result, source, precedence, kind); err != nil {
+			if err := appendWorkingSnapshot(result, source, precedence); err != nil {
 				return nil, err
 			}
 			continue
@@ -741,12 +724,10 @@ func appendGitSnapshot(
 		if err != nil {
 			return err
 		}
-		origin := Origin{
-			Vault: descriptor.source.config.Vault.Name, Kind: descriptor.kind,
-			Root:       descriptor.source.path,
-			Path:       filepath.Join(descriptor.source.path, filepath.FromSlash(relative)),
-			Precedence: precedence,
-		}
+		origin := descriptor.source.originAt(
+			filepath.Join(descriptor.source.path, filepath.FromSlash(relative)),
+			precedence,
+		)
 		result[relative] = snapshotPage{
 			relative: relative,
 			uri:      documentURI(origin.Vault, relative),
@@ -760,7 +741,6 @@ func appendWorkingSnapshot(
 	result map[string]snapshotPage,
 	source vaultSource,
 	precedence int,
-	kind OriginKind,
 ) error {
 	return filepath.WalkDir(source.path, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -787,10 +767,7 @@ func appendWorkingSnapshot(
 		if err != nil {
 			return err
 		}
-		origin := Origin{
-			Vault: source.config.Vault.Name, Kind: kind, Root: source.path,
-			Path: path, Precedence: precedence,
-		}
+		origin := source.originAt(path, precedence)
 		result[relative] = snapshotPage{
 			relative: relative, uri: documentURI(origin.Vault, relative), data: data,
 			revision: documentRevision(data), origin: origin,

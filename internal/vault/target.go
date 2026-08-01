@@ -18,13 +18,28 @@ type vaultTarget struct {
 	backend preparedBackend
 }
 
+type vaultSourcePreparer struct {
+	targets map[string]vaultTarget
+}
+
+func newVaultSourcePreparer() *vaultSourcePreparer {
+	return &vaultSourcePreparer{targets: make(map[string]vaultTarget)}
+}
+
 func resolveVaultTarget(value string) (vaultTarget, error) {
+	return newVaultSourcePreparer().resolveVaultTarget(value)
+}
+
+func (p *vaultSourcePreparer) resolveVaultTarget(value string) (vaultTarget, error) {
 	remote, ok, err := parseRemoteLocator(value)
 	if err != nil {
 		return vaultTarget{}, err
 	}
 	if !ok {
 		return vaultTarget{root: value}, nil
+	}
+	if target, exists := p.targets[remote]; exists {
+		return target, nil
 	}
 	root, err := remoteCacheRoot(remote)
 	if err != nil {
@@ -34,7 +49,9 @@ func resolveVaultTarget(value string) (vaultTarget, error) {
 	if err != nil {
 		return vaultTarget{}, err
 	}
-	return vaultTarget{root: backend.root, backend: backend}, nil
+	target := vaultTarget{root: backend.root, backend: backend}
+	p.targets[remote] = target
+	return target, nil
 }
 
 func writeTargetFile(root, relative string, content []byte, force bool, message string) (bool, string, error) {

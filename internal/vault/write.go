@@ -42,6 +42,7 @@ type preparedDocumentWrite struct {
 	current     *effectivePage
 	pages       []*effectivePage
 	config      Config
+	source      *vaultSource
 }
 
 func (vault *effectiveVault) prepareDocumentWrite(uri string, content []byte, update bool) (preparedDocumentWrite, error) {
@@ -61,27 +62,17 @@ func (vault *effectiveVault) prepareDocumentWrite(uri string, content []byte, up
 	if _, err := requiredPageScalar(parsed.fields, "title"); err != nil {
 		return preparedDocumentWrite{}, fmt.Errorf("write: input %w", err)
 	}
-	targetRoot, hasLocalRoot := vault.localRoot()
-	targetVaultName := vault.config.Vault.Name
-	targetKind := OriginLocal
-	if vault.config.Vault.Backend == s3BackendName {
-		targetKind = OriginS3
-	}
-	targetConfig := vault.config
+	target, hasPrimary := vault.primarySource()
 	if targetVault == anyVaultAuthority {
 		if len(vault.sources) == 0 {
 			return preparedDocumentWrite{}, fmt.Errorf("write: no configured vault is writable in the current directory")
 		}
-		target := vault.sources[0]
-		targetRoot = target.path
-		targetVaultName = target.config.Vault.Name
-		targetConfig = target.config
-		if target.vaultRoot != vault.root {
-			targetKind = OriginImport
-		}
-	} else if !hasLocalRoot {
+		target = &vault.sources[0]
+	} else if !hasPrimary {
 		return preparedDocumentWrite{}, fmt.Errorf("write: no local vault is defined in the current directory")
 	}
+	targetRoot := target.path
+	targetVaultName := target.config.Vault.Name
 	targetRoot = filepath.Clean(targetRoot)
 	destination, destinationPath, err := writeURIDestination(uri, targetVaultName, targetRoot)
 	if err != nil {
@@ -115,13 +106,7 @@ func (vault *effectiveVault) prepareDocumentWrite(uri string, content []byte, up
 	if !update && hasExternalCollision(pages, targetRoot, destinationPath) {
 		return preparedDocumentWrite{}, fmt.Errorf("write: document already exists outside the selected vault; rerun with --update")
 	}
-	candidate, err := buildEffectivePage(targetRoot, destination, content, Origin{
-		Vault:      targetVaultName,
-		Kind:       targetKind,
-		Root:       targetRoot,
-		Path:       destination,
-		Precedence: 0,
-	}, parsed, metadata)
+	candidate, err := buildEffectivePage(targetRoot, destination, content, target.originAt(destination, 0), parsed, metadata)
 	if err != nil {
 		return preparedDocumentWrite{}, fmt.Errorf("write: build input page: %w", err)
 	}
@@ -140,7 +125,8 @@ func (vault *effectiveVault) prepareDocumentWrite(uri string, content []byte, up
 		candidate:   candidate,
 		current:     currentPageForChange(pages, candidate.document.URI),
 		pages:       pages,
-		config:      targetConfig,
+		config:      target.config,
+		source:      target,
 	}, nil
 }
 
@@ -189,7 +175,7 @@ func (vault *effectiveVault) writePreparedDocument(
 	if err := atomicWriteFile(destination, prepared.content, 0o644); err != nil {
 		return result, err
 	}
-	if err := vault.publish("gnosis: update vault"); err != nil {
+	if err := prepared.source.publish("gnosis: update vault"); err != nil {
 		return result, fmt.Errorf("write: publish backend: %w", err)
 	}
 	event := newVaultWriteEvent(prepared, operation, knowledgeChange, time.Now())

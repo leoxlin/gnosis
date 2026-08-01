@@ -219,8 +219,9 @@ vault_root = "knowledge"
 	if got := sourcePaths(vault); !reflect.DeepEqual(got, wantRoots) {
 		t.Fatalf("vault roots = %v, want %v", got, wantRoots)
 	}
-	if got, want := vault.sources[0].vaultRoot, workspace; got != want {
-		t.Fatalf("local source root = %v, want %v", got, want)
+	local := vault.sources[0]
+	if !local.primary || local.origin.Kind != OriginLocal || local.origin.Root != wantRoots[0] {
+		t.Fatalf("prepared local source = %+v", local)
 	}
 	if got, want := vault.sources[1].config.Vault.Name, "first"; got != want {
 		t.Fatalf("first source vault name = %q, want imported config name %q", got, want)
@@ -386,8 +387,9 @@ vault_root = "`+fixture.url+`"
 	if effective.sources[0].config.Vault.Name != "remote" {
 		t.Fatalf("remote source = %+v", effective.sources[0])
 	}
-	if effective.backend != nil {
-		t.Fatal("remote import unexpectedly became the writable publisher")
+	imported := effective.sources[0]
+	if imported.primary || imported.origin.Kind != OriginImport || imported.origin.Root != imported.path {
+		t.Fatalf("prepared remote import = %+v", imported)
 	}
 	before := remoteCommitCount(t, fixture)
 	content := []byte(`---
@@ -466,7 +468,8 @@ vault_log = false
 	if err != nil {
 		t.Fatal(err)
 	}
-	if effective.backend == nil || effective.config.Vault.Name != "remote" {
+	source, primary := effective.primarySource()
+	if !primary || source.config.Vault.Name != "remote" || source.origin.Kind != OriginLocal || source.origin.Root != source.path {
 		t.Fatalf("effective remote = %+v", effective)
 	}
 	if got, want := sourcePaths(effective), []string{effective.root}; !reflect.DeepEqual(got, want) {

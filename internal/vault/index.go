@@ -29,16 +29,16 @@ func GenerateWorkspaceIndexes(root string, options IndexOptions) ([]string, bool
 	if !vault.config.IndexEnabled() {
 		return nil, false, nil
 	}
-	localRoot, ok := vault.localRoot()
+	source, ok := vault.primarySource()
 	if !ok {
 		return nil, true, nil
 	}
-	written, err := GenerateIndexes(localRoot, options)
+	written, err := GenerateIndexes(source.path, options)
 	if err != nil {
 		return written, true, err
 	}
 	if len(written) > 0 {
-		if err := vault.publish("gnosis: update indexes"); err != nil {
+		if err := source.publish("gnosis: update indexes"); err != nil {
 			return written, true, fmt.Errorf("publish backend: %w", err)
 		}
 	}

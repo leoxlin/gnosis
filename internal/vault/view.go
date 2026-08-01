@@ -9,12 +9,13 @@ import (
 	"strings"
 )
 
-// vaultSource is one directory in the effective vault's ordered composition.
-// vaultRoot identifies the configuration directory that owns the source.
+// vaultSource is one prepared directory in the effective vault's ordered composition.
 type vaultSource struct {
-	path      string
-	vaultRoot string
-	config    Config
+	path    string
+	config  Config
+	origin  Origin
+	primary bool
+	backend preparedBackend
 }
 
 // effectiveVault owns the ordered view of configured vault pages.
@@ -22,11 +23,11 @@ type effectiveVault struct {
 	root    string
 	config  Config
 	sources []vaultSource
-	backend preparedBackend
 }
 
 func loadEffectiveVault(root string) (*effectiveVault, error) {
-	target, err := resolveVaultTarget(root)
+	preparer := newVaultSourcePreparer()
+	target, err := preparer.resolveVaultTarget(root)
 	if err != nil {
 		return nil, err
 	}
@@ -50,22 +51,21 @@ func loadEffectiveVault(root string) (*effectiveVault, error) {
 	if configPath == "" {
 		return nil, fmt.Errorf("no gnosis configuration found for %s", start)
 	}
-	vault := &effectiveVault{
-		root:    filepath.Dir(configPath),
-		backend: target.backend,
-	}
+	vault := &effectiveVault{root: filepath.Dir(configPath)}
 	vault.config, err = loadConfigPath(configPath)
 	if err != nil {
 		return nil, err
 	}
-	if err := inheritUserVaults(&vault.config, configPath, vault.root); err != nil {
+	if err := inheritUserVaults(&vault.config, configPath, vault.root, preparer); err != nil {
 		return nil, err
 	}
 	if vault.config.HasLocalVault() || len(vault.config.Vaults) > 0 {
 		composer := vaultComposer{
-			vault:    vault,
-			resolved: make(map[string]struct{}),
-			active:   make(map[string]int),
+			vault:          vault,
+			preparer:       preparer,
+			primaryBackend: target.backend,
+			resolved:       make(map[string]struct{}),
+			active:         make(map[string]int),
 		}
 		if err := composer.compose(vault.root, vault.config); err != nil {
 			return nil, err
@@ -83,7 +83,7 @@ func loadEffectiveVault(root string) (*effectiveVault, error) {
 	return vault, nil
 }
 
-func inheritUserVaults(config *Config, configPath, root string) error {
+func inheritUserVaults(config *Config, configPath, root string, preparer *vaultSourcePreparer) error {
 	userPath, err := userConfigPath()
 	if err != nil || filepath.Clean(configPath) == filepath.Clean(userPath) {
 		return err
@@ -106,7 +106,7 @@ func inheritUserVaults(config *Config, configPath, root string) error {
 	inherited := make([]DeclaredVaultConfig, 0, len(userConfig.Vaults))
 	registered := false
 	for _, declared := range userConfig.Vaults {
-		importRoot, err := resolveDeclaredVaultRoot(declared, filepath.Dir(userPath))
+		importRoot, err := preparer.resolveDeclaredVaultRoot(declared, filepath.Dir(userPath))
 		if err != nil {
 			return err
 		}
@@ -128,10 +128,12 @@ func inheritUserVaults(config *Config, configPath, root string) error {
 }
 
 type vaultComposer struct {
-	vault    *effectiveVault
-	resolved map[string]struct{}
-	active   map[string]int
-	stack    []string
+	vault          *effectiveVault
+	preparer       *vaultSourcePreparer
+	primaryBackend preparedBackend
+	resolved       map[string]struct{}
+	active         map[string]int
+	stack          []string
 }
 
 func (c *vaultComposer) compose(root string, config Config) error {
@@ -161,39 +163,20 @@ func (c *vaultComposer) compose(root string, config Config) error {
 	}()
 
 	if config.HasLocalVault() {
-		var vaultRoot string
-		if config.Vault.Backend == githubWikiBackend {
-			if root != c.vault.root {
-				return fmt.Errorf("GitHub Wiki backends are supported only for the primary vault")
-			}
-			backend, err := prepareGitHubWikiBackend(config.Vault.Repository)
-			if err != nil {
-				return err
-			}
-			c.vault.backend = backend
-			vaultRoot = backend.root
-		} else if config.Vault.Backend == s3BackendName {
-			if root != c.vault.root {
-				return fmt.Errorf("S3 backends are supported only for the primary vault")
-			}
-			backend, err := prepareS3Backend(config.Vault)
-			if err != nil {
-				return err
-			}
-			c.vault.backend = backend
-			vaultRoot = backend.preparedRoot()
-		} else {
-			var err error
-			vaultRoot, err = resolveVaultRoot(config, root)
-			if err != nil {
-				return fmt.Errorf("validate %s: %w", filepath.Join(root, "gnosis.toml"), err)
-			}
+		primary := root == c.vault.root
+		backend := preparedBackend(nil)
+		if primary {
+			backend = c.primaryBackend
 		}
-		c.vault.sources = append(c.vault.sources, vaultSource{path: vaultRoot, vaultRoot: root, config: config})
+		source, err := prepareVaultSource(root, config, primary, backend)
+		if err != nil {
+			return err
+		}
+		c.vault.sources = append(c.vault.sources, source)
 	}
 
 	for i, declared := range config.Vaults {
-		importRoot, err := resolveDeclaredVaultRoot(declared, root)
+		importRoot, err := c.preparer.resolveDeclaredVaultRoot(declared, root)
 		if err != nil {
 			return fmt.Errorf("vaults[%d]: %w", i, err)
 		}
@@ -220,20 +203,68 @@ func (c *vaultComposer) compose(root string, config Config) error {
 	return nil
 }
 
-func (v *effectiveVault) publish(message string) error {
-	if v.backend == nil {
-		return nil
+func prepareVaultSource(root string, config Config, primary bool, backend preparedBackend) (vaultSource, error) {
+	source := vaultSource{config: config, primary: primary}
+	source.origin = Origin{Vault: config.Vault.Name, Kind: OriginImport}
+	if primary {
+		source.origin.Kind = OriginLocal
+		source.backend = backend
 	}
-	return v.backend.publish(message)
+
+	switch config.Vault.Backend {
+	case githubWikiBackend:
+		if !primary {
+			return vaultSource{}, fmt.Errorf("GitHub Wiki backends are supported only for the primary vault")
+		}
+		prepared, err := prepareGitHubWikiBackend(config.Vault.Repository)
+		if err != nil {
+			return vaultSource{}, err
+		}
+		source.path, source.backend = prepared.preparedRoot(), prepared
+	case s3BackendName:
+		if !primary {
+			return vaultSource{}, fmt.Errorf("S3 backends are supported only for the primary vault")
+		}
+		prepared, err := prepareS3Backend(config.Vault)
+		if err != nil {
+			return vaultSource{}, err
+		}
+		source.path, source.backend = prepared.preparedRoot(), prepared
+		source.origin.Kind, source.origin.Root = OriginS3, s3Location(config.Vault)
+	default:
+		preparedRoot, err := resolveVaultRoot(config, root)
+		if err != nil {
+			return vaultSource{}, fmt.Errorf("validate %s: %w", filepath.Join(root, "gnosis.toml"), err)
+		}
+		source.path = preparedRoot
+	}
+	if source.origin.Root == "" {
+		source.origin.Root = source.path
+	}
+	return source, nil
 }
 
-func (v *effectiveVault) localRoot() (string, bool) {
-	for _, source := range v.sources {
-		if source.vaultRoot == v.root {
-			return source.path, true
+func (s vaultSource) originAt(path string, precedence int) Origin {
+	origin := s.origin
+	origin.Path = path
+	origin.Precedence = precedence
+	return origin
+}
+
+func (s vaultSource) publish(message string) error {
+	if s.backend == nil {
+		return nil
+	}
+	return s.backend.publish(message)
+}
+
+func (v *effectiveVault) primarySource() (*vaultSource, bool) {
+	for index := range v.sources {
+		if v.sources[index].primary {
+			return &v.sources[index], true
 		}
 	}
-	return "", false
+	return nil, false
 }
 
 // LoadDocuments reads the live, resolved documents in the effective vault.
@@ -312,14 +343,7 @@ func (v *effectiveVault) loadPages(tolerateInvalid bool) ([]*effectivePage, erro
 				return nil
 			}
 
-			kind, originRoot := v.sourceOrigin(source)
-			page, err := v.readSearchPage(source, path, Origin{
-				Vault:      source.config.Vault.Name,
-				Kind:       kind,
-				Root:       originRoot,
-				Path:       path,
-				Precedence: precedence,
-			}, tolerateInvalid)
+			page, err := v.readSearchPage(source, path, source.originAt(path, precedence), tolerateInvalid)
 			if err != nil {
 				if errors.Is(err, errMissingYAMLFrontmatter) {
 					return nil
@@ -339,16 +363,6 @@ func (v *effectiveVault) loadPages(tolerateInvalid bool) ([]*effectivePage, erro
 		return nil, err
 	}
 	return pages, nil
-}
-
-func (v *effectiveVault) sourceOrigin(source vaultSource) (OriginKind, string) {
-	if source.config.Vault.Backend == s3BackendName {
-		return OriginS3, s3Location(source.config.Vault)
-	}
-	if source.vaultRoot == v.root {
-		return OriginLocal, source.path
-	}
-	return OriginImport, source.path
 }
 
 func (v *effectiveVault) appendBundledPages(pages *[]*effectivePage, seenPaths, seenRelativePaths map[string]struct{}, tolerateInvalid bool) error {

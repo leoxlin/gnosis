@@ -560,7 +560,7 @@ func isCanonicalVaultName(name string) bool {
 	return ok && vaultName == name && path == "probe.md"
 }
 
-func resolveDeclaredVaultRoot(config DeclaredVaultConfig, root string) (string, error) {
+func (p *vaultSourcePreparer) resolveDeclaredVaultRoot(config DeclaredVaultConfig, root string) (string, error) {
 	path := strings.TrimSpace(config.Root)
 	if path == "" {
 		return "", fmt.Errorf("vault_root must not be empty")
@@ -568,7 +568,7 @@ func resolveDeclaredVaultRoot(config DeclaredVaultConfig, root string) (string, 
 	if _, remote, err := parseRemoteLocator(path); err != nil {
 		return "", err
 	} else if remote {
-		target, err := resolveVaultTarget(path)
+		target, err := p.resolveVaultTarget(path)
 		if err != nil {
 			return "", err
 		}
