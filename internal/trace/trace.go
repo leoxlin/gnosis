@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"gnosis/internal/vault"
 )
 
 const (
@@ -30,6 +32,11 @@ const (
 var supportedKinds = map[string]bool{
 	"run": true, "plan": true, "tool": true, "patch": true,
 	"test": true, "failure": true, "outcome": true,
+	"knowledge_use": true, "feedback": true,
+}
+
+var supportedFeedback = map[string]bool{
+	"helpful": true, "harmful": true, "irrelevant": true, "unassessed": true,
 }
 
 // Config fixes the server-owned trace identity and storage directory.
@@ -40,25 +47,31 @@ type Config struct {
 
 // Input is the caller-authored portion of one trace entry.
 type Input struct {
-	RunID      string         `json:"run_id"`
-	Sequence   int64          `json:"sequence"`
-	Kind       string         `json:"kind"`
-	OccurredAt string         `json:"occurred_at"`
-	Content    string         `json:"content"`
-	Metadata   map[string]any `json:"metadata,omitempty"`
+	RunID             string         `json:"run_id"`
+	Sequence          int64          `json:"sequence"`
+	Kind              string         `json:"kind"`
+	OccurredAt        string         `json:"occurred_at"`
+	Content           string         `json:"content"`
+	Metadata          map[string]any `json:"metadata,omitempty"`
+	KnowledgeURI      string         `json:"knowledge_uri,omitempty"`
+	KnowledgeRevision string         `json:"knowledge_revision,omitempty"`
+	Feedback          string         `json:"feedback,omitempty"`
 }
 
 // Record is one immutable persisted trace entry.
 type Record struct {
-	AgentID     string         `json:"agent_id"`
-	RunID       string         `json:"run_id"`
-	Sequence    int64          `json:"sequence"`
-	Kind        string         `json:"kind"`
-	OccurredAt  string         `json:"occurred_at"`
-	Content     string         `json:"content"`
-	Metadata    map[string]any `json:"metadata,omitempty"`
-	ContentHash string         `json:"content_hash"`
-	RecordedAt  string         `json:"recorded_at"`
+	AgentID           string         `json:"agent_id"`
+	RunID             string         `json:"run_id"`
+	Sequence          int64          `json:"sequence"`
+	Kind              string         `json:"kind"`
+	OccurredAt        string         `json:"occurred_at"`
+	Content           string         `json:"content"`
+	Metadata          map[string]any `json:"metadata,omitempty"`
+	KnowledgeURI      string         `json:"knowledge_uri,omitempty"`
+	KnowledgeRevision string         `json:"knowledge_revision,omitempty"`
+	Feedback          string         `json:"feedback,omitempty"`
+	ContentHash       string         `json:"content_hash"`
+	RecordedAt        string         `json:"recorded_at"`
 }
 
 // Result reports whether a record was created or already existed identically.
@@ -106,6 +119,9 @@ func (s *Store) Record(input Input) (Result, error) {
 	input.RunID = strings.TrimSpace(input.RunID)
 	input.Kind = strings.TrimSpace(input.Kind)
 	input.OccurredAt = strings.TrimSpace(input.OccurredAt)
+	input.KnowledgeURI = strings.TrimSpace(input.KnowledgeURI)
+	input.KnowledgeRevision = strings.TrimSpace(input.KnowledgeRevision)
+	input.Feedback = strings.TrimSpace(input.Feedback)
 	if err := validateInput(input); err != nil {
 		return Result{}, err
 	}
@@ -121,8 +137,10 @@ func (s *Store) Record(input Input) (Result, error) {
 	record := Record{
 		AgentID: s.config.AgentID, RunID: input.RunID, Sequence: input.Sequence,
 		Kind: input.Kind, OccurredAt: input.OccurredAt, Content: input.Content,
-		Metadata: input.Metadata, ContentHash: contentHash,
-		RecordedAt: s.now().UTC().Format(time.RFC3339Nano),
+		Metadata: input.Metadata, KnowledgeURI: input.KnowledgeURI,
+		KnowledgeRevision: input.KnowledgeRevision, Feedback: input.Feedback,
+		ContentHash: contentHash,
+		RecordedAt:  s.now().UTC().Format(time.RFC3339Nano),
 	}
 	data, err := json.Marshal(record)
 	if err != nil {
@@ -187,7 +205,7 @@ func validateInput(input Input) error {
 		return errors.New("record trace: sequence must not be negative")
 	}
 	if !supportedKinds[input.Kind] {
-		return errors.New("record trace: kind must be run, plan, tool, patch, test, failure, or outcome")
+		return errors.New("record trace: kind must be run, plan, tool, patch, test, failure, outcome, knowledge_use, or feedback")
 	}
 	if _, err := time.Parse(time.RFC3339, input.OccurredAt); err != nil {
 		return errors.New("record trace: occurred_at must be RFC 3339")
@@ -205,7 +223,35 @@ func validateInput(input Input) error {
 	if len(metadata) > MaxMetadataBytes {
 		return fmt.Errorf("record trace: metadata exceeds %d bytes", MaxMetadataBytes)
 	}
+	if input.Kind == "knowledge_use" || input.Kind == "feedback" {
+		if !vault.IsCanonicalURI(input.KnowledgeURI) {
+			return errors.New("record trace: knowledge_uri must be a canonical gnosis URI")
+		}
+		if !IsRevision(input.KnowledgeRevision) {
+			return errors.New("record trace: knowledge_revision must be an exact sha256 revision")
+		}
+	}
+	if input.Kind == "feedback" {
+		if !supportedFeedback[input.Feedback] {
+			return errors.New("record trace: feedback must be helpful, harmful, irrelevant, or unassessed")
+		}
+	} else if input.Feedback != "" {
+		return errors.New("record trace: feedback is valid only for feedback entries")
+	}
+	if input.Kind != "knowledge_use" && input.Kind != "feedback" &&
+		(input.KnowledgeURI != "" || input.KnowledgeRevision != "") {
+		return errors.New("record trace: knowledge attribution is valid only for knowledge_use or feedback entries")
+	}
 	return nil
+}
+
+// IsRevision reports whether value is one exact sha256 content revision.
+func IsRevision(value string) bool {
+	if len(value) != len("sha256:")+sha256.Size*2 || !strings.HasPrefix(value, "sha256:") {
+		return false
+	}
+	_, err := hex.DecodeString(strings.TrimPrefix(value, "sha256:"))
+	return err == nil && value == strings.ToLower(value)
 }
 
 func existing(path, contentHash string) (Result, error) {

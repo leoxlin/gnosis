@@ -10,6 +10,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 	evidencecontext "gnosis/internal/evidencecontext"
+	agentlearning "gnosis/internal/learning"
 	agentmemory "gnosis/internal/memory"
 	"gnosis/internal/search"
 	agenttrace "gnosis/internal/trace"
@@ -54,12 +55,33 @@ type searchMemoryInput struct {
 }
 
 type recordTraceInput struct {
-	RunID      string         `json:"run_id" jsonschema:"non-empty run identity, at most 256 bytes"`
-	Sequence   int64          `json:"sequence" jsonschema:"non-negative run sequence"`
-	Kind       string         `json:"kind" jsonschema:"trace kind: run, plan, tool, patch, test, failure, or outcome"`
-	OccurredAt string         `json:"occurred_at" jsonschema:"RFC 3339 occurrence time"`
-	Content    string         `json:"content" jsonschema:"non-empty trace content, at most 65536 bytes"`
-	Metadata   map[string]any `json:"metadata,omitempty" jsonschema:"optional JSON metadata, at most 65536 encoded bytes"`
+	RunID             string         `json:"run_id" jsonschema:"non-empty run identity, at most 256 bytes"`
+	Sequence          int64          `json:"sequence" jsonschema:"non-negative run sequence"`
+	Kind              string         `json:"kind" jsonschema:"trace kind: run, plan, tool, patch, test, failure, outcome, knowledge_use, or feedback"`
+	OccurredAt        string         `json:"occurred_at" jsonschema:"RFC 3339 occurrence time"`
+	Content           string         `json:"content" jsonschema:"non-empty trace content, at most 65536 bytes"`
+	Metadata          map[string]any `json:"metadata,omitempty" jsonschema:"optional JSON metadata, at most 65536 encoded bytes"`
+	KnowledgeURI      string         `json:"knowledge_uri,omitempty" jsonschema:"canonical cited gnosis URI for knowledge_use or feedback"`
+	KnowledgeRevision string         `json:"knowledge_revision,omitempty" jsonschema:"exact cited sha256 revision for knowledge_use or feedback"`
+	Feedback          string         `json:"feedback,omitempty" jsonschema:"feedback value: helpful, harmful, irrelevant, or unassessed"`
+}
+
+type getRunTraceInput struct {
+	RunID         string `json:"run_id" jsonschema:"exact non-empty run identity"`
+	Cursor        *int64 `json:"cursor,omitempty" jsonschema:"first sequence to return"`
+	MaxEntries    *int   `json:"max_entries,omitempty" jsonschema:"maximum entries to return, from 1 through 1000"`
+	MaxCharacters *int   `json:"max_characters,omitempty" jsonschema:"maximum content characters to return, from 1 through 1048576"`
+}
+
+type proposeRunLearningInput struct {
+	Runs             []agentlearning.Selection `json:"runs" jsonschema:"explicit run identities and caller-authored learning keys"`
+	Type             string                    `json:"type" jsonschema:"curated page type: Event or Reflection"`
+	URI              string                    `json:"uri" jsonschema:"canonical target gnosis URI"`
+	Title            string                    `json:"title" jsonschema:"curated page title"`
+	Statement        string                    `json:"statement" jsonschema:"caller-authored Event or Reflection statement"`
+	OccurredAt       string                    `json:"occurred_at,omitempty" jsonschema:"RFC 3339 Event occurrence time"`
+	ExpectedRevision string                    `json:"expected_revision,omitempty" jsonschema:"required current revision for update"`
+	ExpectedAbsent   bool                      `json:"expected_absent,omitempty" jsonschema:"require the target page to be absent"`
 }
 
 type traceGraphInput struct {
@@ -283,6 +305,41 @@ func newMCPServerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bool
 		result, err := store.Record(agenttrace.Input{
 			RunID: input.RunID, Sequence: input.Sequence, Kind: input.Kind,
 			OccurredAt: input.OccurredAt, Content: input.Content, Metadata: input.Metadata,
+			KnowledgeURI: input.KnowledgeURI, KnowledgeRevision: input.KnowledgeRevision,
+			Feedback: input.Feedback,
+		})
+		return nil, result, err
+	})
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_run_trace",
+		Description: "Read one exact configured-agent run with deterministic bounds and diagnostics",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, input getRunTraceInput) (*mcp.CallToolResult, agenttrace.Run, error) {
+		store, err := agenttrace.NewFromEnv()
+		if err != nil {
+			return nil, agenttrace.Run{}, err
+		}
+		result, err := store.Read(input.RunID, agenttrace.ReadOptions{
+			Cursor: input.Cursor, MaxEntries: intValue(input.MaxEntries),
+			MaxCharacters: intValue(input.MaxCharacters),
+		})
+		return nil, result, err
+	})
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "propose_run_learning",
+		Description: "Build an evidence-bound Event or Reflection knowledge plan without writing the vault",
+	}, func(_ context.Context, _ *mcp.CallToolRequest, input proposeRunLearningInput) (*mcp.CallToolResult, agentlearning.Proposal, error) {
+		store, err := agenttrace.NewFromEnv()
+		if err != nil {
+			return nil, agentlearning.Proposal{}, err
+		}
+		candidate, err := agentlearning.Build(store, input.Runs)
+		if err != nil {
+			return nil, agentlearning.Proposal{}, err
+		}
+		result, err := agentlearning.Propose(vaultPath, store, agentlearning.ProposalInput{
+			Candidate: candidate, Type: input.Type, URI: input.URI,
+			Title: input.Title, Statement: input.Statement, OccurredAt: input.OccurredAt,
+			ExpectedRevision: input.ExpectedRevision, ExpectedAbsent: input.ExpectedAbsent,
 		})
 		return nil, result, err
 	})

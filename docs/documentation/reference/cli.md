@@ -118,7 +118,7 @@ Both commands require `GNOSIS_MEMORY_USER_ID` and
 | `gnosis index vault` | Generate enabled Markdown indexes | — |
 | `gnosis index knowledge` | Synchronize the vector index | — |
 | `gnosis validate vault` | Validate structure, frontmatter, links, and contracts | — |
-| `gnosis serve mcp` | Serve fourteen default MCP tools over stdio | `--allow-knowledge-writes` |
+| `gnosis serve mcp` | Serve seventeen default MCP tools over stdio | `--allow-knowledge-writes` |
 | `gnosis serve http` | Serve the atlas, JSON API, and streamable MCP | `--address <host:port>`, `--allow-knowledge-writes`, `--github-webhooks` |
 | `gnosis version` | Print the installed version | — |
 | `gnosis completion <shell>` | Generate a shell completion script | shell-specific flags |
@@ -143,6 +143,9 @@ as the CLI.
 `gnosis context knowledge`.
 `audit_knowledge` returns the same read-only health contract as
 `gnosis audit knowledge`.
+`record_trace`, `get_run_trace`, and `propose_run_learning` provide explicit
+bounded agent-run capture, exact-run reads, and side-effect-free Event or
+Reflection planning under one configured trace identity.
 `propose_knowledge_change` is always available and has no write side effects.
 `apply_knowledge_change` is absent unless the server operator starts the
 transport with `--allow-knowledge-writes`. Enabling the tool authorizes its

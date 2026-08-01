@@ -206,6 +206,16 @@ vault. If any is present, external configuration must be complete:
 Partial external configuration and request failures do not fall back to the
 vault.
 
+## Agent-run trace environment
+
+| Variable | Meaning |
+|---|---|
+| `GNOSIS_TRACE_DIR` | Absolute owner-protected directory for append-only trace records |
+| `GNOSIS_TRACE_AGENT_ID` | Fixed non-empty agent identity applied to trace capture, reads, and learning |
+
+Both values are required for `record_trace`, `get_run_trace`, and
+`propose_run_learning`. Trace records remain outside the curated vault.
+
 ## Reserved paths
 
 `index.md` and `log.md` have generated structural roles. A root-level
