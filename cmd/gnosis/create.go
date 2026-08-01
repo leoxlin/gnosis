@@ -16,8 +16,8 @@ func newCreateCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
 		Short:   "Create vault resources",
 		Args:    cobra.NoArgs,
 		GroupID: "basic",
-		Example: "gnosis create vault --name <name>\n" +
-			"gnosis create vault --vault <path> --concepts",
+		Example: "mkdir <directory> && cd <directory>\n" +
+			"gnosis create vault --name <name> --concepts",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return newUsageError(errors.New("create: missing resource"))
 		},
@@ -33,9 +33,9 @@ func newCreateVaultCommand(options *rootOptions, stdout io.Writer) *cobra.Comman
 		Use:   "vault [flags]",
 		Short: "Create an OKF-compatible gnosis vault",
 		Args:  cobra.NoArgs,
-		Example: "gnosis create vault --name <name>\n" +
-			"gnosis create vault --vault <path> --name <name>\n" +
-			"gnosis create vault --vault <path> --concepts",
+		Example: "mkdir <directory> && cd <directory>\n" +
+			"gnosis create vault --name <name>\n" +
+			"gnosis create vault --name <name> --concepts",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return runCreateVault(
 				options.vaultPath,

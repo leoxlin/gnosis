@@ -36,7 +36,7 @@ func newIndexVaultCommand(options *rootOptions, stdout io.Writer) *cobra.Command
 		Short: "Generate vault indexes",
 		Args:  cobra.NoArgs,
 		Example: "gnosis index vault\n" +
-			"gnosis --vault <path> index vault",
+			"gnosis --vault <name> index vault",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return runIndex(options.vaultPath, stdout)
 		},
@@ -49,7 +49,7 @@ func newIndexKnowledgeCommand(options *rootOptions, stdout io.Writer) *cobra.Com
 		Short: "Synchronize the semantic knowledge index",
 		Args:  cobra.NoArgs,
 		Example: "gnosis index knowledge\n" +
-			"gnosis --vault <path> index knowledge",
+			"gnosis --vault <name> index knowledge",
 		RunE: func(command *cobra.Command, _ []string) error {
 			config, err := search.SemanticConfigFromEnv(options.vaultPath)
 			if err != nil {

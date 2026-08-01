@@ -37,8 +37,8 @@ func newServeHTTPCommand(options *rootOptions) *cobra.Command {
 		Short: "Serve the gnosis API, document UI, and MCP over HTTP",
 		Args:  cobra.NoArgs,
 		Example: "gnosis serve http --address 127.0.0.1:8080\n" +
-			"gnosis --vault <path> serve http\n" +
-			"gnosis --vault <path> serve http --allow-knowledge-writes",
+			"gnosis --vault <name> serve http\n" +
+			"gnosis --vault <name> serve http --allow-knowledge-writes",
 		RunE: func(command *cobra.Command, _ []string) error {
 			return serveHTTPWithKnowledgeWrites(
 				command.Context(),

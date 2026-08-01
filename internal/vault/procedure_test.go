@@ -172,7 +172,9 @@ The plan is complete.
 
 func TestDiscoverProcessesIncludesAllModelInvocableProceduresByDefault(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	discovery, err := DiscoverProcesses(t.TempDir(), nil)
+	root := t.TempDir()
+	writeConfig(t, root, "")
+	discovery, err := DiscoverProcesses(root, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -15,9 +14,8 @@ import (
 	"gnosis/internal/vault"
 )
 
-const defaultVault = "."
-
 type rootOptions struct {
+	vaultName string
 	vaultPath string
 }
 
@@ -50,7 +48,7 @@ func runContext(ctx context.Context, args []string, stdout, stderr io.Writer) er
 }
 
 func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
-	options := &rootOptions{vaultPath: defaultVault}
+	options := &rootOptions{}
 	command := &cobra.Command{
 		Use:           "gnosis",
 		Short:         "Manage OKF-compatible knowledge in the current workspace",
@@ -63,10 +61,27 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return writeHome(stdout, options)
 		},
-		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
-			if err := vault.ValidateTarget(options.vaultPath); err != nil {
+		PersistentPreRunE: func(command *cobra.Command, _ []string) error {
+			path := command.CommandPath()
+			if path == "gnosis version" || strings.HasPrefix(path, "gnosis completion") {
+				return nil
+			}
+			if path == "gnosis create vault" || path == "gnosis apply workspace" {
+				if command.Flags().Changed("vault") {
+					return newUsageError(fmt.Errorf("%s bootstraps the current directory and does not accept --vault", path))
+				}
+				current, err := os.Getwd()
+				if err != nil {
+					return err
+				}
+				options.vaultPath = current
+				return nil
+			}
+			target, err := vault.ResolveTarget(".", options.vaultName)
+			if err != nil {
 				return newUsageError(err)
 			}
+			options.vaultPath = target
 			return nil
 		},
 	}
@@ -76,10 +91,10 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		return newUsageError(err)
 	})
 	command.PersistentFlags().StringVar(
-		&options.vaultPath,
+		&options.vaultName,
 		"vault",
-		defaultVault,
-		"path or HTTPS/SSH Git URL to the OKF vault",
+		"",
+		"configured canonical vault name",
 	)
 	command.AddGroup(
 		&cobra.Group{ID: "basic", Title: "Basic Commands"},
@@ -163,13 +178,9 @@ func writeHome(output io.Writer, options *rootOptions) error {
 			toon.Field{Key: "description", Value: conceptType.Description},
 		))
 	}
-	workspace := options.vaultPath
-	if !strings.Contains(workspace, "://") {
-		var err error
-		workspace, err = filepath.Abs(workspace)
-		if err != nil {
-			workspace = filepath.Clean(options.vaultPath)
-		}
+	workspace := options.vaultName
+	if workspace == "" && len(vaultCatalog.Vaults) > 0 {
+		workspace = vaultCatalog.Vaults[0].Vault
 	}
 	return writeTOON(output, toon.NewObject(
 		toon.Field{Key: "bin", Value: executablePath()},

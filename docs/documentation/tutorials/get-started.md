@@ -15,8 +15,9 @@ export PATH="$PWD/dist:$PATH"
 From a directory where you keep projects, run:
 
 ```bash
-gnosis create vault --vault ./gnosis-demo --name demo --concepts
+mkdir gnosis-demo
 cd gnosis-demo
+gnosis create vault --name demo --concepts
 ```
 
 The command creates `gnosis.toml`, agent instructions, indexes, a log, and the

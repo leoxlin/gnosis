@@ -268,6 +268,7 @@ func newHistoryRepository(t *testing.T) string {
 	runGit(t, "init", "--initial-branch=main", root)
 	runGit(t, "-C", root, "config", "user.name", "gnosis test")
 	runGit(t, "-C", root, "config", "user.email", "gnosis@example.test")
+	writeConfig(t, root, "[vault]\nvault_name = \"local\"\nvault_root = \"docs\"\n")
 	writeTestFile(t, filepath.Join(root, "docs", ".keep"), "")
 	runGit(t, "-C", root, "add", ".")
 	runGit(t, "-C", root, "commit", "--allow-empty", "-m", "initial")

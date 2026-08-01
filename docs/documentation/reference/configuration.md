@@ -2,33 +2,31 @@
 
 ## Resolution
 
-gnosis resolves configuration in this order:
+gnosis builds the selectable vault registry from:
 
-1. `gnosis.local.toml`
-2. `gnosis.toml`
-3. the user configuration at `~/.config/gnosis.toml`
+1. the nearest `gnosis.local.toml`, otherwise the nearest `gnosis.toml`
+2. the user configuration at `~/.config/gnosis.toml`
 
-Repository configuration defines the primary vault when present. User
-configuration can contribute additional registered vaults. In a git work tree
-with no configuration, gnosis uses an implicit vault named `local`, rooted at
-`docs/`, with strict relative links and index/log generation disabled.
-
-Outside a git work tree, the default root is the current directory. Generated
-indexes and the log are enabled.
+`--vault <name>` selects one canonical name declared by either source. An
+omitted flag selects only the nearest local `[vault]`; without one, operational
+commands return a configuration error. Paths and Git URLs are valid only as
+`vault_root` values. Identical declarations of one name and normalized target
+are de-duplicated; declarations that reuse a name for different targets are
+rejected.
 
 ## `[vault]`
 
 | Field | Default | Meaning |
 |---|---|---|
-| `vault_name` | `local` in an implicit repository vault | Canonical URI authority |
-| `vault_root` | `docs` in an implicit repository vault | Knowledge directory |
+| `vault_name` | required | Canonical URI authority |
+| `vault_root` | required for filesystem and Git vaults | Knowledge directory |
 | `backend` | empty | Primary storage backend; supported value: `github-wiki` |
 | `repository` | empty | GitHub `owner/repository` used by that backend |
 | `entry_points` | empty | Canonical page URIs excluded from orphan findings |
 | `link_format` | `relative` | Preferred internal link form: `relative` or `absolute` |
-| `link_format_strict` | `true` in an implicit repository vault | Treat link-style violations as errors |
-| `vault_index` | `false` in an implicit repository vault | Require and generate directory `index.md` files |
-| `vault_log` | `false` in an implicit repository vault | Require a root `log.md` |
+| `link_format_strict` | `false` | Treat link-style violations as errors |
+| `vault_index` | `true` | Require and generate directory `index.md` files |
+| `vault_log` | `true` | Require a root `log.md` |
 
 Example standalone vault:
 
@@ -69,8 +67,8 @@ Remote imports are cloned into
 with a fast-forward-only pull during composition. Repeated declarations of the
 same normalized URL reuse one checkout. An imported remote participates in
 reads, validation, search, and serving, but it does not become the workspace's
-publisher. To mutate and publish that repository, select its URL directly with
-`--vault`.
+publisher. To mutate and publish that repository, declare its URL under a
+canonical name and select that name with `--vault`.
 
 Remote authentication uses existing Git credential helpers and SSH
 configuration. Supported locators begin with `https://` or `ssh://`. Embedded

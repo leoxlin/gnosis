@@ -3,7 +3,7 @@
 Expose a vault to an agent over MCP stdio:
 
 ```bash
-gnosis --vault /path/to/workspace serve mcp
+gnosis --vault workspace serve mcp
 ```
 
 Configure the agent to start that command as an MCP subprocess. The default
@@ -41,7 +41,7 @@ candidate without writing. To register the corresponding mutation tool, the
 server operator must opt in:
 
 ```bash
-gnosis --vault /path/to/workspace serve mcp --allow-knowledge-writes
+gnosis --vault workspace serve mcp --allow-knowledge-writes
 ```
 
 That adds `apply_knowledge_change`. Apply requires the exact URI, candidate,
@@ -86,7 +86,7 @@ expire after incompatible history rewrites or pruning.
 To serve the browser atlas, JSON API, and streamable MCP together:
 
 ```bash
-gnosis --vault /path/to/workspace serve http \
+gnosis --vault workspace serve http \
   --address 127.0.0.1:8080
 ```
 

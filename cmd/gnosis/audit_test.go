@@ -17,6 +17,7 @@ import (
 )
 
 func TestKnowledgeAuditAdaptersHaveParityAndDoNotMutate(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	workspace := t.TempDir()
 	writeCommandFile(t, workspace, "gnosis.toml", `[vault]
 vault_name = "test"
@@ -25,6 +26,7 @@ entry_points = ["gnosis://test/entry.md"]
 vault_index = false
 vault_log = false
 `)
+	registerCommandTarget(t, "test", workspace)
 	for name, title := range map[string]string{
 		"entry.md": "Entry",
 		"a.md":     "A",
@@ -45,7 +47,7 @@ vault_log = false
 
 	var stdout, stderr bytes.Buffer
 	if err := run([]string{
-		"--vault", workspace, "audit", "knowledge",
+		"--vault", "test", "audit", "knowledge",
 		"--class", "orphan", "--type", "Note",
 		"--page-limit", "10", "--finding-limit", "10",
 	}, &stdout, &stderr); err != nil {
@@ -110,7 +112,7 @@ func TestKnowledgeAuditAdaptersRejectUnknownClass(t *testing.T) {
 	workspace := mcpTestVault(t)
 	var stdout, stderr bytes.Buffer
 	err := run([]string{
-		"--vault", workspace, "audit", "knowledge", "--class", "unknown",
+		"--vault", "test", "audit", "knowledge", "--class", "unknown",
 	}, &stdout, &stderr)
 	if err == nil {
 		t.Fatal("CLI accepted unknown audit class")

@@ -47,32 +47,21 @@ func loadEffectiveVault(root string) (*effectiveVault, error) {
 	if err != nil {
 		return nil, err
 	}
-	implicitRoot := implicitVaultRoot(start)
+	if configPath == "" {
+		return nil, fmt.Errorf("no gnosis configuration found for %s", start)
+	}
 	vault := &effectiveVault{
-		root:    implicitRoot,
-		config:  defaultConfig(implicitRoot),
+		root:    filepath.Dir(configPath),
 		backend: target.backend,
 	}
-	if configPath != "" {
-		vault.root = filepath.Dir(configPath)
-		vault.config, err = loadConfigPath(configPath)
-		if err != nil {
-			return nil, err
-		}
-		if err := inheritUserVaults(&vault.config, configPath, implicitRoot); err != nil {
-			return nil, err
-		}
+	vault.config, err = loadConfigPath(configPath)
+	if err != nil {
+		return nil, err
 	}
-	if configPath == "" && vault.config.HasLocalVault() {
-		localRoot, err := resolveVaultRoot(vault.config, vault.root)
-		if err != nil {
-			return nil, err
-		}
-		if _, err := os.Stat(localRoot); os.IsNotExist(err) {
-			return vault, nil
-		}
+	if err := inheritUserVaults(&vault.config, configPath, vault.root); err != nil {
+		return nil, err
 	}
-	if configPath != "" || vault.config.HasLocalVault() {
+	if vault.config.HasLocalVault() || len(vault.config.Vaults) > 0 {
 		composer := vaultComposer{
 			vault:    vault,
 			resolved: make(map[string]struct{}),

@@ -585,8 +585,8 @@ func newServeMCPCommand(options *rootOptions) *cobra.Command {
 		Short: "Serve gnosis tools over MCP stdio",
 		Args:  cobra.NoArgs,
 		Example: "gnosis serve mcp\n" +
-			"gnosis --vault <path> serve mcp\n" +
-			"gnosis --vault <path> serve mcp --allow-knowledge-writes",
+			"gnosis --vault <name> serve mcp\n" +
+			"gnosis --vault <name> serve mcp --allow-knowledge-writes",
 		RunE: func(command *cobra.Command, _ []string) error {
 			return newMCPServerWithKnowledgeWrites(
 				options.vaultPath,

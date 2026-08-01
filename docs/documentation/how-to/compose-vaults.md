@@ -6,16 +6,26 @@ knowledge view.
 ## Import local vaults
 
 ```bash
-gnosis apply workspace --vault ./workspace \
+mkdir workspace
+cd workspace
+gnosis apply workspace \
   --import /path/to/team-vault \
   --import /path/to/project-vault
 ```
 
 Each repeated `--import` adds a `[[vaults]]` entry to
-`workspace/gnosis.toml`. Inspect the effective order:
+`workspace/gnosis.toml`. Register that composition in the user configuration:
+
+```toml
+[[vaults]]
+vault_name = "workspace"
+vault_root = "/absolute/path/to/workspace"
+```
+
+Inspect the effective order:
 
 ```bash
-gnosis --vault ./workspace get vaults \
+gnosis --vault workspace get vaults \
   --fields vault,kind,root,precedence
 ```
 
@@ -26,7 +36,7 @@ vault-relative path wins.
 Read an imported page by its own vault name:
 
 ```bash
-gnosis --vault ./workspace get pages \
+gnosis --vault workspace get pages \
   gnosis://team-vault/references/policy.md --full
 ```
 
@@ -36,7 +46,9 @@ matching page regardless of its vault authority.
 ## Use a GitHub wiki as the primary vault
 
 ```bash
-gnosis apply workspace --vault ./workspace \
+mkdir team-wiki
+cd team-wiki
+gnosis apply workspace \
   --github-wiki owner/repository \
   --name team-wiki
 ```
@@ -48,7 +60,7 @@ non-fast-forward conflicts are returned as errors.
 After changing composition, run:
 
 ```bash
-gnosis --vault ./workspace validate vault
+gnosis validate vault
 ```
 
 Validation reports import cycles and structural errors.

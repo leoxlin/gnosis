@@ -19,8 +19,8 @@ invocation: model
 
 ## Process
 
-1. Resolve the vault, read its agent rules and configuration, then run `gnosis validate vault --vault <root>` for the structural baseline.
-2. Run `gnosis audit knowledge --vault <root>` or the equivalent read-only `audit_knowledge` tool. Follow every finding cursor. Run staleness separately with an author-appropriate threshold and type or tier filter. If the audit operation is unavailable, inspect the same signals manually.
+1. Resolve the vault, read its agent rules and configuration, then run `gnosis validate vault --vault <name>` for the structural baseline.
+2. Run `gnosis audit knowledge --vault <name>` or the equivalent read-only `audit_knowledge` tool. Follow every finding cursor. Run staleness separately with an author-appropriate threshold and type or tier filter. If the audit operation is unavailable, inspect the same signals manually.
 3. Review each structural fact or semantic candidate and its canonical evidence, using each type's `status`/`tier` lifecycle fields:
    - Orphans: pages with no inbound links that are not type definitions or entry points; rescue by linking from the nearest parent or report.
    - Near-duplicates: pages sharing one identity; merge into the richer page, set `status: archived` plus `superseded_by` on the loser, and repair inbound links.
@@ -29,8 +29,8 @@ invocation: model
    - Tag fragmentation: near-identical tags (case, plural, separator variants); normalize to the most-used form.
    - Broken typed `relationships`: invalid targets or relations the Concept Type does not sanction; repair or remove.
 4. Apply high-confidence repairs in place through `gnosis apply page`. Never treat a candidate as a proven identity or meaning decision. Preserve unknown metadata and source-backed disagreements; report identity or meaning conflicts that require author judgment.
-5. Run `gnosis index vault --vault <root>` when `vault_index` is enabled and record material repairs only when `vault_log` is enabled.
-6. Re-run `gnosis validate vault --vault <root>` and produce the consolidation report: every finding with its affected paths and the action taken or the author decision needed.
+5. Run `gnosis index vault --vault <name>` when `vault_index` is enabled and record material repairs only when `vault_log` is enabled.
+6. Re-run `gnosis validate vault --vault <name>` and produce the consolidation report: every finding with its affected paths and the action taken or the author decision needed.
 
 ## Completion
 

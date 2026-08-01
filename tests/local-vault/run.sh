@@ -10,6 +10,10 @@ fi
 VAULT_DIR="$TEST_TMP/local-vault"
 mkdir "$VAULT_DIR"
 
+run_vault() {
+	(cd "$VAULT_DIR" && "$GNOSIS_BIN" "$@")
+}
+
 assert_contains() {
 	case "$1" in
 		*"$2"*) ;;
@@ -20,7 +24,7 @@ assert_contains() {
 	esac
 }
 
-output=$("$GNOSIS_BIN" --vault "$VAULT_DIR" create vault --name local --concepts)
+output=$(run_vault create vault --name local --concepts)
 assert_contains "$output" "status: created"
 test -f "$VAULT_DIR/gnosis.toml"
 test -f "$VAULT_DIR/concepts/concept.md"
@@ -37,26 +41,26 @@ description: The Open Knowledge Format used by gnosis vaults.
 OKF is a portable Markdown knowledge format.
 EOF
 
-output=$("$GNOSIS_BIN" --vault "$VAULT_DIR" apply page \
+output=$(run_vault --vault local apply page \
 	"gnosis://local/concepts/okf.md" --filename "$TEST_TMP/okf.md")
 assert_contains "$output" "status: applied"
 assert_contains "$output" "changed: true"
 
-output=$("$GNOSIS_BIN" --vault "$VAULT_DIR" apply page \
+output=$(run_vault --vault local apply page \
 	"gnosis://local/concepts/okf.md" --filename "$TEST_TMP/okf.md")
 assert_contains "$output" "status: no-op"
 assert_contains "$output" "changed: false"
 
-output=$("$GNOSIS_BIN" --vault "$VAULT_DIR" get pages \
+output=$(run_vault --vault local get pages \
 	"gnosis://local/concepts/okf.md" --full)
 assert_contains "$output" "title: OKF"
 assert_contains "$output" "OKF is a portable Markdown knowledge format."
 
-output=$("$GNOSIS_BIN" --vault "$VAULT_DIR" search knowledge \
+output=$(run_vault --vault local search knowledge \
 	"portable Markdown" --backend lexical)
 assert_contains "$output" "gnosis://local/concepts/okf.md"
 
-output=$("$GNOSIS_BIN" --vault "$VAULT_DIR" validate vault)
+output=$(run_vault --vault local validate vault)
 assert_contains "$output" "status: valid"
 
 printf 'local-vault: ok\n'

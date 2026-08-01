@@ -44,8 +44,8 @@ type DeclaredVaultConfig struct {
 	Root string `toml:"vault_root"`
 }
 
-func defaultConfig(root string) Config {
-	config := Config{
+func defaultConfig(_ string) Config {
+	return Config{
 		Vault: VaultConfig{
 			LinkFormat:       string(LinkFormatRelative),
 			LinkFormatStrict: false,
@@ -53,19 +53,6 @@ func defaultConfig(root string) Config {
 			VaultLog:         true,
 		},
 	}
-	if withinGitRepository(root) {
-		config.Vault.Name = "local"
-		config.Vault.Root = "docs"
-		config.Vault.LinkFormatStrict = true
-		config.Vault.VaultIndex = false
-		config.Vault.VaultLog = false
-	}
-	return config
-}
-
-func withinGitRepository(root string) bool {
-	_, found := gitRepositoryRoot(root)
-	return found
 }
 
 func gitRepositoryRoot(root string) (string, bool) {
@@ -126,11 +113,10 @@ func (c Config) HasLocalVault() bool {
 }
 
 func findConfigPath(root string) (string, error) {
-	globalPath, err := userConfigPath()
+	root, err := filepath.Abs(root)
 	if err != nil {
 		return "", err
 	}
-
 	searchRoots := []string{filepath.Clean(root)}
 	if repositoryRoot, found := gitRepositoryRoot(root); found {
 		for current := filepath.Clean(root); current != repositoryRoot; {
@@ -150,17 +136,6 @@ func findConfigPath(root string) (string, error) {
 			}
 		}
 	}
-
-	info, err := os.Stat(globalPath)
-	if err == nil && !info.IsDir() {
-		return globalPath, nil
-	}
-	if err != nil && !os.IsNotExist(err) {
-		return "", fmt.Errorf("stat %s: %w", globalPath, err)
-	}
-	if err == nil && info.IsDir() {
-		return "", nil
-	}
 	return "", nil
 }
 
@@ -170,13 +145,6 @@ func userConfigPath() (string, error) {
 		return "", fmt.Errorf("find home directory: %w", err)
 	}
 	return filepath.Join(home, ".config", "gnosis.toml"), nil
-}
-
-func implicitVaultRoot(start string) string {
-	if repositoryRoot, found := gitRepositoryRoot(start); found {
-		return repositoryRoot
-	}
-	return start
 }
 
 func loadConfig(root string) (Config, error) {
@@ -242,6 +210,9 @@ func validateConfig(config Config, root string) error {
 	for i, declared := range config.Vaults {
 		if strings.TrimSpace(declared.Name) == "" {
 			return fmt.Errorf("vaults[%d].vault_name must not be empty", i)
+		}
+		if !isCanonicalVaultName(declared.Name) {
+			return fmt.Errorf("vaults[%d].vault_name %q must be a canonical gnosis URI authority", i, declared.Name)
 		}
 		if err := validateDeclaredVaultRoot(declared, root); err != nil {
 			return fmt.Errorf("vaults[%d]: %w", i, err)

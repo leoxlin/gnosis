@@ -32,7 +32,7 @@ description: A two-phase change.
 
 	var stdout, stderr bytes.Buffer
 	if err := run([]string{
-		"--vault", workspace,
+		"--vault", "test",
 		"plan", "knowledge-change", "gnosis://test/notes/planned.md",
 		"--expected-absent", "--filename", candidate,
 	}, &stdout, &stderr); err != nil {
@@ -59,7 +59,7 @@ description: A two-phase change.
 
 	stdout.Reset()
 	if err := run([]string{
-		"--vault", workspace,
+		"--vault", "test",
 		"apply", "knowledge-change", "gnosis://test/notes/planned.md",
 		"--expected-absent", "--digest", digest[1], "--filename", candidate,
 	}, &stdout, &stderr); err != nil {
@@ -75,10 +75,11 @@ description: A two-phase change.
 }
 
 func TestKnowledgeChangeCLIRequiresOneExpectedState(t *testing.T) {
+	commandVault(t)
 	for _, args := range [][]string{
-		{"plan", "knowledge-change", "gnosis://test/notes/page.md"},
+		{"--vault", "test", "plan", "knowledge-change", "gnosis://test/notes/page.md"},
 		{
-			"plan", "knowledge-change", "gnosis://test/notes/page.md",
+			"--vault", "test", "plan", "knowledge-change", "gnosis://test/notes/page.md",
 			"--expected-absent", "--expected-revision", "sha256:test",
 		},
 	} {

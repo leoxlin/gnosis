@@ -10,9 +10,10 @@ import (
 
 func TestApplyWorkspaceGitHubWiki(t *testing.T) {
 	workspace := t.TempDir()
+	t.Chdir(workspace)
 	var stdout, stderr bytes.Buffer
 	if err := run([]string{
-		"--vault", workspace, "apply", "workspace",
+		"apply", "workspace",
 		"--github-wiki", "OWNER/REPOSITORY", "--name", "wiki",
 	}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
@@ -80,7 +81,7 @@ description: Repeating the same apply changes nothing.
 		t.Fatal(err)
 	}
 	args := []string{
-		"--vault", workspace, "apply", "page",
+		"--vault", "test", "apply", "page",
 		"gnosis://test/notes/repeat-safely.md", "--filename", input,
 	}
 
@@ -103,8 +104,9 @@ description: Repeating the same apply changes nothing.
 }
 
 func TestCreateVaultAcknowledgesRepeatAsNoOp(t *testing.T) {
-	workspace := filepath.Join(t.TempDir(), "vault")
-	args := []string{"--vault", workspace, "create", "vault", "--name", "repeat"}
+	workspace := t.TempDir()
+	t.Chdir(workspace)
+	args := []string{"create", "vault", "--name", "repeat"}
 
 	var stdout, stderr bytes.Buffer
 	if err := run(args, &stdout, &stderr); err != nil {
@@ -124,103 +126,21 @@ func TestCreateVaultAcknowledgesRepeatAsNoOp(t *testing.T) {
 	}
 }
 
-func TestCreateVaultPublishesRemoteChangesAndSkipsRemoteNoOp(t *testing.T) {
-	fixture := newCommandRemoteFixture(t, "https://example.test/team/create.git")
-	args := []string{"--vault", fixture.url, "create", "vault", "--name", "remote", "--concepts"}
-	before := commandRemoteCommitCount(t, fixture)
-
+func TestBootstrapCommandsRejectVaultTargets(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	if err := run(args, &stdout, &stderr); err != nil {
-		t.Fatal(err)
-	}
-	if got := commandRemoteCommitCount(t, fixture); got != before+1 {
-		t.Fatalf("create commit count = %d, want %d", got, before+1)
-	}
-	if !strings.Contains(stdout.String(), "changed: true") {
-		t.Fatalf("create output = %q", stdout.String())
-	}
-
-	rejectCommandRemotePushes(t, fixture)
-	stdout.Reset()
-	if err := run(args, &stdout, &stderr); err != nil {
-		t.Fatalf("no-op create attempted publication: %v", err)
-	}
-	if !strings.Contains(stdout.String(), "status: no-op") ||
-		!strings.Contains(stdout.String(), "changed: false") {
-		t.Fatalf("second create = %q", stdout.String())
-	}
-}
-
-func TestCreateVaultReportsRemotePublicationFailure(t *testing.T) {
-	fixture := newCommandRemoteFixture(t, "https://example.test/team/create-rejected.git")
-	before := commandRemoteCommitCount(t, fixture)
-	rejectCommandRemotePushes(t, fixture)
-
-	var stdout, stderr bytes.Buffer
-	err := run(
-		[]string{"--vault", fixture.url, "create", "vault", "--name", "remote"},
-		&stdout,
-		&stderr,
-	)
-	if err == nil || !strings.Contains(err.Error(), "git") {
-		t.Fatalf("create publication error = %v", err)
-	}
-	if got := commandRemoteCommitCount(t, fixture); got != before {
-		t.Fatalf("rejected create commit count = %d, want %d", got, before)
-	}
-}
-
-func TestApplyWorkspacePublishesRemoteChangesAndSkipsRemoteNoOp(t *testing.T) {
-	fixture := newCommandRemoteFixture(t, "https://example.test/team/workspace.git")
-	args := []string{
-		"--vault", fixture.url, "apply", "workspace",
-		"--import", "/tmp/imported", "--force",
-	}
-	before := commandRemoteCommitCount(t, fixture)
-
-	var stdout, stderr bytes.Buffer
-	if err := run(args, &stdout, &stderr); err != nil {
-		t.Fatal(err)
-	}
-	if got := commandRemoteCommitCount(t, fixture); got != before+1 {
-		t.Fatalf("workspace commit count = %d, want %d", got, before+1)
-	}
-
-	rejectCommandRemotePushes(t, fixture)
-	stdout.Reset()
-	if err := run(args, &stdout, &stderr); err != nil {
-		t.Fatalf("no-op workspace apply attempted publication: %v", err)
-	}
-	if !strings.Contains(stdout.String(), "status: no-op") ||
-		!strings.Contains(stdout.String(), "changed: false") {
-		t.Fatalf("second workspace apply = %q", stdout.String())
-	}
-}
-
-func TestApplyWorkspaceReportsRemotePublicationFailure(t *testing.T) {
-	fixture := newCommandRemoteFixture(t, "https://example.test/team/workspace-rejected.git")
-	before := commandRemoteCommitCount(t, fixture)
-	rejectCommandRemotePushes(t, fixture)
-
-	var stdout, stderr bytes.Buffer
-	err := run(
-		[]string{
-			"--vault", fixture.url, "apply", "workspace",
-			"--import", "/tmp/imported", "--force",
-		},
-		&stdout,
-		&stderr,
-	)
-	if err == nil || !strings.Contains(err.Error(), "git") {
-		t.Fatalf("workspace publication error = %v", err)
-	}
-	if got := commandRemoteCommitCount(t, fixture); got != before {
-		t.Fatalf("rejected workspace commit count = %d, want %d", got, before)
+	for _, args := range [][]string{
+		{"--vault", "remote", "create", "vault", "--name", "remote"},
+		{"--vault", "remote", "apply", "workspace", "--import", "/tmp/imported"},
+	} {
+		err := run(args, &stdout, &stderr)
+		if err == nil || exitCode(err) != 2 || !strings.Contains(err.Error(), "current directory") {
+			t.Fatalf("run(%q) error = %v", args, err)
+		}
 	}
 }
 
 func TestApplyPageAcknowledgesRepeatWithBodyLinksAsNoOp(t *testing.T) {
-	workspace := commandVault(t)
+	commandVault(t)
 	dir := t.TempDir()
 	target := filepath.Join(dir, "target.md")
 	targetContent := `---
@@ -234,7 +154,7 @@ description: The linked record.
 	}
 	var targetOut, targetErr bytes.Buffer
 	if err := run([]string{
-		"--vault", workspace, "apply", "page",
+		"--vault", "test", "apply", "page",
 		"gnosis://test/concepts/repeat-safely.md", "--filename", target,
 	}, &targetOut, &targetErr); err != nil {
 		t.Fatal(err)
@@ -254,7 +174,7 @@ See [Repeat safely](repeat-safely.md).
 		t.Fatal(err)
 	}
 	args := []string{
-		"--vault", workspace, "apply", "page",
+		"--vault", "test", "apply", "page",
 		"gnosis://test/concepts/link-repeat.md", "--filename", input,
 	}
 

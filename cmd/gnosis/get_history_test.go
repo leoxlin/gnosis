@@ -15,7 +15,7 @@ func TestGetHistoryDiffAndChanges(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	if err := run(
-		[]string{"--vault", root, "get", "history", uri, "--limit", "1"},
+		[]string{"--vault", "test", "get", "history", uri, "--limit", "1"},
 		&stdout,
 		&stderr,
 	); err != nil {
@@ -38,7 +38,7 @@ func TestGetHistoryDiffAndChanges(t *testing.T) {
 	stdout.Reset()
 	if err := run(
 		[]string{
-			"--vault", root, "get", "diff", uri,
+			"--vault", "test", "get", "diff", uri,
 			"--from", from, "--to", to, "--limit", "1000",
 		},
 		&stdout,
@@ -54,7 +54,7 @@ func TestGetHistoryDiffAndChanges(t *testing.T) {
 
 	stdout.Reset()
 	if err := run(
-		[]string{"--vault", root, "get", "changes"},
+		[]string{"--vault", "test", "get", "changes"},
 		&stdout,
 		&stderr,
 	); err != nil {
@@ -114,5 +114,6 @@ second
 `)
 	runCommandGit(t, "-C", root, "add", ".")
 	runCommandGit(t, "-C", root, "commit", "-m", "update note")
+	registerCommandTarget(t, "test", root)
 	return root
 }

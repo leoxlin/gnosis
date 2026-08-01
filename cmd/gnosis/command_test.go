@@ -13,9 +13,9 @@ import (
 )
 
 func TestHomeShowsLiveContext(t *testing.T) {
-	workspace := commandVault(t)
+	commandVault(t)
 	var stdout, stderr bytes.Buffer
-	if err := run([]string{"--vault", workspace}, &stdout, &stderr); err != nil {
+	if err := run([]string{"--vault", "test"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	for _, key := range []string{"bin:", "description:", "counts:", "vaults[", "concept_types[", "help["} {
@@ -28,7 +28,20 @@ func TestHomeShowsLiveContext(t *testing.T) {
 	}
 }
 
+func TestOmittedVaultSelectsNearestLocalConfiguration(t *testing.T) {
+	workspace := commandVault(t)
+	t.Chdir(workspace)
+	var stdout, stderr bytes.Buffer
+	if err := run([]string{"get", "vaults"}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout.String(), "test,local") {
+		t.Fatalf("output = %q", stdout.String())
+	}
+}
+
 func TestInvalidRemoteVaultSyntaxIsUsageError(t *testing.T) {
+	commandVault(t)
 	for _, target := range []string{
 		"ftp://example.test/vault.git",
 		"https://token@example.test/vault.git",
@@ -93,17 +106,17 @@ func TestCommandTreeAndHelpContract(t *testing.T) {
 }
 
 func TestRemovedCommandsAndFlagsFail(t *testing.T) {
-	workspace := commandVault(t)
+	commandVault(t)
 	for _, args := range [][]string{
 		{"read", "gnosis://test/missing.md"},
 		{"write", "gnosis://test/missing.md"},
 		{"scaffold"},
 		{"setup"},
 		{"procedure", "discovery"},
-		{"get", "vaults", "--vault", workspace, "--json"},
+		{"get", "vaults", "--vault", "test", "--json"},
 		{"graph", "neighbors", "--uri", "gnosis://test/missing.md"},
 		{"graph", "path", "--from", "gnosis://test/a.md", "--to", "gnosis://test/b.md"},
-		{"validate", "--vault", workspace},
+		{"validate", "--vault", "test"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
@@ -115,10 +128,10 @@ func TestRemovedCommandsAndFlagsFail(t *testing.T) {
 }
 
 func TestGraphIdentitiesArePositional(t *testing.T) {
-	workspace := commandVault(t)
+	commandVault(t)
 	var stdout, stderr bytes.Buffer
 	err := run(
-		[]string{"--vault", workspace, "graph", "neighbors", "gnosis://test/missing.md"},
+		[]string{"--vault", "test", "graph", "neighbors", "gnosis://test/missing.md"},
 		&stdout,
 		&stderr,
 	)
@@ -130,7 +143,7 @@ func TestGraphIdentitiesArePositional(t *testing.T) {
 	stderr.Reset()
 	err = run(
 		[]string{
-			"--vault", workspace, "graph", "path",
+			"--vault", "test", "graph", "path",
 			"gnosis://test/a.md", "gnosis://test/b.md",
 		},
 		&stdout,
@@ -173,7 +186,7 @@ func TestProcessExitAndChannelContract(t *testing.T) {
 	}{
 		{"success", []string{"version"}, 0, true, "version:"},
 		{"usage", []string{"get", "vaults", "--json"}, 2, true, "Valid flags:"},
-		{"runtime", []string{"--vault", filepath.Join(t.TempDir(), "missing"), "get", "pages"}, 1, true, "error:"},
+		{"removed path target", []string{"--vault", filepath.Join(t.TempDir(), "missing"), "get", "pages"}, 2, true, "configured canonical vault name"},
 		{"completion", []string{"completion", "bash"}, 0, false, "bash completion"},
 	}
 	for _, test := range tests {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -11,6 +12,7 @@ import (
 )
 
 func TestGetVaultsListsEffectiveVaultsAsTOON(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	workspace := t.TempDir()
 	imported := filepath.Join(workspace, "imported")
 	if err := os.Mkdir(imported, 0o755); err != nil {
@@ -28,9 +30,10 @@ vault_root = "imported"
 vault_name = "imported"
 vault_root = "."
 `)
+	registerCommandTarget(t, "workspace", workspace)
 
 	var stdout, stderr bytes.Buffer
-	if err := run([]string{"--vault", workspace, "get", "vaults"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"--vault", "workspace", "get", "vaults"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := toon.Decode(stdout.Bytes()); err != nil {
@@ -50,14 +53,16 @@ vault_root = "."
 }
 
 func TestGetVaultsDoesNotRepeatConfiguredCore(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
 	workspace := t.TempDir()
 	writeCommandFile(t, workspace, "gnosis.toml", `[vault]
 vault_name = "core"
 vault_root = "."
 `)
+	registerCommandTarget(t, "core", workspace)
 
 	var stdout, stderr bytes.Buffer
-	if err := run([]string{"--vault", workspace, "get", "vaults"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"--vault", "core", "get", "vaults"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(stdout.String(), "count: 1") ||
@@ -77,7 +82,7 @@ description: Prefer the smallest adequate design.
 
 	var stdout, stderr bytes.Buffer
 	if err := run([]string{
-		"--vault", workspace, "get", "concepts", "Note", "--fields", "title,uri",
+		"--vault", "test", "get", "concepts", "Note", "--fields", "title,uri",
 	}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
@@ -87,8 +92,8 @@ description: Prefer the smallest adequate design.
 	}
 
 	for _, args := range [][]string{
-		{"get", "concepts", "Note", "Procedure", "--vault", workspace},
-		{"get", "concepts", "--type", "Note", "--vault", workspace},
+		{"get", "concepts", "Note", "Procedure", "--vault", "test"},
+		{"get", "concepts", "--type", "Note", "--vault", "test"},
 	} {
 		stdout.Reset()
 		stderr.Reset()
@@ -109,7 +114,7 @@ func TestGetPagePreviewAndFullContent(t *testing.T) {
 	uri := "gnosis://test/long.md"
 
 	var preview, stderr bytes.Buffer
-	if err := run([]string{"--vault", workspace, "get", "pages", uri}, &preview, &stderr); err != nil {
+	if err := run([]string{"--vault", "test", "get", "pages", uri}, &preview, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(preview.String(), "truncated: true") ||
@@ -118,7 +123,7 @@ func TestGetPagePreviewAndFullContent(t *testing.T) {
 	}
 
 	var full bytes.Buffer
-	if err := run([]string{"--vault", workspace, "get", "pages", uri, "--full"}, &full, &stderr); err != nil {
+	if err := run([]string{"--vault", "test", "get", "pages", uri, "--full"}, &full, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(full.String(), "truncated: false") ||
@@ -134,7 +139,7 @@ func TestGetPageProjectsTrustAndResolvesCurrent(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	if err := run([]string{
-		"--vault", workspace, "get", "pages", "gnosis://test/old.md", "--resolve-current",
+		"--vault", "test", "get", "pages", "gnosis://test/old.md", "--resolve-current",
 	}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
@@ -152,13 +157,13 @@ func TestGetPageProjectsTrustAndResolvesCurrent(t *testing.T) {
 	}
 }
 
-func TestGetPageReadsDirectRemoteTargetAndConfiguredRemoteImport(t *testing.T) {
+func TestGetPageReadsNamedRemoteTargetAndConfiguredRemoteImport(t *testing.T) {
 	fixture := newCommandRemoteFixture(t, "https://example.test/team/read.git")
 	uri := "gnosis://remote/notes/remote.md"
 
 	var stdout, stderr bytes.Buffer
 	if err := run(
-		[]string{"--vault", fixture.url, "get", "pages", uri, "--full"},
+		[]string{"--vault", "remote", "get", "pages", uri, "--full"},
 		&stdout,
 		&stderr,
 	); err != nil {
@@ -173,9 +178,10 @@ func TestGetPageReadsDirectRemoteTargetAndConfiguredRemoteImport(t *testing.T) {
 vault_name = "remote"
 vault_root = "`+fixture.url+`"
 `)
+	registerCommandTarget(t, "composition", workspace)
 	stdout.Reset()
 	if err := run(
-		[]string{"--vault", workspace, "get", "pages", uri, "--full"},
+		[]string{"--vault", "composition", "get", "pages", uri, "--full"},
 		&stdout,
 		&stderr,
 	); err != nil {
@@ -187,11 +193,10 @@ vault_root = "`+fixture.url+`"
 }
 
 func TestGetProceduresListsAndBoundsExecutionContract(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	workspace := t.TempDir()
+	commandVault(t)
 	var listed, stderr bytes.Buffer
 	if err := run([]string{
-		"--vault", workspace, "get", "procedures", "--tags", "gnosis,vault",
+		"--vault", "test", "get", "procedures", "--tags", "gnosis,vault",
 	}, &listed, &stderr); err != nil {
 		t.Fatal(err)
 	}
@@ -202,7 +207,7 @@ func TestGetProceduresListsAndBoundsExecutionContract(t *testing.T) {
 
 	uri := "gnosis://core/procedures/refining-procedure.md"
 	var preview bytes.Buffer
-	if err := run([]string{"--vault", workspace, "get", "procedures", uri}, &preview, &stderr); err != nil {
+	if err := run([]string{"--vault", "test", "get", "procedures", uri}, &preview, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(preview.String(), "truncated: true") ||
@@ -211,7 +216,7 @@ func TestGetProceduresListsAndBoundsExecutionContract(t *testing.T) {
 	}
 
 	var full bytes.Buffer
-	if err := run([]string{"--vault", workspace, "get", "procedures", uri, "--full"}, &full, &stderr); err != nil {
+	if err := run([]string{"--vault", "test", "get", "procedures", uri, "--full"}, &full, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(full.String(), "truncated: false") ||
@@ -222,6 +227,7 @@ func TestGetProceduresListsAndBoundsExecutionContract(t *testing.T) {
 
 func commandVault(t *testing.T) string {
 	t.Helper()
+	t.Setenv("HOME", t.TempDir())
 	workspace := t.TempDir()
 	writeCommandFile(t, workspace, "gnosis.toml", `[vault]
 vault_name = "test"
@@ -229,7 +235,31 @@ vault_root = "."
 vault_index = false
 vault_log = false
 `)
+	registerCommandTarget(t, "test", workspace)
 	return workspace
+}
+
+func registerCommandTarget(t *testing.T, name, target string) {
+	t.Helper()
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(home, ".config", "gnosis.toml")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := file.WriteString("\n[[vaults]]\nvault_name = " + strconv.Quote(name) + "\nvault_root = " + strconv.Quote(target) + "\n"); err != nil {
+		_ = file.Close()
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func writeCommandFile(t *testing.T, root, relative, content string) {

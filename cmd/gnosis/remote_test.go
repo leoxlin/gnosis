@@ -62,6 +62,7 @@ description: A page stored in the remote vault.
 	runCommandGit(t, "-C", seed, "add", ".")
 	runCommandGit(t, "-C", seed, "commit", "-m", "initial remote vault")
 	runCommandGit(t, "clone", "--bare", seed, remote)
+	registerCommandTarget(t, "remote", remoteURL)
 	return commandRemoteFixture{url: remoteURL, remote: remote, seed: seed}
 }
 

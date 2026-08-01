@@ -18,7 +18,7 @@ func newValidateCommand(options *rootOptions, stdout, stderr io.Writer) *cobra.C
 		Args:    cobra.NoArgs,
 		GroupID: "workspace",
 		Example: "gnosis validate vault\n" +
-			"gnosis --vault <path> validate vault",
+			"gnosis --vault <name> validate vault",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return newUsageError(errors.New("validate: missing resource"))
 		},
@@ -37,7 +37,7 @@ func newValidateVaultCommand(
 		Short: "Validate vault structure and links",
 		Args:  cobra.NoArgs,
 		Example: "gnosis validate vault\n" +
-			"gnosis --vault <path> validate vault",
+			"gnosis --vault <name> validate vault",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return runValidate(options.vaultPath, stdout, stderr)
 		},

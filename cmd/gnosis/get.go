@@ -45,7 +45,7 @@ func newGetVaultsCommand(options *rootOptions, stdout io.Writer) *cobra.Command 
 		Args:  cobra.NoArgs,
 		Example: "gnosis get vaults\n" +
 			"gnosis get vaults --fields vault,kind,precedence\n" +
-			"gnosis --vault <path> get vaults",
+			"gnosis --vault <name> get vaults",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			selector, err := parseFields(
 				fields,

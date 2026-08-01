@@ -968,7 +968,8 @@ func TestMCPSubprocess(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	command := exec.Command(binary, "serve", "mcp", "--vault", mcpTestVault(t))
+	mcpTestVault(t)
+	command := exec.Command(binary, "serve", "mcp", "--vault", "test")
 	client := mcp.NewClient(&mcp.Implementation{Name: "gnosis-test", Version: "0.0.0"}, nil)
 	session, err := client.Connect(ctx, &mcp.CommandTransport{Command: command}, nil)
 	if err != nil {

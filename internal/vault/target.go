@@ -18,12 +18,6 @@ type vaultTarget struct {
 	backend *gitBackend
 }
 
-// ValidateTarget checks remote target syntax. Local paths pass through.
-func ValidateTarget(value string) error {
-	_, _, err := parseRemoteLocator(value)
-	return err
-}
-
 func resolveVaultTarget(value string) (vaultTarget, error) {
 	remote, ok, err := parseRemoteLocator(value)
 	if err != nil {

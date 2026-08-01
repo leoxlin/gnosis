@@ -19,7 +19,7 @@ func newAddCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
 		Args:    cobra.NoArgs,
 		GroupID: "knowledge",
 		Example: "gnosis add memory \"<text>\"\n" +
-			"gnosis --vault <path> add memory \"<text>\"",
+			"gnosis --vault <name> add memory \"<text>\"",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			return newUsageError(errors.New("add: missing resource"))
 		},
@@ -34,7 +34,7 @@ func newAddMemoryCommand(options *rootOptions, stdout io.Writer) *cobra.Command 
 		Short: "Store one scoped durable memory",
 		Args:  memoryArgs("add memory", "text"),
 		Example: "gnosis add memory \"I prefer concise answers\"\n" +
-			"gnosis --vault <path> add memory \"Use UTC timestamps\"",
+			"gnosis --vault <name> add memory \"Use UTC timestamps\"",
 		RunE: func(command *cobra.Command, args []string) error {
 			return runAddMemory(command.Context(), options.vaultPath, args[0], stdout)
 		},

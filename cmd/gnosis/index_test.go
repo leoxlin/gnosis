@@ -16,9 +16,9 @@ func TestIndexRequiresResource(t *testing.T) {
 }
 
 func TestIndexVaultPreservesDisabledState(t *testing.T) {
-	workspace := commandVault(t)
+	commandVault(t)
 	var stdout, stderr bytes.Buffer
-	if err := run([]string{"--vault", workspace, "index", "vault"}, &stdout, &stderr); err != nil {
+	if err := run([]string{"--vault", "test", "index", "vault"}, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	for _, value := range []string{"action: index", "resource: vault", "status: disabled", "changed: false"} {

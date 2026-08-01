@@ -16,10 +16,10 @@ import (
 )
 
 func TestContextKnowledgeCLI(t *testing.T) {
-	workspace := adapterContextVault(t)
+	adapterContextVault(t)
 	var stdout, stderr bytes.Buffer
 	err := run([]string{
-		"--vault", workspace,
+		"--vault", "test",
 		"context", "knowledge", "adaptertoken",
 		"--strategy", "lexical",
 		"--max-evidence", "2",

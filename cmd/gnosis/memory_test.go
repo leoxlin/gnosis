@@ -12,14 +12,14 @@ import (
 )
 
 func TestMemoryCLIUsesVaultBackend(t *testing.T) {
-	workspace := commandVault(t)
+	commandVault(t)
 	clearCommandMemoryEnv(t)
 	t.Setenv(agentmemory.EnvUserID, "user")
 	t.Setenv(agentmemory.EnvAgentID, "agent")
 
 	var stdout, stderr bytes.Buffer
 	if err := run(
-		[]string{"--vault", workspace, "add", "memory", "I prefer dark mode"},
+		[]string{"--vault", "test", "add", "memory", "I prefer dark mode"},
 		&stdout,
 		&stderr,
 	); err != nil {
@@ -36,7 +36,7 @@ func TestMemoryCLIUsesVaultBackend(t *testing.T) {
 
 	stdout.Reset()
 	if err := run(
-		[]string{"--vault", workspace, "search", "memory", "dark mode", "--limit", "1"},
+		[]string{"--vault", "test", "search", "memory", "dark mode", "--limit", "1"},
 		&stdout,
 		&stderr,
 	); err != nil {
@@ -64,7 +64,7 @@ func TestMemoryCLIUsesWritableRemoteVault(t *testing.T) {
 
 	var stdout, stderr bytes.Buffer
 	if err := run(
-		[]string{"--vault", fixture.url, "add", "memory", "I prefer remote memory"},
+		[]string{"--vault", "remote", "add", "memory", "I prefer remote memory"},
 		&stdout,
 		&stderr,
 	); err != nil {
@@ -80,7 +80,7 @@ func TestMemoryCLIUsesWritableRemoteVault(t *testing.T) {
 	rejectCommandRemotePushes(t, fixture)
 	stdout.Reset()
 	if err := run(
-		[]string{"--vault", fixture.url, "add", "memory", "I prefer remote memory"},
+		[]string{"--vault", "remote", "add", "memory", "I prefer remote memory"},
 		&stdout,
 		&stderr,
 	); err != nil {
@@ -101,13 +101,13 @@ func TestMemoryCLIRejectsUsageBeforeMutation(t *testing.T) {
 	t.Setenv(agentmemory.EnvAgentID, "agent")
 
 	for _, args := range [][]string{
-		{"--vault", workspace, "add", "memory"},
-		{"--vault", workspace, "add", "memory", "one", "two"},
-		{"--vault", workspace, "add", "memory", " \t"},
-		{"--vault", workspace, "search", "memory"},
-		{"--vault", workspace, "search", "memory", "one", "two"},
-		{"--vault", workspace, "search", "memory", "query", "--limit", "0"},
-		{"--vault", workspace, "search", "memory", "query", "--limit", "21"},
+		{"--vault", "test", "add", "memory"},
+		{"--vault", "test", "add", "memory", "one", "two"},
+		{"--vault", "test", "add", "memory", " \t"},
+		{"--vault", "test", "search", "memory"},
+		{"--vault", "test", "search", "memory", "one", "two"},
+		{"--vault", "test", "search", "memory", "query", "--limit", "0"},
+		{"--vault", "test", "search", "memory", "query", "--limit", "21"},
 	} {
 		var stdout, stderr bytes.Buffer
 		err := run(args, &stdout, &stderr)
@@ -129,7 +129,7 @@ func TestMemoryCLIConfigurationFailureIsRuntimeError(t *testing.T) {
 	clearCommandMemoryEnv(t)
 	var stdout, stderr bytes.Buffer
 	err := run(
-		[]string{"--vault", workspace, "add", "memory", "remember this"},
+		[]string{"--vault", "test", "add", "memory", "remember this"},
 		&stdout,
 		&stderr,
 	)

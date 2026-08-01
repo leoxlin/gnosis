@@ -9,19 +9,12 @@ import (
 	"testing"
 )
 
-func TestLoadEffectiveVaultUsesDefaultsWithoutConfiguration(t *testing.T) {
+func TestLoadEffectiveVaultRejectsMissingConfiguration(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	root := t.TempDir()
 
-	vault, err := loadEffectiveVault(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(vault.config, defaultConfig(root)) {
-		t.Fatalf("config = %#v, want defaults %#v", vault.config, defaultConfig(root))
-	}
-	if got, want := vault.sources, []vaultSource(nil); !reflect.DeepEqual(got, want) {
-		t.Fatalf("sources = %v, want none", got)
+	if _, err := loadEffectiveVault(root); err == nil || !strings.Contains(err.Error(), "no gnosis configuration") {
+		t.Fatalf("missing configuration error = %v", err)
 	}
 }
 
@@ -47,102 +40,6 @@ func TestLoadEffectiveVaultWithEmptyFileHasNoSources(t *testing.T) {
 	writeConfig(t, root, "")
 
 	vault, err := loadEffectiveVault(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(vault.sources) != 0 {
-		t.Fatalf("sources = %v, want none", vault.sources)
-	}
-}
-
-func TestLoadEffectiveVaultUsesGitRepositoryDefaultsWithoutConfiguration(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	repository := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repository, ".git"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(repository, ".git", "HEAD"), []byte("ref: refs/heads/main\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	root := filepath.Join(repository, "nested", "work")
-	if err := os.MkdirAll(root, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(repository, "docs"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(repository, "docs", "note.md"), []byte(`---
-type: Note
-title: Repository note
-description: Verify git repository defaults.
----
-
-# Repository note
-`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	vault, err := loadEffectiveVault(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, want := vault.config.Vault.Name, "local"; got != want {
-		t.Fatalf("vault name = %q, want %q", got, want)
-	}
-	if got, want := vault.config.Vault.Root, "docs"; got != want {
-		t.Fatalf("vault root = %q, want %q", got, want)
-	}
-	if got := vault.config.LinkFormatValue(); got != LinkFormatRelative {
-		t.Fatalf("link format = %q, want %q", got, LinkFormatRelative)
-	}
-	if !vault.config.IsStrict() {
-		t.Fatal("link format strict = false, want true")
-	}
-	if vault.config.IndexEnabled() || vault.config.LogEnabled() {
-		t.Fatalf("navigation settings = %+v, want disabled", vault.config.Vault)
-	}
-	if got, want := vault.root, repository; got != want {
-		t.Fatalf("vault root = %q, want repository root %q", got, want)
-	}
-	if got, want := sourcePaths(vault), []string{filepath.Join(repository, "docs")}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("vault roots = %v, want %v", got, want)
-	}
-	documents, err := LoadDocuments(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	found := false
-	for _, document := range documents {
-		if document.URI == "gnosis://local/note.md" {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatalf("documents = %+v, want gnosis://local/note.md", documents)
-	}
-	result, err := Validate(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(result.Errors) != 0 {
-		t.Fatalf("unexpected validation errors: %v", result.Errors)
-	}
-	if got, want := result.FilesChecked, 1; got != want {
-		t.Fatalf("files checked = %d, want %d", got, want)
-	}
-}
-
-func TestLoadEffectiveVaultTreatsMissingImplicitGitVaultAsEmpty(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
-	repository := t.TempDir()
-	if err := os.Mkdir(filepath.Join(repository, ".git"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(repository, ".git", "HEAD"), []byte("ref: refs/heads/main\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	vault, err := loadEffectiveVault(repository)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -486,54 +383,28 @@ description: Higher-precedence local content.
 	}
 }
 
-func TestLoadEffectiveVaultSupportsConfiguredAndImplicitRemoteTargets(t *testing.T) {
-	t.Run("configured", func(t *testing.T) {
-		fixture := newGitRemoteFixture(t, "https://example.test/team/configured.git")
-		writeConfig(t, fixture.seed, `[vault]
+func TestLoadEffectiveVaultSupportsConfiguredRemoteTarget(t *testing.T) {
+	fixture := newGitRemoteFixture(t, "https://example.test/team/configured.git")
+	writeConfig(t, fixture.seed, `[vault]
 vault_name = "remote"
 vault_root = "."
 vault_index = false
 vault_log = false
 `)
-		runGit(t, "-C", fixture.seed, "add", "gnosis.toml")
-		runGit(t, "-C", fixture.seed, "commit", "-m", "configure vault")
-		runGit(t, "-C", fixture.seed, "push", fixture.remote, "main")
+	runGit(t, "-C", fixture.seed, "add", "gnosis.toml")
+	runGit(t, "-C", fixture.seed, "commit", "-m", "configure vault")
+	runGit(t, "-C", fixture.seed, "push", fixture.remote, "main")
 
-		effective, err := loadEffectiveVault(fixture.url)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if effective.backend == nil || effective.config.Vault.Name != "remote" {
-			t.Fatalf("effective remote = %+v", effective)
-		}
-		if got, want := sourcePaths(effective), []string{effective.root}; !reflect.DeepEqual(got, want) {
-			t.Fatalf("sources = %v, want %v", got, want)
-		}
-	})
-
-	t.Run("implicit", func(t *testing.T) {
-		fixture := newGitRemoteFixture(t, "https://example.test/team/implicit.git")
-		writeTestFile(t, filepath.Join(fixture.seed, "docs", "note.md"), `---
-type: Note
-title: Remote note
-description: Loaded from an implicit remote vault.
----
-`)
-		runGit(t, "-C", fixture.seed, "add", "docs/note.md")
-		runGit(t, "-C", fixture.seed, "commit", "-m", "add implicit vault")
-		runGit(t, "-C", fixture.seed, "push", fixture.remote, "main")
-
-		effective, err := loadEffectiveVault(fixture.url)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if effective.backend == nil || effective.config.Vault.Name != "local" {
-			t.Fatalf("effective remote = %+v", effective)
-		}
-		if got, want := sourcePaths(effective), []string{filepath.Join(effective.root, "docs")}; !reflect.DeepEqual(got, want) {
-			t.Fatalf("sources = %v, want %v", got, want)
-		}
-	})
+	effective, err := loadEffectiveVault(fixture.url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if effective.backend == nil || effective.config.Vault.Name != "remote" {
+		t.Fatalf("effective remote = %+v", effective)
+	}
+	if got, want := sourcePaths(effective), []string{effective.root}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("sources = %v, want %v", got, want)
+	}
 }
 
 func TestLoadEffectiveVaultRejectsRemoteImportWithoutConfiguration(t *testing.T) {
@@ -642,33 +513,8 @@ vault_root = "."
 		t.Fatal(err)
 	}
 
-	vault, err := loadEffectiveVault(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(vault.config, defaultConfig(root)) {
-		t.Fatalf("config = %#v, want defaults %#v", vault.config, defaultConfig(root))
-	}
-}
-
-func TestLoadEffectiveVaultUsesGlobalConfiguration(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	configDir := filepath.Join(home, ".config")
-	if err := os.Mkdir(configDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	writeConfig(t, configDir, `[vault]
-vault_name = "Global"
-vault_root = "."
-`)
-
-	vault, err := loadEffectiveVault(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got, want := vault.config.Vault.Name, "Global"; got != want {
-		t.Fatalf("vault name = %q, want %q", got, want)
+	if _, err := loadEffectiveVault(root); err == nil || !strings.Contains(err.Error(), "no gnosis configuration") {
+		t.Fatalf("parent configuration error = %v", err)
 	}
 }
 

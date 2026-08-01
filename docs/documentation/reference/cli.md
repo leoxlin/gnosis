@@ -3,14 +3,17 @@
 ## Command grammar
 
 Commands use `gnosis <verb> <resource>`. The persistent
-`--vault <path-or-git-url>` flag selects the workspace and defaults to the
-current directory. It accepts local paths plus explicit HTTPS and SSH Git
-URLs:
+`--vault <name>` flag selects a canonical vault name declared by the nearest
+local or user-level configuration. With no flag, gnosis selects the nearest
+local `[vault]`. Paths, URLs, and undeclared names are usage errors:
 
 ```sh
-gnosis --vault https://github.com/example/knowledge-vault.git get pages
-gnosis --vault ssh://git@github.com/example/knowledge-vault.git get pages
+gnosis --vault team get pages
+gnosis --vault remote get pages
 ```
+
+`gnosis create vault` and `gnosis apply workspace` are bootstrap commands.
+They write to the current directory and do not accept `--vault`.
 
 `--help` is available at every command level.
 
@@ -141,7 +144,7 @@ transport with `--allow-knowledge-writes`. Enabling the tool authorizes its
 server-side capability but does not replace the MCP host's responsibility to
 obtain per-call user approval.
 
-## Remote Git targets
+## Configured remote Git vaults
 
 gnosis clones each remote into
 `os.UserCacheDir()/gnosis/git-vaults/<sha256-of-normalized-url>`. The first
@@ -150,8 +153,8 @@ cached origin and run a fast-forward-only pull before resolving the vault.
 Long-lived MCP and HTTP servers perform the same refresh when handling an
 operation.
 
-A remote selected directly with `--vault` is the writable target. A changed
-page, index, scaffold, workspace configuration, or vault-memory operation
+A remote selected by its configured name is the writable target. A changed
+page, index, or vault-memory operation
 creates one `gnosis:` commit and pushes the current branch. A no-op creates no
 commit and performs no push. If a push fails, the commit remains in the local
 cache and the command returns an error.
