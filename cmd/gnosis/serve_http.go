@@ -20,6 +20,7 @@ import (
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 	evidencecontext "gnosis/internal/evidencecontext"
+	githubsource "gnosis/internal/github"
 	"gnosis/internal/vault"
 	"gnosis/ui"
 	"go.yaml.in/yaml/v4"
@@ -32,6 +33,7 @@ const defaultHTTPAddress = "127.0.0.1:8080"
 func newServeHTTPCommand(options *rootOptions) *cobra.Command {
 	var address string
 	var allowKnowledgeWrites bool
+	var githubWebhooks bool
 	command := &cobra.Command{
 		Use:   "http [flags]",
 		Short: "Serve the gnosis API, document UI, and MCP over HTTP",
@@ -40,11 +42,12 @@ func newServeHTTPCommand(options *rootOptions) *cobra.Command {
 			"gnosis --vault <name> serve http\n" +
 			"gnosis --vault <name> serve http --allow-knowledge-writes",
 		RunE: func(command *cobra.Command, _ []string) error {
-			return serveHTTPWithKnowledgeWrites(
+			return serveHTTPWithOptions(
 				command.Context(),
 				address,
 				options.vaultPath,
 				allowKnowledgeWrites,
+				githubWebhooks,
 				command.ErrOrStderr(),
 			)
 		},
@@ -55,6 +58,12 @@ func newServeHTTPCommand(options *rootOptions) *cobra.Command {
 		"allow-knowledge-writes",
 		false,
 		"register approval-gated general knowledge apply",
+	)
+	command.Flags().BoolVar(
+		&githubWebhooks,
+		"github-webhooks",
+		false,
+		"register configured signed GitHub webhook routes",
 	)
 	return command
 }
@@ -70,12 +79,23 @@ func serveHTTPWithKnowledgeWrites(
 	allowKnowledgeWrites bool,
 	output io.Writer,
 ) error {
+	return serveHTTPWithOptions(ctx, address, vaultPath, allowKnowledgeWrites, false, output)
+}
+
+func serveHTTPWithOptions(
+	ctx context.Context,
+	address,
+	vaultPath string,
+	allowKnowledgeWrites,
+	githubWebhooks bool,
+	output io.Writer,
+) error {
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return fmt.Errorf("serve http: listen: %w", err)
 	}
 	server := &http.Server{
-		Handler:           newHTTPHandlerWithKnowledgeWrites(vaultPath, allowKnowledgeWrites),
+		Handler:           newHTTPHandlerWithOptions(vaultPath, allowKnowledgeWrites, githubWebhooks),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       time.Minute,
 	}
@@ -110,6 +130,10 @@ func newHTTPHandler(vaultPath string) http.Handler {
 }
 
 func newHTTPHandlerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bool) http.Handler {
+	return newHTTPHandlerWithOptions(vaultPath, allowKnowledgeWrites, false)
+}
+
+func newHTTPHandlerWithOptions(vaultPath string, allowKnowledgeWrites, githubWebhooks bool) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", serveUI)
 	mux.HandleFunc("GET /api/v1/vaults", serveVaults(vaultPath))
@@ -126,6 +150,12 @@ func newHTTPHandlerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bo
 	mux.HandleFunc("GET /api/v1/search", serveSearch(vaultPath))
 	mux.HandleFunc("POST /api/v1/context", serveContext(vaultPath))
 	mux.HandleFunc("POST /api/v1/audit/knowledge", serveKnowledgeAudit(vaultPath))
+	if githubWebhooks {
+		mux.HandleFunc(
+			"POST /api/v1/github/webhooks/{owner}/{repository}",
+			githubsource.Webhook(vaultPath),
+		)
+	}
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
 		return newMCPServerWithKnowledgeWrites(vaultPath, allowKnowledgeWrites)
 	}, nil)

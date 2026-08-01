@@ -24,6 +24,7 @@ type Config struct {
 	Vault  VaultConfig           `toml:"vault"`
 	Vaults []DeclaredVaultConfig `toml:"vaults"`
 	Hooks  []HookConfig          `toml:"hooks"`
+	GitHub []GitHubConfig        `toml:"github"`
 }
 
 // VaultConfig holds local vault settings.
@@ -44,6 +45,23 @@ type DeclaredVaultConfig struct {
 	Name string `toml:"vault_name"`
 	Root string `toml:"vault_root"`
 }
+
+// GitHubConfig binds one allowed repository to a named vault evidence store.
+type GitHubConfig struct {
+	Repository       string `toml:"repository"`
+	EvidenceDir      string `toml:"evidence_dir"`
+	TokenEnv         string `toml:"token_env"`
+	WebhookSecretEnv string `toml:"webhook_secret_env"`
+	PerPage          int    `toml:"per_page"`
+	MaxPages         int    `toml:"max_pages"`
+	MaxBodyBytes     int64  `toml:"max_body_bytes"`
+}
+
+const (
+	DefaultGitHubPerPage      = 100
+	DefaultGitHubMaxPages     = 20
+	DefaultGitHubMaxBodyBytes = 2 << 20
+)
 
 func defaultConfig(_ string) Config {
 	return Config{
@@ -222,7 +240,86 @@ func validateConfig(config Config, root string) error {
 	if err := validateHooks(config.Hooks, config.Vault.Name); err != nil {
 		return err
 	}
+	if err := validateGitHubConfigs(config.GitHub); err != nil {
+		return err
+	}
 	return nil
+}
+
+// GitHubRepositoryConfig loads one explicitly allowed repository for the selected vault root.
+func GitHubRepositoryConfig(start, repository string) (string, GitHubConfig, error) {
+	path, err := findConfigPath(start)
+	if err != nil {
+		return "", GitHubConfig{}, err
+	}
+	if path == "" {
+		return "", GitHubConfig{}, fmt.Errorf("no gnosis configuration found")
+	}
+	config, err := loadConfigPath(path)
+	if err != nil {
+		return "", GitHubConfig{}, err
+	}
+	repository = strings.ToLower(strings.TrimSpace(repository))
+	for _, github := range config.GitHub {
+		if strings.ToLower(github.Repository) == repository {
+			return config.Vault.Name, github.withDefaults(), nil
+		}
+	}
+	return "", GitHubConfig{}, fmt.Errorf(
+		"github repository %q is not configured for vault %q",
+		repository,
+		config.Vault.Name,
+	)
+}
+
+func validateGitHubConfigs(configs []GitHubConfig) error {
+	seen := map[string]bool{}
+	for index, config := range configs {
+		prefix := fmt.Sprintf("github[%d]", index)
+		repository := strings.ToLower(strings.TrimSpace(config.Repository))
+		if err := validateGitHubRepository(repository); err != nil {
+			return fmt.Errorf("%s.repository: %w", prefix, err)
+		}
+		if seen[repository] {
+			return fmt.Errorf("%s.repository %q is duplicated", prefix, repository)
+		}
+		seen[repository] = true
+		if !filepath.IsAbs(config.EvidenceDir) {
+			return fmt.Errorf("%s.evidence_dir must be an absolute path", prefix)
+		}
+		if !validEnvironmentName(config.TokenEnv) {
+			return fmt.Errorf("%s.token_env must be an environment variable name", prefix)
+		}
+		if config.WebhookSecretEnv != "" && !validEnvironmentName(config.WebhookSecretEnv) {
+			return fmt.Errorf("%s.webhook_secret_env must be an environment variable name", prefix)
+		}
+		effective := config.withDefaults()
+		if effective.PerPage < 1 || effective.PerPage > 100 {
+			return fmt.Errorf("%s.per_page must be between 1 and 100", prefix)
+		}
+		if effective.MaxPages < 1 || effective.MaxPages > 1000 {
+			return fmt.Errorf("%s.max_pages must be between 1 and 1000", prefix)
+		}
+		if effective.MaxBodyBytes < 1 || effective.MaxBodyBytes > 10<<20 {
+			return fmt.Errorf("%s.max_body_bytes must be between 1 and %d", prefix, 10<<20)
+		}
+	}
+	return nil
+}
+
+func (config GitHubConfig) withDefaults() GitHubConfig {
+	config.Repository = strings.ToLower(strings.TrimSpace(config.Repository))
+	config.EvidenceDir = filepath.Clean(config.EvidenceDir)
+	if config.PerPage == 0 {
+		config.PerPage = DefaultGitHubPerPage
+	}
+	if config.MaxPages == 0 {
+		config.MaxPages = DefaultGitHubMaxPages
+	}
+	if config.MaxBodyBytes == 0 {
+		config.MaxBodyBytes = DefaultGitHubMaxBodyBytes
+	}
+	return config
 }
 
 func resolveVaultRoot(config Config, root string) (string, error) {

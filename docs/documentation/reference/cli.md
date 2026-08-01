@@ -86,6 +86,7 @@ a new baseline instead of attempting to repair Git history.
 |---|---|---|
 | `gnosis search knowledge <question>` | Rank relevant knowledge pages | `--backend vector\|lexical`, `--top <n>`, `--max-read <n>`, `--depth <n>`, `--fields uri,type,title,description,revision,score,trust` |
 | `gnosis context knowledge <question>` | Resolve bounded cited evidence without generating an answer | `--strategy lexical\|vector\|hybrid`, exact constraint flags, `--max-evidence <n>`, `--max-chars <n>`, `--depth <n>` |
+| `gnosis ingest github <owner/repository>` | Synchronize configured immutable GitHub evidence | `--since <RFC3339>`, `--max-items <n>`, `--reconcile` |
 | `gnosis graph neighbors <uri>` | List adjacent typed links | `--direction out\|in\|both`, `--relation <type>` repeatable |
 | `gnosis graph path <from-uri> <to-uri>` | Find a bounded path | `--direction out\|in\|both`, `--relation <type>` repeatable, `--depth <n>` |
 | `gnosis audit knowledge` | Report deterministic read-only knowledge-health findings | `--class <class>`, `--type <type>`, `--tier <tier>`, `--page-limit <n>`, `--finding-limit <n>`, `--stale-after <duration>`, `--cursor <cursor>` |
@@ -118,11 +119,15 @@ Both commands require `GNOSIS_MEMORY_USER_ID` and
 | `gnosis index knowledge` | Synchronize the vector index | — |
 | `gnosis validate vault` | Validate structure, frontmatter, links, and contracts | — |
 | `gnosis serve mcp` | Serve fourteen default MCP tools over stdio | `--allow-knowledge-writes` |
-| `gnosis serve http` | Serve the atlas, JSON API, and streamable MCP | `--address <host:port>`, `--allow-knowledge-writes` |
+| `gnosis serve http` | Serve the atlas, JSON API, and streamable MCP | `--address <host:port>`, `--allow-knowledge-writes`, `--github-webhooks` |
 | `gnosis version` | Print the installed version | — |
 | `gnosis completion <shell>` | Generate a shell completion script | shell-specific flags |
 
 The HTTP address defaults to `127.0.0.1:8080`.
+`--github-webhooks` opts into
+`POST /api/v1/github/webhooks/{owner}/{repository}`. The route requires the
+matching `[[github]]` entry and validates GitHub's exact-byte HMAC signature
+before parsing a bounded request body.
 
 Both MCP transports advertise effective vault pages as `text/markdown`
 resources. Direct resource discovery is ordered by canonical URI and returns at

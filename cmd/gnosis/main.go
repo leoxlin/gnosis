@@ -111,6 +111,7 @@ func newRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		newAuditCommand(options, stdout),
 		newSearchCommand(options, stdout),
 		newContextCommand(options, stdout),
+		newIngestCommand(options, stdout),
 		newGraphCommand(options, stdout),
 		newIndexCommand(options, stdout),
 		newValidateCommand(options, stdout, stderr),

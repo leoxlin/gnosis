@@ -150,6 +150,29 @@ The event ID is deterministic from the vault, URI, new revision, and operation.
 `prior_revision` and `knowledge_change` are omitted when unavailable. Webhooks
 also receive `X-Gnosis-Event-Version` and `X-Gnosis-Event-ID` headers.
 
+## `[[github]]`
+
+Each GitHub evidence source belongs to the selected named vault and requires an
+explicit repository allowlist entry:
+
+```toml
+[[github]]
+repository = "owner/repository"
+evidence_dir = "/var/lib/gnosis/github-evidence"
+token_env = "GITHUB_TOKEN"
+webhook_secret_env = "GITHUB_WEBHOOK_SECRET"
+per_page = 100
+max_pages = 20
+max_body_bytes = 2097152
+```
+
+`evidence_dir` must be absolute. Raw records and cursor state use owner-only
+filesystem permissions and never enter the Markdown vault. `token_env` is
+required; `webhook_secret_env` is required only when serving GitHub webhooks.
+The bounded defaults shown above apply when the three numeric fields are
+omitted. Secrets are resolved from the environment for each operation and are
+not persisted.
+
 ## Semantic search environment
 
 | Variable | Meaning |

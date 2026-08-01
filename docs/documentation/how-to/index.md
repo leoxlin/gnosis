@@ -4,6 +4,7 @@ Use these guides when you already know the gnosis basics and need to complete a
 specific task.
 
 - [Ingest knowledge](ingest-knowledge.md)
+- [Ingest GitHub evidence](ingest-github-evidence.md)
 - [Query a vault](query-the-vault.md)
 - [Maintain a vault](maintain-a-vault.md)
 - [Compose vaults](compose-vaults.md)

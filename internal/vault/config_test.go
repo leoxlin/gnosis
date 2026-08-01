@@ -19,6 +19,35 @@ func TestLoadEffectiveVaultRejectsMissingConfiguration(t *testing.T) {
 	}
 }
 
+func TestGitHubRepositoryConfigIsScopedAndBounded(t *testing.T) {
+	root := t.TempDir()
+	evidenceDir := filepath.Join(root, "evidence")
+	writeConfig(t, root, `[vault]
+vault_name = "test"
+vault_root = "."
+
+[[github]]
+repository = "Owner/Repo"
+evidence_dir = "`+evidenceDir+`"
+token_env = "GITHUB_TOKEN"
+webhook_secret_env = "GITHUB_WEBHOOK_SECRET"
+`)
+	name, config, err := GitHubRepositoryConfig(root, "owner/repo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if name != "test" || config.Repository != "owner/repo" ||
+		config.PerPage != DefaultGitHubPerPage ||
+		config.MaxPages != DefaultGitHubMaxPages ||
+		config.MaxBodyBytes != DefaultGitHubMaxBodyBytes {
+		t.Fatalf("config = %q, %+v", name, config)
+	}
+	if _, _, err := GitHubRepositoryConfig(root, "other/repo"); err == nil ||
+		!strings.Contains(err.Error(), "not configured") {
+		t.Fatalf("unknown repository error = %v", err)
+	}
+}
+
 func TestLoadEffectiveVaultRejectsRemovedProcessesConfig(t *testing.T) {
 	root := t.TempDir()
 	writeConfig(t, root, `[vault]

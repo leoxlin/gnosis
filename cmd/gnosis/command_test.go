@@ -63,7 +63,7 @@ func TestCommandTreeAndHelpContract(t *testing.T) {
 		"graph neighbors": {}, "graph path": {}, "create vault": {},
 		"plan knowledge-change": {}, "apply workspace": {}, "apply page": {},
 		"apply knowledge-change": {}, "index vault": {}, "index knowledge": {},
-		"validate vault": {}, "serve http": {}, "serve mcp": {},
+		"validate vault": {}, "serve http": {}, "serve mcp": {}, "ingest github": {},
 	}
 	root := newRootCommand(&bytes.Buffer{}, &bytes.Buffer{})
 	var visit func(*cobra.Command)
