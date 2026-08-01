@@ -3,7 +3,6 @@ module gnosis
 go 1.26.0
 
 require (
-	github.com/adrg/frontmatter v0.2.0
 	github.com/aws/aws-sdk-go-v2/config v1.32.33
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.106.2
 	github.com/aws/smithy-go v1.27.5
@@ -32,7 +31,6 @@ require (
 )
 
 require (
-	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.43.2 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.15 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.32 // indirect
@@ -51,13 +49,10 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-pointer v0.0.1 // indirect
 	github.com/ncruces/go-sqlite3-wasm/v3 v3.2.35303 // indirect
 	github.com/ncruces/julianday v1.0.0 // indirect
-	github.com/rogpeppe/go-internal v1.15.0 // indirect
 	golang.org/x/text v0.39.0 // indirect
-	gopkg.in/yaml.v2 v2.3.0 // indirect
 )
 
 replace github.com/mem0ai/mem0-go => github.com/leoxlin/mem0-go v0.0.0-20260725104438-256d6d5a570a

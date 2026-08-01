@@ -9,13 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/adrg/frontmatter"
 	"go.yaml.in/yaml/v4"
 )
 
 type frontmatterFields map[string]any
 
-var yamlFrontmatter = frontmatter.NewFormat("---", "---", yaml.Unmarshal)
 var errMissingYAMLFrontmatter = errors.New("missing YAML frontmatter")
 
 type parsedPage struct {
@@ -45,22 +43,19 @@ func reservedPageName(name string) bool {
 // consumer. Effective pages retain the result so downstream modules do not
 // parse the same authored record again.
 func parsePage(data []byte) (parsedPage, error) {
+	data, found := bytes.CutPrefix(data, []byte("---\n"))
+	if !found {
+		return parsedPage{}, errMissingYAMLFrontmatter
+	}
+	header, body, found := bytes.Cut(data, []byte("\n---\n"))
+	if !found {
+		return parsedPage{}, errors.New("invalid YAML frontmatter: missing closing delimiter")
+	}
 	fields := frontmatterFields{}
-	body, err := frontmatter.MustParse(bytes.NewReader(data), &fields, yamlFrontmatter)
-	if err != nil {
-		return parsedPage{}, frontmatterError(err)
+	if err := yaml.Unmarshal(header, &fields); err != nil {
+		return parsedPage{}, fmt.Errorf("invalid YAML frontmatter: %w", err)
 	}
 	return parsedPage{fields: fields, body: string(body)}, nil
-}
-
-func frontmatterError(err error) error {
-	if errors.Is(err, frontmatter.ErrNotFound) {
-		return errMissingYAMLFrontmatter
-	}
-	if err != nil {
-		return fmt.Errorf("invalid YAML frontmatter: %w", err)
-	}
-	return nil
 }
 
 func frontmatterScalar(fields frontmatterFields, key string) (string, bool) {

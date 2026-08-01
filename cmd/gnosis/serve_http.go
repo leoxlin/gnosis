@@ -24,9 +24,6 @@ import (
 	githubsource "gnosis/internal/github"
 	"gnosis/internal/vault"
 	"gnosis/ui"
-	"go.yaml.in/yaml/v4"
-
-	"github.com/adrg/frontmatter"
 )
 
 const defaultHTTPAddress = "127.0.0.1:8080"
@@ -70,17 +67,7 @@ func newServeHTTPCommand(options *rootOptions) *cobra.Command {
 }
 
 func serveHTTP(ctx context.Context, address, vaultPath string, output io.Writer) error {
-	return serveHTTPWithKnowledgeWrites(ctx, address, vaultPath, false, output)
-}
-
-func serveHTTPWithKnowledgeWrites(
-	ctx context.Context,
-	address,
-	vaultPath string,
-	allowKnowledgeWrites bool,
-	output io.Writer,
-) error {
-	return serveHTTPWithOptions(ctx, address, vaultPath, allowKnowledgeWrites, false, output)
+	return serveHTTPWithOptions(ctx, address, vaultPath, false, false, output)
 }
 
 func serveHTTPWithOptions(
@@ -132,15 +119,7 @@ func serveHTTPWithOptions(
 }
 
 func newHTTPHandler(vaultPath string) http.Handler {
-	return newHTTPHandlerWithKnowledgeWrites(vaultPath, false)
-}
-
-func newHTTPHandlerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bool) http.Handler {
-	return newHTTPHandlerWithOptions(vaultPath, allowKnowledgeWrites, false)
-}
-
-func newHTTPHandlerWithOptions(vaultPath string, allowKnowledgeWrites, githubWebhooks bool) http.Handler {
-	return newHTTPHandlerWithCodeService(vaultPath, allowKnowledgeWrites, githubWebhooks, nil)
+	return newHTTPHandlerWithCodeService(vaultPath, false, false, nil)
 }
 
 func newHTTPHandlerWithCodeService(vaultPath string, allowKnowledgeWrites, githubWebhooks bool, codeService *codeintel.Service) http.Handler {
@@ -453,8 +432,6 @@ type pageResponse struct {
 // default safe HTML handling, which escapes raw HTML in the source.
 var pageMarkdown = goldmark.New(goldmark.WithExtensions(extension.GFM))
 
-var pageFrontmatter = frontmatter.NewFormat("---", "---", yaml.Unmarshal)
-
 func renderPageMarkdown(markdown string) (string, error) {
 	var output bytes.Buffer
 	if err := pageMarkdown.Convert([]byte(markdownBody(markdown)), &output); err != nil {
@@ -466,12 +443,12 @@ func renderPageMarkdown(markdown string) (string, error) {
 // markdownBody drops the YAML frontmatter block from a canonical page record;
 // records without frontmatter render as-is.
 func markdownBody(markdown string) string {
-	fields := map[string]any{}
-	body, err := frontmatter.MustParse(strings.NewReader(markdown), &fields, pageFrontmatter)
-	if err != nil {
-		return markdown
+	if rest, found := strings.CutPrefix(markdown, "---\n"); found {
+		if _, body, found := strings.Cut(rest, "\n---\n"); found {
+			return body
+		}
 	}
-	return string(body)
+	return markdown
 }
 
 func serveGraph(vaultPath string) http.HandlerFunc {

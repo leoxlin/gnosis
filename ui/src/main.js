@@ -1,6 +1,3 @@
-import Alpine from "alpinejs";
-import "./styles.css";
-
 // aborted marks requests superseded by a newer navigation so views ignore them.
 const aborted = () => {
   const error = new Error("request superseded");
@@ -957,5 +954,3 @@ document.addEventListener("alpine:init", () => {
 window.addEventListener("hashchange", () => {
   Alpine.store("app").route = parseHash();
 });
-
-Alpine.start();

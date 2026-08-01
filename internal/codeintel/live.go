@@ -12,7 +12,6 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"gnosis/internal/codeintel/analyzer"
@@ -220,11 +219,6 @@ func openWorkspace(ctx context.Context, configRoot string, scope Scope, scopeDir
 		cancel: cancel, wake: make(chan struct{}, 1), state: LiveStarting, observed: 1,
 		pending: map[string]bool{}, documents: map[string]SourceDocument{}, pins: map[string]int{},
 	}
-	if err := workspace.migrateSelector(); err != nil {
-		workspace.events.Close()
-		workspace.closeChildren()
-		return nil, err
-	}
 	workspace.wg.Add(1)
 	go workspace.observe()
 	if err := workspace.reconcile(workerCtx, true); err != nil {
@@ -235,25 +229,6 @@ func openWorkspace(ctx context.Context, configRoot string, scope Scope, scopeDir
 	workspace.wg.Add(1)
 	go workspace.run()
 	return workspace, nil
-}
-
-func (workspace *Workspace) migrateSelector() error {
-	selected, err := readSelector(workspace.scopeDir)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	reader, err := openGeneration(workspace.scope, workspace.scopeDir, selected.GenerationID)
-	if err != nil {
-		return fmt.Errorf("verify current generation before live startup: %w", err)
-	}
-	reader.Close()
-	if selected.Version == 1 {
-		return writeCurrent(workspace.scopeDir, selected.GenerationID)
-	}
-	return nil
 }
 
 func (workspace *Workspace) observe() {
@@ -486,7 +461,7 @@ func (workspace *Workspace) Status() LiveStatus {
 	return status
 }
 
-func (workspace *Workspace) ReadCurrent(ctx context.Context, callback func(ReadView) error) error {
+func (workspace *Workspace) ReadCurrent(ctx context.Context, callback func(*Reader) error) error {
 	if callback == nil {
 		return errors.New("read callback is required")
 	}
@@ -503,11 +478,8 @@ func (workspace *Workspace) ReadCurrent(ctx context.Context, callback func(ReadV
 			workspace.mu.Unlock()
 			reader, err := openGeneration(workspace.scope, workspace.scopeDir, generation)
 			if err == nil {
-				token := &readToken{}
-				token.valid.Store(true)
-				view := ReadView{reader: reader, freshness: freshness, token: token}
-				err = callback(view)
-				token.valid.Store(false)
+				reader.freshness = freshness
+				err = callback(reader)
 				reader.Close()
 			}
 			workspace.mu.Lock()
@@ -623,62 +595,6 @@ func (workspace *Workspace) retainGenerations() {
 			continue
 		}
 		_ = os.RemoveAll(filepath.Join(workspace.scopeDir, "generations", name))
-	}
-}
-
-type ReadView struct {
-	reader    *Reader
-	freshness *LiveFreshness
-	token     *readToken
-}
-
-type readToken struct{ valid atomic.Bool }
-
-func (view ReadView) Search(query, language string, limit int) SearchResult {
-	view.requireValid()
-	result := view.reader.Search(query, language, limit)
-	result.Freshness = view.freshness
-	return result
-}
-
-func (view ReadView) ReadSymbol(id string) (SymbolResult, error) {
-	view.requireValid()
-	result, err := view.reader.ReadSymbol(id)
-	result.Freshness = view.freshness
-	return result, err
-}
-
-func (view ReadView) Diagnostics(path, language, category string, limit int) DiagnosticResult {
-	view.requireValid()
-	result := view.reader.Diagnostics(path, language, category, limit)
-	result.Freshness = view.freshness
-	return result
-}
-
-func (view ReadView) Trace(id, direction string, limit int) (TraceResult, error) {
-	view.requireValid()
-	result, err := view.reader.Trace(id, direction, limit)
-	result.Freshness = view.freshness
-	return result, err
-}
-
-func (view ReadView) Neighbors(id, direction string, limit int) (TraceResult, error) {
-	view.requireValid()
-	result, err := view.reader.Neighbors(id, direction, limit)
-	result.Freshness = view.freshness
-	return result, err
-}
-
-func (view ReadView) Path(from, to, direction string, depth, limit int) (TraceResult, error) {
-	view.requireValid()
-	result, err := view.reader.Path(from, to, direction, depth, limit)
-	result.Freshness = view.freshness
-	return result, err
-}
-
-func (view ReadView) requireValid() {
-	if view.token == nil || !view.token.valid.Load() || view.reader == nil || view.reader.closed {
-		panic("code read view is no longer valid")
 	}
 }
 

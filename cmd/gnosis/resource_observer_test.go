@@ -14,7 +14,7 @@ func TestMCPResourceSubscriptionsObserveWritesAndExternalEdits(t *testing.T) {
 	root := historyCommandVault(t)
 	uri := "gnosis://test/note.md"
 	updates := make(chan string, 8)
-	session, _ := connectMCPServerWithOptions(t, newMCPServerWithKnowledgeWrites(root, true), &mcp.ClientOptions{
+	session, _ := connectMCPServerWithOptions(t, newMCPServerWithOptions(root, true, nil), &mcp.ClientOptions{
 		ResourceUpdatedHandler: func(_ context.Context, request *mcp.ResourceUpdatedNotificationRequest) {
 			updates <- request.Params.URI
 		},

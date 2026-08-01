@@ -654,10 +654,11 @@ func syncDir(path string) error {
 }
 
 type Reader struct {
-	scope    Scope
-	manifest Manifest
-	byID     map[string]Symbol
-	closed   bool
+	scope     Scope
+	manifest  Manifest
+	byID      map[string]Symbol
+	freshness *LiveFreshness
+	closed    bool
 }
 
 func Open(workspace, scopeName string) (*Reader, error) {
@@ -705,6 +706,7 @@ func (reader *Reader) Close() error {
 }
 
 func (reader *Reader) CheckCurrent(ctx context.Context) error {
+	reader.requireOpen()
 	_, current, _, err := readSnapshot(ctx, reader.scope)
 	if err != nil {
 		return err
@@ -716,11 +718,13 @@ func (reader *Reader) CheckCurrent(ctx context.Context) error {
 }
 
 func (reader *Reader) Status() StatusResult {
+	reader.requireOpen()
 	manifest := reader.manifest
 	return StatusResult{Scope: reader.scope.Name, Status: "current", Generation: manifest.Generation, Snapshot: &manifest.Snapshot, Provenance: &manifest.Provenance, Documents: len(manifest.Documents), Symbols: len(manifest.Symbols), Relations: len(manifest.Relations), Diagnostics: len(manifest.Diagnostics)}
 }
 
 func (reader *Reader) Search(query, language string, limit int) SearchResult {
+	reader.requireOpen()
 	limit = boundedLimit(limit, reader.scope.MaxResults)
 	query = strings.ToLower(strings.TrimSpace(query))
 	matches := make([]Symbol, 0)
@@ -742,10 +746,11 @@ func (reader *Reader) Search(query, language string, limit int) SearchResult {
 	if len(matches) > limit {
 		matches = matches[:limit]
 	}
-	return SearchResult{Scope: reader.scope.Name, Generation: reader.manifest.Generation, Snapshot: reader.manifest.Snapshot, Provenance: reader.manifest.Provenance, Total: total, Truncated: total > len(matches), Symbols: matches, Coverage: reader.coverage()}
+	return SearchResult{Scope: reader.scope.Name, Generation: reader.manifest.Generation, Snapshot: reader.manifest.Snapshot, Provenance: reader.manifest.Provenance, Total: total, Truncated: total > len(matches), Symbols: matches, Coverage: reader.coverage(), Freshness: reader.freshness}
 }
 
 func (reader *Reader) Symbol(id string) (Symbol, error) {
+	reader.requireOpen()
 	symbol, ok := reader.byID[id]
 	if !ok {
 		return Symbol{}, fmt.Errorf("code symbol %q was not found", id)
@@ -758,10 +763,11 @@ func (reader *Reader) ReadSymbol(id string) (SymbolResult, error) {
 	if err != nil {
 		return SymbolResult{}, err
 	}
-	return SymbolResult{Scope: reader.scope.Name, Generation: reader.manifest.Generation, Snapshot: reader.manifest.Snapshot, Provenance: reader.manifest.Provenance, Symbol: symbol, Coverage: reader.coverage()}, nil
+	return SymbolResult{Scope: reader.scope.Name, Generation: reader.manifest.Generation, Snapshot: reader.manifest.Snapshot, Provenance: reader.manifest.Provenance, Symbol: symbol, Coverage: reader.coverage(), Freshness: reader.freshness}, nil
 }
 
 func (reader *Reader) Diagnostics(path, language, category string, limit int) DiagnosticResult {
+	reader.requireOpen()
 	limit = boundedLimit(limit, reader.scope.MaxResults)
 	matches := make([]Diagnostic, 0)
 	for _, diagnostic := range reader.manifest.Diagnostics {
@@ -773,10 +779,11 @@ func (reader *Reader) Diagnostics(path, language, category string, limit int) Di
 	if len(matches) > limit {
 		matches = matches[:limit]
 	}
-	return DiagnosticResult{Scope: reader.scope.Name, Generation: reader.manifest.Generation, Snapshot: reader.manifest.Snapshot, Provenance: reader.manifest.Provenance, Total: total, Truncated: total > len(matches), Diagnostics: matches, Coverage: reader.coverage()}
+	return DiagnosticResult{Scope: reader.scope.Name, Generation: reader.manifest.Generation, Snapshot: reader.manifest.Snapshot, Provenance: reader.manifest.Provenance, Total: total, Truncated: total > len(matches), Diagnostics: matches, Coverage: reader.coverage(), Freshness: reader.freshness}
 }
 
 func (reader *Reader) Trace(id, direction string, limit int) (TraceResult, error) {
+	reader.requireOpen()
 	if direction != "incoming" && direction != "outgoing" {
 		return TraceResult{}, errors.New("direction must be incoming or outgoing")
 	}
@@ -801,6 +808,7 @@ func (reader *Reader) Trace(id, direction string, limit int) (TraceResult, error
 }
 
 func (reader *Reader) Neighbors(id, direction string, limit int) (TraceResult, error) {
+	reader.requireOpen()
 	if direction != "incoming" && direction != "outgoing" {
 		return TraceResult{}, errors.New("direction must be incoming or outgoing")
 	}
@@ -818,6 +826,7 @@ func (reader *Reader) Neighbors(id, direction string, limit int) (TraceResult, e
 }
 
 func (reader *Reader) Path(from, to, direction string, depth, limit int) (TraceResult, error) {
+	reader.requireOpen()
 	if direction != "incoming" && direction != "outgoing" {
 		return TraceResult{}, errors.New("direction must be incoming or outgoing")
 	}
@@ -909,7 +918,13 @@ func relationMatchesTarget(relation Relation, symbol Symbol) bool {
 }
 
 func (reader *Reader) traceResult(mode string, total int, truncated bool, relations []Relation, symbols []Symbol) TraceResult {
-	return TraceResult{Mode: mode, Scope: reader.scope.Name, Generation: reader.manifest.Generation, Snapshot: reader.manifest.Snapshot, Provenance: reader.manifest.Provenance, Total: total, Truncated: truncated, Relations: relations, Symbols: symbols, Coverage: reader.coverage()}
+	return TraceResult{Mode: mode, Scope: reader.scope.Name, Generation: reader.manifest.Generation, Snapshot: reader.manifest.Snapshot, Provenance: reader.manifest.Provenance, Total: total, Truncated: truncated, Relations: relations, Symbols: symbols, Coverage: reader.coverage(), Freshness: reader.freshness}
+}
+
+func (reader *Reader) requireOpen() {
+	if reader == nil || reader.closed {
+		panic("code-index reader is closed")
+	}
 }
 
 func (reader *Reader) coverage() []analyzer.Coverage {
@@ -960,10 +975,6 @@ func readSelector(scopeDir string) (selector, error) {
 	data, err := os.ReadFile(filepath.Join(scopeDir, "current"))
 	if err != nil {
 		return selector{}, err
-	}
-	value := strings.TrimSpace(string(data))
-	if validGenerationID(value) {
-		return selector{Version: 1, GenerationID: value}, nil
 	}
 	var selected selector
 	if err := json.Unmarshal(data, &selected); err != nil {

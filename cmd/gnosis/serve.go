@@ -186,11 +186,7 @@ type getCodeStatusInput struct {
 }
 
 func newMCPServer(vaultPath string) *mcp.Server {
-	return newMCPServerWithKnowledgeWrites(vaultPath, false)
-}
-
-func newMCPServerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bool) *mcp.Server {
-	return newMCPServerWithOptions(vaultPath, allowKnowledgeWrites, nil)
+	return newMCPServerWithOptions(vaultPath, false, nil)
 }
 
 func newMCPServerWithOptions(vaultPath string, allowKnowledgeWrites bool, codeService *codeintel.Service) *mcp.Server {
@@ -386,19 +382,10 @@ func newMCPServerWithOptions(vaultPath string, allowKnowledgeWrites bool, codeSe
 	return server
 }
 
-type codeReadView interface {
-	Search(string, string, int) codeintel.SearchResult
-	ReadSymbol(string) (codeintel.SymbolResult, error)
-	Diagnostics(string, string, string, int) codeintel.DiagnosticResult
-	Trace(string, string, int) (codeintel.TraceResult, error)
-	Neighbors(string, string, int) (codeintel.TraceResult, error)
-	Path(string, string, string, int, int) (codeintel.TraceResult, error)
-}
-
 func addCodeMCPTools(server *mcp.Server, workspace string, codeService *codeintel.Service) {
 	mcp.AddTool(server, &mcp.Tool{Name: "search_code", Description: "Search one current configured code index with deterministic bounds"}, func(ctx context.Context, _ *mcp.CallToolRequest, input searchCodeInput) (*mcp.CallToolResult, codeintel.SearchResult, error) {
 		var result codeintel.SearchResult
-		err := withCurrentCode(ctx, workspace, codeService, input.Scope, func(reader codeReadView) error {
+		err := withCurrentCode(ctx, workspace, codeService, input.Scope, func(reader *codeintel.Reader) error {
 			result = reader.Search(input.Query, input.Language, intValue(input.Limit))
 			return nil
 		})
@@ -406,7 +393,7 @@ func addCodeMCPTools(server *mcp.Server, workspace string, codeService *codeinte
 	})
 	mcp.AddTool(server, &mcp.Tool{Name: "get_code_symbol", Description: "Read one exact symbol from a current configured code index"}, func(ctx context.Context, _ *mcp.CallToolRequest, input getCodeSymbolInput) (*mcp.CallToolResult, codeintel.SymbolResult, error) {
 		var result codeintel.SymbolResult
-		err := withCurrentCode(ctx, workspace, codeService, input.Scope, func(reader codeReadView) error {
+		err := withCurrentCode(ctx, workspace, codeService, input.Scope, func(reader *codeintel.Reader) error {
 			var err error
 			result, err = reader.ReadSymbol(input.ID)
 			return err
@@ -422,7 +409,7 @@ func addCodeMCPTools(server *mcp.Server, workspace string, codeService *codeinte
 			return nil, codeintel.TraceResult{}, errors.New("direction must be incoming or outgoing")
 		}
 		var result codeintel.TraceResult
-		err := withCurrentCode(ctx, workspace, codeService, input.Scope, func(reader codeReadView) error {
+		err := withCurrentCode(ctx, workspace, codeService, input.Scope, func(reader *codeintel.Reader) error {
 			var err error
 			switch input.Mode {
 			case "", "relations":
@@ -443,7 +430,7 @@ func addCodeMCPTools(server *mcp.Server, workspace string, codeService *codeinte
 	})
 	mcp.AddTool(server, &mcp.Tool{Name: "get_code_diagnostics", Description: "Read bounded diagnostics from one current configured code index"}, func(ctx context.Context, _ *mcp.CallToolRequest, input getCodeDiagnosticsInput) (*mcp.CallToolResult, codeintel.DiagnosticResult, error) {
 		var result codeintel.DiagnosticResult
-		err := withCurrentCode(ctx, workspace, codeService, input.Scope, func(reader codeReadView) error {
+		err := withCurrentCode(ctx, workspace, codeService, input.Scope, func(reader *codeintel.Reader) error {
 			result = reader.Diagnostics(input.Path, input.Language, input.Category, intValue(input.Limit))
 			return nil
 		})
@@ -467,9 +454,9 @@ func addCodeMCPTools(server *mcp.Server, workspace string, codeService *codeinte
 	})
 }
 
-func withCurrentCode(ctx context.Context, workspace string, service *codeintel.Service, scope string, callback func(codeReadView) error) error {
+func withCurrentCode(ctx context.Context, workspace string, service *codeintel.Service, scope string, callback func(*codeintel.Reader) error) error {
 	if service != nil {
-		return service.ReadCurrent(ctx, scope, func(view codeintel.ReadView) error { return callback(view) })
+		return service.ReadCurrent(ctx, scope, callback)
 	}
 	reader, err := currentCodeReader(ctx, workspace, scope)
 	if err != nil {

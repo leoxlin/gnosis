@@ -142,8 +142,8 @@ func TestWorkspaceConvergesPublishesAndClosesExactlyOnce(t *testing.T) {
 		t.Fatalf("no-op status = %+v, prior = %+v", noOp, changed)
 	}
 
-	var retained ReadView
-	if err := workspace.ReadCurrent(context.Background(), func(view ReadView) error {
+	var retained *Reader
+	if err := workspace.ReadCurrent(context.Background(), func(view *Reader) error {
 		retained = view
 		result := view.Search("changed", "go", 10)
 		if result.Total != 1 || result.Freshness == nil || result.Freshness.Published != noOp.Published {
@@ -153,7 +153,7 @@ func TestWorkspaceConvergesPublishesAndClosesExactlyOnce(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	assertInvalidReadView(t, retained)
+	assertClosedReader(t, retained)
 
 	if _, err := BuildWithAnalyzer(context.Background(), scope, testAnalyzer{}); !errors.Is(err, ErrScopeBusy) {
 		t.Fatalf("competing build error = %v", err)
@@ -169,26 +169,18 @@ func TestWorkspaceConvergesPublishesAndClosesExactlyOnce(t *testing.T) {
 		t.Fatalf("analyzer close count = %d", provider.closed)
 	}
 	provider.mu.Unlock()
-	if err := workspace.ReadCurrent(context.Background(), func(ReadView) error { return nil }); !errors.Is(err, os.ErrClosed) {
+	if err := workspace.ReadCurrent(context.Background(), func(*Reader) error { return nil }); !errors.Is(err, os.ErrClosed) {
 		t.Fatalf("closed read error = %v", err)
 	}
 }
 
-func TestSelectorReadsV1MigratesAndRejectsUnknownVersion(t *testing.T) {
+func TestSelectorReadsV2AndRejectsUnknownVersion(t *testing.T) {
 	scopeDir := t.TempDir()
-	generation := string(make([]byte, 64))
-	generation = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-	if err := os.WriteFile(filepath.Join(scopeDir, "current"), []byte(generation+"\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	selected, err := readSelector(scopeDir)
-	if err != nil || selected.Version != 1 || selected.GenerationID != generation {
-		t.Fatalf("v1 selector = %+v, %v", selected, err)
-	}
+	generation := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 	if err := writeCurrent(scopeDir, generation); err != nil {
 		t.Fatal(err)
 	}
-	selected, err = readSelector(scopeDir)
+	selected, err := readSelector(scopeDir)
 	if err != nil || selected.Version != 2 || selected.Live != nil {
 		t.Fatalf("v2 selector = %+v, %v", selected, err)
 	}
@@ -232,14 +224,14 @@ func TestWorkspaceBoundsPendingReadsAndRecovers(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("delta analysis did not start")
 	}
-	err = workspace.ReadCurrent(context.Background(), func(ReadView) error { return nil })
+	err = workspace.ReadCurrent(context.Background(), func(*Reader) error { return nil })
 	var freshness *FreshnessError
 	if !errors.As(err, &freshness) || freshness.State != LivePending || freshness.Observed <= freshness.Published {
 		t.Fatalf("pending read error = %#v", err)
 	}
 	canceled, cancel := context.WithCancel(context.Background())
 	cancel()
-	if err := workspace.ReadCurrent(canceled, func(ReadView) error { return nil }); !errors.Is(err, context.Canceled) {
+	if err := workspace.ReadCurrent(canceled, func(*Reader) error { return nil }); !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled read error = %v", err)
 	}
 	close(provider.release)
@@ -317,12 +309,12 @@ func waitLiveStatus(t *testing.T, workspace *Workspace, ready func(LiveStatus) b
 	return LiveStatus{}
 }
 
-func assertInvalidReadView(t *testing.T, view ReadView) {
+func assertClosedReader(t *testing.T, reader *Reader) {
 	t.Helper()
 	defer func() {
 		if recover() == nil {
-			t.Fatal("retained read view remained usable")
+			t.Fatal("retained reader remained usable")
 		}
 	}()
-	view.Search("", "", 1)
+	reader.Search("", "", 1)
 }

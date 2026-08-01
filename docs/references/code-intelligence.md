@@ -98,10 +98,9 @@ the last generation, a bounded reason, and recovery guidance without stale
 facts. Partial syntax and missing parser coverage can still be current because
 their diagnostics represent the current source.
 
-The first live open atomically migrates the legacy v1 generation-ID `current`
-pointer to the v2 selector. Explicit builds write v2 with no live epoch. A
-prior epoch is historical after restart, so a new workspace proves a new
-baseline before becoming current. Do not hand-edit the selector.
+Explicit builds write a selector with no live epoch. A prior epoch is
+historical after restart, so a new workspace proves a new baseline before
+becoming current. Do not hand-edit the selector.
 
 Watcher, source, analyzer, and storage failures retry within fixed bounds and
 perform full reconciliation before recovery. Configuration, trusted parser

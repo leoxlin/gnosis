@@ -58,7 +58,7 @@ func (service *Service) Status(ctx context.Context, scope string) (StatusResult,
 	return status, nil
 }
 
-func (service *Service) ReadCurrent(ctx context.Context, scope string, callback func(ReadView) error) error {
+func (service *Service) ReadCurrent(ctx context.Context, scope string, callback func(*Reader) error) error {
 	if strings.TrimSpace(scope) == "" {
 		return errors.New("scope is required")
 	}
@@ -73,10 +73,7 @@ func (service *Service) ReadCurrent(ctx context.Context, scope string, callback 
 		reader.Close()
 		return err
 	}
-	token := &readToken{}
-	token.valid.Store(true)
-	err = callback(ReadView{reader: reader, token: token})
-	token.valid.Store(false)
+	err = callback(reader)
 	closeErr := reader.Close()
 	return errors.Join(err, closeErr)
 }

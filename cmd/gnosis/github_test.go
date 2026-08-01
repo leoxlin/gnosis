@@ -42,7 +42,7 @@ func TestGitHubResultContainsDeterministicOutcomes(t *testing.T) {
 func TestGitHubWebhookRouteIsOptIn(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/github/webhooks/owner/repo", strings.NewReader("{}"))
 	disabled := httptest.NewRecorder()
-	newHTTPHandlerWithOptions(t.TempDir(), false, false).ServeHTTP(disabled, request)
+	newHTTPHandlerWithCodeService(t.TempDir(), false, false, nil).ServeHTTP(disabled, request)
 	if disabled.Code != http.StatusNotFound {
 		t.Fatalf("disabled status = %d", disabled.Code)
 	}
@@ -62,7 +62,7 @@ webhook_secret_env = "WEBHOOK_SECRET"
 		t.Fatal(err)
 	}
 	enabled := httptest.NewRecorder()
-	newHTTPHandlerWithOptions(root, false, true).ServeHTTP(enabled, request)
+	newHTTPHandlerWithCodeService(root, false, true, nil).ServeHTTP(enabled, request)
 	if enabled.Code == http.StatusNotFound {
 		t.Fatalf("enabled route was not registered")
 	}

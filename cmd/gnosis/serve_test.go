@@ -442,7 +442,7 @@ path: notes
 		t.Fatalf("default tools = %+v", defaultTools.Tools)
 	}
 
-	enabledSession := connectMCPServer(t, newMCPServerWithKnowledgeWrites(workspace, true))
+	enabledSession := connectMCPServer(t, newMCPServerWithOptions(workspace, true, nil))
 	enabledTools, err := enabledSession.ListTools(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
@@ -517,7 +517,7 @@ description: MCP knowledge change.
 		t.Fatalf("applied = %+v", applied)
 	}
 
-	server := httptest.NewServer(newHTTPHandlerWithKnowledgeWrites(workspace, true))
+	server := httptest.NewServer(newHTTPHandlerWithCodeService(workspace, true, false, nil))
 	t.Cleanup(server.Close)
 	client := mcp.NewClient(&mcp.Implementation{Name: "gnosis-test", Version: "0.0.0"}, nil)
 	httpSession, err := client.Connect(context.Background(), &mcp.StreamableClientTransport{

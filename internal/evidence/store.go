@@ -2,14 +2,20 @@
 package evidence
 
 import (
+	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"gnosis/internal/s3store"
 )
 
 const (
@@ -68,8 +74,9 @@ type Backend interface {
 
 // Store owns one absolute evidence directory.
 type Store struct {
-	dir string
-	now func() time.Time
+	dir     string
+	objects objectStore
+	now     func() time.Time
 }
 
 func New(dir string) (*Store, error) {
@@ -77,7 +84,8 @@ func New(dir string) (*Store, error) {
 	if dir == "" || !filepath.IsAbs(dir) {
 		return nil, fmt.Errorf("evidence directory must be an absolute path")
 	}
-	return &Store{dir: filepath.Clean(dir), now: time.Now}, nil
+	dir = filepath.Clean(dir)
+	return &Store{dir: dir, objects: fileObjects{dir: dir}, now: time.Now}, nil
 }
 
 func (s *Store) Record(input Input) (Result, error) {
@@ -85,40 +93,23 @@ func (s *Store) Record(input Input) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	path := filepath.Join(s.dir, filepath.FromSlash(key))
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return Result{}, err
-	}
-	if err := os.Chmod(s.dir, 0o700); err != nil {
-		return Result{}, err
-	}
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if os.IsExist(err) {
-		existing, readErr := os.ReadFile(path)
-		if readErr != nil {
-			return Result{}, readErr
-		}
-		var stored Record
-		if json.Unmarshal(existing, &stored) != nil || !sameVersion(stored, record) {
-			return Result{}, fmt.Errorf("evidence record %s conflicts with existing content", path)
-		}
-		return Result{Status: StatusUnchanged, Path: path, Record: stored}, nil
-	}
+	created, _, err := s.objects.Create(context.Background(), key, data)
 	if err != nil {
+		if s3store.IsConflict(err) {
+			existing, _, readErr := s.objects.Read(context.Background(), key)
+			var stored Record
+			if readErr == nil && json.Unmarshal(existing, &stored) == nil && sameVersion(stored, record) {
+				return Result{Status: StatusUnchanged, Path: s.path(key), Record: stored}, nil
+			}
+			return Result{}, fmt.Errorf("evidence record %s conflicts with existing content", s.path(key))
+		}
 		return Result{}, err
 	}
-	if _, err := file.Write(data); err != nil {
-		file.Close()
-		return Result{}, err
+	status := StatusUnchanged
+	if created {
+		status = StatusCreated
 	}
-	if err := file.Sync(); err != nil {
-		file.Close()
-		return Result{}, err
-	}
-	if err := file.Close(); err != nil {
-		return Result{}, err
-	}
-	return Result{Status: StatusCreated, Path: path, Record: record}, nil
+	return Result{Status: status, Path: s.path(key), Record: record}, nil
 }
 
 func prepareRecord(input Input) (Record, []byte, string, error) {
@@ -162,27 +153,15 @@ func (s *Store) ClaimDelivery(deliveryID, payloadDigest string) (string, error) 
 	if err != nil || status != "" {
 		return status, err
 	}
-	path := s.deliveryPath(deliveryID)
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return "", err
-	}
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if os.IsExist(err) {
+	created, _, err := s.objects.Create(context.Background(), deliveryKey(deliveryID), []byte(payloadDigest+"\n"))
+	if s3store.IsConflict(err) {
 		return s.CheckDelivery(deliveryID, payloadDigest)
 	}
 	if err != nil {
 		return "", err
 	}
-	if _, err := file.WriteString(payloadDigest + "\n"); err != nil {
-		file.Close()
-		return "", err
-	}
-	if err := file.Sync(); err != nil {
-		file.Close()
-		return "", err
-	}
-	if err := file.Close(); err != nil {
-		return "", err
+	if !created {
+		return StatusUnchanged, nil
 	}
 	return StatusCreated, nil
 }
@@ -196,8 +175,8 @@ func (s *Store) CheckDelivery(deliveryID, payloadDigest string) (string, error) 
 	if payloadDigest == "" {
 		return "", fmt.Errorf("evidence delivery digest must not be empty")
 	}
-	existing, err := os.ReadFile(s.deliveryPath(deliveryID))
-	if os.IsNotExist(err) {
+	existing, _, err := s.objects.Read(context.Background(), deliveryKey(deliveryID))
+	if errors.Is(err, fs.ErrNotExist) {
 		return "", nil
 	}
 	if err != nil {
@@ -210,8 +189,8 @@ func (s *Store) CheckDelivery(deliveryID, payloadDigest string) (string, error) 
 }
 
 func (s *Store) LoadCursor(repository string) (Cursor, error) {
-	data, err := os.ReadFile(s.cursorPath(repository))
-	if os.IsNotExist(err) {
+	data, version, err := s.objects.Read(context.Background(), cursorKey(repository))
+	if errors.Is(err, fs.ErrNotExist) {
 		return Cursor{Version: 1, Repository: repository}, nil
 	}
 	if err != nil {
@@ -224,7 +203,7 @@ func (s *Store) LoadCursor(repository string) (Cursor, error) {
 	if cursor.Version != 1 || cursor.Repository != repository {
 		return Cursor{}, fmt.Errorf("unsupported or mismatched evidence cursor")
 	}
-	cursor.storageVersion = digestBytes(data)
+	cursor.storageVersion = version
 	return cursor, nil
 }
 
@@ -241,70 +220,39 @@ func (s *Store) CommitCursor(previous Cursor, value string) (Cursor, error) {
 	if err != nil {
 		return Cursor{}, err
 	}
-	path := s.cursorPath(repository)
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return Cursor{}, err
+	data = append(data, '\n')
+	key := cursorKey(repository)
+	var version string
+	if previous.storageVersion == "" {
+		_, version, err = s.objects.Create(context.Background(), key, data)
+	} else {
+		version, err = s.objects.Replace(context.Background(), key, data, previous.storageVersion)
 	}
-	lock, err := os.OpenFile(path+".lock", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
-		return Cursor{}, fmt.Errorf("evidence cursor is being advanced concurrently")
-	}
-	lock.Close()
-	defer os.Remove(path + ".lock")
-	existing, err := os.ReadFile(path)
-	if err != nil && !os.IsNotExist(err) {
+		if s3store.IsConflict(err) {
+			return Cursor{}, fmt.Errorf("evidence cursor changed concurrently")
+		}
 		return Cursor{}, err
 	}
-	version := ""
-	if err == nil {
-		version = digestBytes(existing)
-	}
-	if version != previous.storageVersion {
-		return Cursor{}, fmt.Errorf("evidence cursor changed concurrently")
-	}
-	temp, err := os.CreateTemp(filepath.Dir(path), ".cursor-*")
-	if err != nil {
-		return Cursor{}, err
-	}
-	tempName := temp.Name()
-	defer os.Remove(tempName)
-	if err := temp.Chmod(0o600); err != nil {
-		temp.Close()
-		return Cursor{}, err
-	}
-	if _, err := temp.Write(append(data, '\n')); err != nil {
-		temp.Close()
-		return Cursor{}, err
-	}
-	if err := temp.Sync(); err != nil {
-		temp.Close()
-		return Cursor{}, err
-	}
-	if err := temp.Close(); err != nil {
-		return Cursor{}, err
-	}
-	if err := os.Rename(tempName, path); err != nil {
-		return Cursor{}, err
-	}
-	cursor.storageVersion = digestBytes(append(data, '\n'))
+	cursor.storageVersion = version
 	return cursor, nil
 }
 
 // Latest returns the newest non-tombstone record for every source identity.
 func (s *Store) Latest(vault, repository string) (map[string]Record, error) {
-	paths, err := filepath.Glob(filepath.Join(s.dir, "records", "*.json"))
+	objects, err := s.objects.List(context.Background(), "records/", s3store.MaxListObjects)
 	if err != nil {
 		return nil, err
 	}
 	latest := map[string]Record{}
-	for _, path := range paths {
-		data, err := os.ReadFile(path)
+	for _, object := range objects {
+		data, _, err := s.objects.Read(context.Background(), object.Key)
 		if err != nil {
 			return nil, err
 		}
 		var record Record
 		if err := json.Unmarshal(data, &record); err != nil {
-			return nil, fmt.Errorf("parse evidence record %s: %w", path, err)
+			return nil, fmt.Errorf("parse evidence record %s: %w", s.path(object.Key), err)
 		}
 		if record.Vault != vault || record.Repository != repository {
 			continue
@@ -317,12 +265,131 @@ func (s *Store) Latest(vault, repository string) (map[string]Record, error) {
 	return latest, nil
 }
 
-func (s *Store) cursorPath(repository string) string {
-	return filepath.Join(s.dir, "cursors", digestBytes([]byte(repository))+".json")
+func (s *Store) path(key string) string {
+	if s.dir != "" {
+		return filepath.Join(s.dir, filepath.FromSlash(key))
+	}
+	return s.objects.Location() + "/" + key
 }
 
-func (s *Store) deliveryPath(deliveryID string) string {
-	return filepath.Join(s.dir, "deliveries", digestBytes([]byte(strings.TrimSpace(deliveryID)))+".txt")
+func cursorKey(repository string) string {
+	return "cursors/" + digestBytes([]byte(repository)) + ".json"
+}
+func deliveryKey(deliveryID string) string {
+	return "deliveries/" + digestBytes([]byte(strings.TrimSpace(deliveryID))) + ".txt"
+}
+
+type fileObjects struct{ dir string }
+
+func (s fileObjects) Location() string { return s.dir }
+
+func (s fileObjects) Read(_ context.Context, key string) ([]byte, string, error) {
+	data, err := os.ReadFile(filepath.Join(s.dir, filepath.FromSlash(key)))
+	if err != nil {
+		return nil, "", err
+	}
+	return data, digestBytes(data), nil
+}
+
+func (s fileObjects) List(_ context.Context, prefix string, limit int) ([]s3store.Object, error) {
+	paths, err := filepath.Glob(filepath.Join(s.dir, filepath.FromSlash(prefix), "*"))
+	if err != nil {
+		return nil, err
+	}
+	objects := make([]s3store.Object, 0, min(len(paths), limit))
+	for _, path := range paths[:min(len(paths), limit)] {
+		info, err := os.Stat(path)
+		if err != nil {
+			return nil, err
+		}
+		if info.IsDir() {
+			continue
+		}
+		key, err := filepath.Rel(s.dir, path)
+		if err != nil {
+			return nil, err
+		}
+		objects = append(objects, s3store.Object{Key: filepath.ToSlash(key), Size: info.Size()})
+	}
+	return objects, nil
+}
+
+func (s fileObjects) Create(_ context.Context, key string, data []byte) (bool, string, error) {
+	path := filepath.Join(s.dir, filepath.FromSlash(key))
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return false, "", err
+	}
+	if err := os.Chmod(s.dir, 0o700); err != nil {
+		return false, "", err
+	}
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if os.IsExist(err) {
+		existing, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return false, "", readErr
+		}
+		if bytes.Equal(existing, data) {
+			return false, digestBytes(existing), nil
+		}
+		return false, "", s3store.Conflict{Key: key}
+	}
+	if err != nil {
+		return false, "", err
+	}
+	if _, err := file.Write(data); err != nil {
+		file.Close()
+		return false, "", err
+	}
+	if err := file.Sync(); err != nil {
+		file.Close()
+		return false, "", err
+	}
+	if err := file.Close(); err != nil {
+		return false, "", err
+	}
+	return true, digestBytes(data), nil
+}
+
+func (s fileObjects) Replace(_ context.Context, key string, data []byte, version string) (string, error) {
+	path := filepath.Join(s.dir, filepath.FromSlash(key))
+	lock, err := os.OpenFile(path+".lock", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return "", s3store.Conflict{Key: key}
+	}
+	lock.Close()
+	defer os.Remove(path + ".lock")
+	existing, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	if digestBytes(existing) != version {
+		return "", s3store.Conflict{Key: key}
+	}
+	temp, err := os.CreateTemp(filepath.Dir(path), ".cursor-*")
+	if err != nil {
+		return "", err
+	}
+	name := temp.Name()
+	defer os.Remove(name)
+	if err := temp.Chmod(0o600); err != nil {
+		temp.Close()
+		return "", err
+	}
+	if _, err := temp.Write(data); err != nil {
+		temp.Close()
+		return "", err
+	}
+	if err := temp.Sync(); err != nil {
+		temp.Close()
+		return "", err
+	}
+	if err := temp.Close(); err != nil {
+		return "", err
+	}
+	if err := os.Rename(name, path); err != nil {
+		return "", err
+	}
+	return digestBytes(data), nil
 }
 
 func normalize(input *Input) {
