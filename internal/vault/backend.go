@@ -11,9 +11,16 @@ import (
 
 const githubWikiBackend = "github-wiki"
 
+type preparedBackend interface {
+	preparedRoot() string
+	publish(string) error
+}
+
 type gitBackend struct {
 	root string
 }
+
+func (b *gitBackend) preparedRoot() string { return b.root }
 
 func validateGitHubRepository(repository string) error {
 	parts := strings.Split(repository, "/")

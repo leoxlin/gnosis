@@ -48,10 +48,22 @@ type Result struct {
 
 // Cursor is the only mutable evidence state.
 type Cursor struct {
-	Version    int    `json:"version"`
-	Repository string `json:"repository"`
-	Value      string `json:"value"`
-	UpdatedAt  string `json:"updated_at"`
+	Version        int    `json:"version"`
+	Repository     string `json:"repository"`
+	Value          string `json:"value"`
+	UpdatedAt      string `json:"updated_at"`
+	storageVersion string
+}
+
+// Backend is the durable contract shared by filesystem and S3 evidence stores.
+type Backend interface {
+	Record(Input) (Result, error)
+	Tombstone(Input) (Result, error)
+	ClaimDelivery(string, string) (string, error)
+	CheckDelivery(string, string) (string, error)
+	LoadCursor(string) (Cursor, error)
+	CommitCursor(Cursor, string) (Cursor, error)
+	Latest(string, string) (map[string]Record, error)
 }
 
 // Store owns one absolute evidence directory.
@@ -69,24 +81,11 @@ func New(dir string) (*Store, error) {
 }
 
 func (s *Store) Record(input Input) (Result, error) {
-	normalize(&input)
-	if err := validate(input); err != nil {
-		return Result{}, err
-	}
-	contentDigest := digest(input.RawPayload)
-	if input.Tombstone {
-		contentDigest = digest([]byte("tombstone:" + input.UpdatedAt))
-	}
-	record := Record{Input: input, Digest: contentDigest}
-	data, err := json.MarshalIndent(record, "", "  ")
+	record, data, key, err := prepareRecord(input)
 	if err != nil {
 		return Result{}, err
 	}
-	data = append(data, '\n')
-	key := strings.Join([]string{
-		input.Vault, input.Repository, input.Kind, input.SourceID, input.UpdatedAt, contentDigest,
-	}, "\x00")
-	path := filepath.Join(s.dir, "records", digestBytes([]byte(key))+".json")
+	path := filepath.Join(s.dir, filepath.FromSlash(key))
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return Result{}, err
 	}
@@ -120,6 +119,27 @@ func (s *Store) Record(input Input) (Result, error) {
 		return Result{}, err
 	}
 	return Result{Status: StatusCreated, Path: path, Record: record}, nil
+}
+
+func prepareRecord(input Input) (Record, []byte, string, error) {
+	normalize(&input)
+	if err := validate(input); err != nil {
+		return Record{}, nil, "", err
+	}
+	contentDigest := digest(input.RawPayload)
+	if input.Tombstone {
+		contentDigest = digest([]byte("tombstone:" + input.UpdatedAt))
+	}
+	record := Record{Input: input, Digest: contentDigest}
+	data, err := json.MarshalIndent(record, "", "  ")
+	if err != nil {
+		return Record{}, nil, "", err
+	}
+	data = append(data, '\n')
+	key := strings.Join([]string{
+		input.Vault, input.Repository, input.Kind, input.SourceID, input.UpdatedAt, contentDigest,
+	}, "\x00")
+	return record, data, "records/" + digestBytes([]byte(key)) + ".json", nil
 }
 
 func sameVersion(left, right Record) bool {
@@ -204,10 +224,15 @@ func (s *Store) LoadCursor(repository string) (Cursor, error) {
 	if cursor.Version != 1 || cursor.Repository != repository {
 		return Cursor{}, fmt.Errorf("unsupported or mismatched evidence cursor")
 	}
+	cursor.storageVersion = digestBytes(data)
 	return cursor, nil
 }
 
-func (s *Store) CommitCursor(repository, value string) (Cursor, error) {
+func (s *Store) CommitCursor(previous Cursor, value string) (Cursor, error) {
+	repository := previous.Repository
+	if repository == "" {
+		return Cursor{}, fmt.Errorf("evidence cursor repository must not be empty")
+	}
 	cursor := Cursor{
 		Version: 1, Repository: repository, Value: value,
 		UpdatedAt: s.now().UTC().Format(time.RFC3339Nano),
@@ -219,6 +244,23 @@ func (s *Store) CommitCursor(repository, value string) (Cursor, error) {
 	path := s.cursorPath(repository)
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return Cursor{}, err
+	}
+	lock, err := os.OpenFile(path+".lock", os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return Cursor{}, fmt.Errorf("evidence cursor is being advanced concurrently")
+	}
+	lock.Close()
+	defer os.Remove(path + ".lock")
+	existing, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return Cursor{}, err
+	}
+	version := ""
+	if err == nil {
+		version = digestBytes(existing)
+	}
+	if version != previous.storageVersion {
+		return Cursor{}, fmt.Errorf("evidence cursor changed concurrently")
 	}
 	temp, err := os.CreateTemp(filepath.Dir(path), ".cursor-*")
 	if err != nil {
@@ -244,6 +286,7 @@ func (s *Store) CommitCursor(repository, value string) (Cursor, error) {
 	if err := os.Rename(tempName, path); err != nil {
 		return Cursor{}, err
 	}
+	cursor.storageVersion = digestBytes(append(data, '\n'))
 	return cursor, nil
 }
 

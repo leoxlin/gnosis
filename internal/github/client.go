@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"gnosis/internal/evidence"
+	"gnosis/internal/s3store"
 	"gnosis/internal/vault"
 )
 
@@ -48,11 +49,11 @@ type Result struct {
 type Client struct {
 	config Config
 	http   *http.Client
-	store  *evidence.Store
+	store  evidence.Backend
 	now    func() time.Time
 }
 
-func New(config Config, store *evidence.Store, client *http.Client) (*Client, error) {
+func New(config Config, store evidence.Backend, client *http.Client) (*Client, error) {
 	config.Vault = strings.TrimSpace(config.Vault)
 	config.Repository = strings.ToLower(strings.TrimSpace(config.Repository))
 	config.Token = strings.TrimSpace(config.Token)
@@ -83,7 +84,7 @@ func NewConfigured(vaultPath, repository string) (*Client, vault.GitHubConfig, e
 	if token == "" {
 		return nil, vault.GitHubConfig{}, fmt.Errorf("environment variable %s is empty", config.TokenEnv)
 	}
-	store, err := evidence.New(config.EvidenceDir)
+	store, err := configuredEvidenceStore(context.Background(), config)
 	if err != nil {
 		return nil, vault.GitHubConfig{}, err
 	}
@@ -92,6 +93,13 @@ func NewConfigured(vaultPath, repository string) (*Client, vault.GitHubConfig, e
 		PerPage: config.PerPage, MaxPages: config.MaxPages,
 	}, store, nil)
 	return client, config, err
+}
+
+func configuredEvidenceStore(ctx context.Context, config vault.GitHubConfig) (evidence.Backend, error) {
+	if config.EvidenceBackend == "s3" {
+		return evidence.NewS3(ctx, s3store.Config{Bucket: config.S3Bucket, Region: config.S3Region, Prefix: config.S3Prefix})
+	}
+	return evidence.New(config.EvidenceDir)
 }
 
 func (c *Client) Sync(ctx context.Context, options Options) (Result, error) {
@@ -167,7 +175,7 @@ func (c *Client) Sync(ctx context.Context, options Options) (Result, error) {
 			return result, err
 		}
 	}
-	cursor, err = c.store.CommitCursor(c.config.Repository, "complete:"+started.Format(time.RFC3339Nano))
+	cursor, err = c.store.CommitCursor(result.Cursor, "complete:"+started.Format(time.RFC3339Nano))
 	result.Cursor = cursor
 	return result, err
 }
@@ -219,12 +227,12 @@ func (c *Client) syncEndpoint(
 				result.Unchanged++
 			}
 			if options.MaxItems > 0 && result.Created >= options.MaxItems {
-				cursor, err := c.store.CommitCursor(c.config.Repository, fmt.Sprintf("%s:%d", kind, page))
+				cursor, err := c.store.CommitCursor(result.Cursor, fmt.Sprintf("%s:%d", kind, page))
 				result.Cursor = cursor
 				return false, true, err
 			}
 		}
-		cursor, err := c.store.CommitCursor(c.config.Repository, fmt.Sprintf("%s:%d", kind, page+1))
+		cursor, err := c.store.CommitCursor(result.Cursor, fmt.Sprintf("%s:%d", kind, page+1))
 		result.Cursor = cursor
 		if err != nil {
 			return false, false, err

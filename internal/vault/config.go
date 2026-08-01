@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
+	"gnosis/internal/s3store"
 )
 
 // LinkFormat is the preferred style for internal markdown links.
@@ -33,6 +34,9 @@ type VaultConfig struct {
 	Root             string   `toml:"vault_root"`
 	Backend          string   `toml:"backend"`
 	Repository       string   `toml:"repository"`
+	S3Bucket         string   `toml:"s3_bucket"`
+	S3Region         string   `toml:"s3_region"`
+	S3Prefix         string   `toml:"s3_prefix"`
 	EntryPoints      []string `toml:"entry_points"`
 	LinkFormat       string   `toml:"link_format"`
 	LinkFormatStrict bool     `toml:"link_format_strict"`
@@ -50,6 +54,10 @@ type DeclaredVaultConfig struct {
 type GitHubConfig struct {
 	Repository       string `toml:"repository"`
 	EvidenceDir      string `toml:"evidence_dir"`
+	EvidenceBackend  string `toml:"evidence_backend"`
+	S3Bucket         string `toml:"s3_bucket"`
+	S3Region         string `toml:"s3_region"`
+	S3Prefix         string `toml:"s3_prefix"`
 	TokenEnv         string `toml:"token_env"`
 	WebhookSecretEnv string `toml:"webhook_secret_env"`
 	PerPage          int    `toml:"per_page"`
@@ -128,7 +136,7 @@ func (c Config) IndexEnabled() bool { return c.Vault.VaultIndex }
 func (c Config) LogEnabled() bool   { return c.Vault.VaultLog }
 
 func (c Config) HasLocalVault() bool {
-	return strings.TrimSpace(c.Vault.Name) != "" || strings.TrimSpace(c.Vault.Root) != "" || strings.TrimSpace(c.Vault.Backend) != "" || strings.TrimSpace(c.Vault.Repository) != ""
+	return strings.TrimSpace(c.Vault.Name) != "" || strings.TrimSpace(c.Vault.Root) != "" || strings.TrimSpace(c.Vault.Backend) != "" || strings.TrimSpace(c.Vault.Repository) != "" || strings.TrimSpace(c.Vault.S3Bucket) != "" || strings.TrimSpace(c.Vault.S3Region) != "" || strings.TrimSpace(c.Vault.S3Prefix) != ""
 }
 
 func findConfigPath(root string) (string, error) {
@@ -196,6 +204,9 @@ func validateConfig(config Config, root string) error {
 		}
 		switch config.Vault.Backend {
 		case "":
+			if config.Vault.S3Bucket != "" || config.Vault.S3Region != "" || config.Vault.S3Prefix != "" {
+				return fmt.Errorf("vault.s3_* requires backend %q", s3BackendName)
+			}
 			if strings.TrimSpace(config.Vault.Repository) != "" {
 				return fmt.Errorf("vault.repository requires a backend")
 			}
@@ -211,6 +222,16 @@ func validateConfig(config Config, root string) error {
 			}
 			if err := validateGitHubRepository(config.Vault.Repository); err != nil {
 				return fmt.Errorf("vault.repository: %w", err)
+			}
+			if config.Vault.S3Bucket != "" || config.Vault.S3Region != "" || config.Vault.S3Prefix != "" {
+				return fmt.Errorf("vault.s3_* must be empty for backend %q", githubWikiBackend)
+			}
+		case s3BackendName:
+			if strings.TrimSpace(config.Vault.Root) != "" || strings.TrimSpace(config.Vault.Repository) != "" {
+				return fmt.Errorf("vault.vault_root and vault.repository must be empty for backend %q", s3BackendName)
+			}
+			if _, err := (s3store.Config{Bucket: config.Vault.S3Bucket, Region: config.Vault.S3Region, Prefix: config.Vault.S3Prefix}).Validate(); err != nil {
+				return fmt.Errorf("vault: %w", err)
 			}
 		default:
 			return fmt.Errorf("vault.backend %q is not supported", config.Vault.Backend)
@@ -284,8 +305,23 @@ func validateGitHubConfigs(configs []GitHubConfig) error {
 			return fmt.Errorf("%s.repository %q is duplicated", prefix, repository)
 		}
 		seen[repository] = true
-		if !filepath.IsAbs(config.EvidenceDir) {
-			return fmt.Errorf("%s.evidence_dir must be an absolute path", prefix)
+		switch config.EvidenceBackend {
+		case "", "filesystem":
+			if !filepath.IsAbs(config.EvidenceDir) {
+				return fmt.Errorf("%s.evidence_dir must be an absolute path", prefix)
+			}
+			if config.S3Bucket != "" || config.S3Region != "" || config.S3Prefix != "" {
+				return fmt.Errorf("%s.s3_* requires evidence_backend %q", prefix, s3BackendName)
+			}
+		case s3BackendName:
+			if config.EvidenceDir != "" {
+				return fmt.Errorf("%s.evidence_dir must be empty for evidence_backend %q", prefix, s3BackendName)
+			}
+			if _, err := (s3store.Config{Bucket: config.S3Bucket, Region: config.S3Region, Prefix: config.S3Prefix}).Validate(); err != nil {
+				return fmt.Errorf("%s: %w", prefix, err)
+			}
+		default:
+			return fmt.Errorf("%s.evidence_backend %q is not supported", prefix, config.EvidenceBackend)
 		}
 		if !validEnvironmentName(config.TokenEnv) {
 			return fmt.Errorf("%s.token_env must be an environment variable name", prefix)
@@ -309,7 +345,15 @@ func validateGitHubConfigs(configs []GitHubConfig) error {
 
 func (config GitHubConfig) withDefaults() GitHubConfig {
 	config.Repository = strings.ToLower(strings.TrimSpace(config.Repository))
-	config.EvidenceDir = filepath.Clean(config.EvidenceDir)
+	if config.EvidenceBackend == "" {
+		config.EvidenceBackend = "filesystem"
+	}
+	if config.EvidenceDir != "" {
+		config.EvidenceDir = filepath.Clean(config.EvidenceDir)
+	}
+	config.S3Bucket = strings.TrimSpace(config.S3Bucket)
+	config.S3Region = strings.TrimSpace(config.S3Region)
+	config.S3Prefix, _ = s3store.NormalizePrefix(config.S3Prefix)
 	if config.PerPage == 0 {
 		config.PerPage = DefaultGitHubPerPage
 	}
@@ -429,6 +473,32 @@ link_format_strict = false
 vault_index = true
 vault_log = true
 `, strconv.Quote(name), githubWikiBackend, strconv.Quote(repository))
+	return writeTargetFile(root, "gnosis.toml", []byte(contents), force, "gnosis: configure workspace")
+}
+
+// WriteS3Config configures an Amazon S3 prefix as the primary vault.
+func WriteS3Config(root, name, bucket, region, prefix string, force bool) (bool, string, error) {
+	if !isCanonicalVaultName(name) {
+		return false, "", fmt.Errorf("vault name %q must be a canonical gnosis URI authority", name)
+	}
+	config, err := (s3store.Config{Bucket: bucket, Region: region, Prefix: prefix}).Validate()
+	if err != nil {
+		return false, "", err
+	}
+	contents := fmt.Sprintf(`[vault]
+vault_name = %s
+backend = %q
+s3_bucket = %s
+s3_region = %s
+`, strconv.Quote(name), s3BackendName, strconv.Quote(config.Bucket), strconv.Quote(config.Region))
+	if config.Prefix != "" {
+		contents += "s3_prefix = " + strconv.Quote(config.Prefix) + "\n"
+	}
+	contents += `link_format = "relative"
+link_format_strict = false
+vault_index = true
+vault_log = true
+`
 	return writeTargetFile(root, "gnosis.toml", []byte(contents), force, "gnosis: configure workspace")
 }
 

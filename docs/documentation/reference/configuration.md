@@ -20,8 +20,11 @@ rejected.
 |---|---|---|
 | `vault_name` | required | Canonical URI authority |
 | `vault_root` | required for filesystem and Git vaults | Knowledge directory |
-| `backend` | empty | Primary storage backend; supported value: `github-wiki` |
+| `backend` | empty | Primary storage backend: `github-wiki` or `s3` |
 | `repository` | empty | GitHub `owner/repository` used by that backend |
+| `s3_bucket` | empty | Bucket required by the `s3` backend |
+| `s3_region` | empty | AWS region required by the `s3` backend |
+| `s3_prefix` | empty | Optional normalized object prefix for the `s3` backend |
 | `entry_points` | empty | Canonical page URIs excluded from orphan findings |
 | `link_format` | `relative` | Preferred internal link form: `relative` or `absolute` |
 | `link_format_strict` | `false` | Treat link-style violations as errors |
@@ -40,6 +43,22 @@ link_format_strict = false
 vault_index = true
 vault_log = true
 ```
+
+Example S3-backed vault:
+
+```toml
+[vault]
+vault_name = "knowledge"
+backend = "s3"
+s3_bucket = "example-knowledge"
+s3_region = "us-east-1"
+s3_prefix = "vaults/knowledge"
+```
+
+S3 vaults synchronize one committed snapshot into the user cache before reads.
+Validated changes publish content-addressed objects and conditionally replace
+the current snapshot pointer. `vault_root` and `repository` are invalid with
+this backend.
 
 ## `[[vaults]]`
 
@@ -172,6 +191,24 @@ required; `webhook_secret_env` is required only when serving GitHub webhooks.
 The bounded defaults shown above apply when the three numeric fields are
 omitted. Secrets are resolved from the environment for each operation and are
 not persisted.
+
+Select S3 instead of an evidence directory with the same explicit location
+fields used by S3 vaults:
+
+```toml
+[[github]]
+repository = "owner/repository"
+evidence_backend = "s3"
+s3_bucket = "example-knowledge"
+s3_region = "us-east-1"
+s3_prefix = "evidence/team"
+token_env = "GITHUB_TOKEN"
+```
+
+The filesystem backend is the default. S3 evidence stores immutable records
+and tombstones under deterministic keys and advances cursors conditionally
+only after durable record writes. Configuration never contains AWS access
+keys, secret keys, or session tokens.
 
 ## Semantic search environment
 

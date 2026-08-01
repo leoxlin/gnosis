@@ -12,6 +12,7 @@ const (
 	OriginLocal  OriginKind = "local"
 	OriginImport OriginKind = "import"
 	OriginBundle OriginKind = "bundle"
+	OriginS3     OriginKind = "s3"
 )
 
 // Origin preserves the selected source behind an effective vault document.

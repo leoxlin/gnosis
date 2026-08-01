@@ -34,10 +34,15 @@ issue, review, comment, and push events. Invalid signatures, oversized bodies,
 unsupported events, and conflicting delivery IDs do not create evidence
 records.
 
-Treat the evidence directory as authoritative private source material:
+Treat the configured evidence store as authoritative private source material:
 
 - back it up independently from the Markdown vault;
-- restrict access to the gnosis operator account;
+- restrict filesystem or S3 access to the gnosis operator identity;
 - do not edit immutable record files;
 - after a crash, rerun the same ingestion command;
-- preserve cursor files with their records when restoring.
+- preserve cursor state with its records when restoring.
+
+For ephemeral hosts, select `evidence_backend = "s3"` with `s3_bucket`,
+`s3_region`, and an optional `s3_prefix`. The ingestion command and outcomes
+are unchanged; immutable writes and tombstones precede each conditional cursor
+advance.

@@ -34,7 +34,7 @@ func newApplyCommand(options *rootOptions, input io.Reader, stdout io.Writer) *c
 }
 
 func newApplyWorkspaceCommand(options *rootOptions, stdout io.Writer) *cobra.Command {
-	var githubWiki, vaultName string
+	var githubWiki, vaultName, s3Bucket, s3Region, s3Prefix string
 	var imports []string
 	var isForce bool
 	command := &cobra.Command{
@@ -43,9 +43,10 @@ func newApplyWorkspaceCommand(options *rootOptions, stdout io.Writer) *cobra.Com
 		Args:  cobra.NoArgs,
 		Example: "gnosis apply workspace --import <path>\n" +
 			"gnosis apply workspace --import <path-a> --import <path-b>\n" +
-			"gnosis apply workspace --github-wiki <owner/repository> --name <name>",
+			"gnosis apply workspace --github-wiki <owner/repository> --name <name>\n" +
+			"gnosis apply workspace --name <name> --s3-bucket <bucket> --s3-region <region>",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			if err := validateWorkspaceOptions(imports, githubWiki, vaultName); err != nil {
+			if err := validateWorkspaceOptions(imports, githubWiki, vaultName, s3Bucket, s3Region, s3Prefix); err != nil {
 				return newUsageError(err)
 			}
 			return runApplyWorkspace(
@@ -53,6 +54,9 @@ func newApplyWorkspaceCommand(options *rootOptions, stdout io.Writer) *cobra.Com
 				imports,
 				githubWiki,
 				vaultName,
+				s3Bucket,
+				s3Region,
+				s3Prefix,
 				isForce,
 				stdout,
 			)
@@ -62,21 +66,34 @@ func newApplyWorkspaceCommand(options *rootOptions, stdout io.Writer) *cobra.Com
 	flags.StringSliceVar(&imports, "import", nil, "path of a vault to import")
 	flags.StringVar(&githubWiki, "github-wiki", "", "GitHub owner/repository for the primary vault")
 	flags.StringVar(&vaultName, "name", "", "canonical name for the primary vault")
+	flags.StringVar(&s3Bucket, "s3-bucket", "", "Amazon S3 bucket for the primary vault")
+	flags.StringVar(&s3Region, "s3-region", "", "AWS region for the primary vault")
+	flags.StringVar(&s3Prefix, "s3-prefix", "", "optional Amazon S3 object prefix for the primary vault")
 	flags.BoolVar(&isForce, "force", false, "overwrite existing gnosis.toml")
 	return command
 }
 
-func validateWorkspaceOptions(imports []string, githubWiki, vaultName string) error {
-	if githubWiki != "" && len(imports) > 0 {
-		return errors.New("apply workspace: --github-wiki cannot be combined with --import")
+func validateWorkspaceOptions(imports []string, githubWiki, vaultName, s3Bucket, s3Region, s3Prefix string) error {
+	s3Selected := s3Bucket != "" || s3Region != "" || s3Prefix != ""
+	if githubWiki != "" && (len(imports) > 0 || s3Selected) {
+		return errors.New("apply workspace: --github-wiki cannot be combined with --import or S3 flags")
 	}
 	if githubWiki != "" && vaultName == "" {
 		return errors.New("apply workspace: --name is required with --github-wiki")
 	}
-	if githubWiki == "" && vaultName != "" {
-		return errors.New("apply workspace: --name requires --github-wiki")
+	if s3Selected && len(imports) > 0 {
+		return errors.New("apply workspace: S3 flags cannot be combined with --import")
 	}
-	if githubWiki == "" && len(imports) == 0 {
+	if s3Selected && vaultName == "" {
+		return errors.New("apply workspace: --name is required with S3 flags")
+	}
+	if s3Selected && (s3Bucket == "" || s3Region == "") {
+		return errors.New("apply workspace: --s3-bucket and --s3-region are required together")
+	}
+	if !s3Selected && githubWiki == "" && vaultName != "" {
+		return errors.New("apply workspace: --name requires --github-wiki or S3 flags")
+	}
+	if githubWiki == "" && !s3Selected && len(imports) == 0 {
 		return errors.New("apply workspace: at least one --import is required")
 	}
 	return nil
@@ -87,6 +104,9 @@ func runApplyWorkspace(
 	imports []string,
 	githubWiki string,
 	vaultName string,
+	s3Bucket string,
+	s3Region string,
+	s3Prefix string,
 	isForce bool,
 	stdout io.Writer,
 ) error {
@@ -95,6 +115,8 @@ func runApplyWorkspace(
 	var err error
 	if githubWiki != "" {
 		isChanged, configPath, err = vault.WriteGitHubWikiConfig(vaultPath, vaultName, githubWiki, isForce)
+	} else if s3Bucket != "" {
+		isChanged, configPath, err = vault.WriteS3Config(vaultPath, vaultName, s3Bucket, s3Region, s3Prefix, isForce)
 	} else {
 		isChanged, configPath, err = vault.WriteWorkspaceConfig(vaultPath, imports, isForce)
 	}

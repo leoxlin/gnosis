@@ -15,7 +15,7 @@ const gitVaultCache = "git-vaults"
 
 type vaultTarget struct {
 	root    string
-	backend *gitBackend
+	backend preparedBackend
 }
 
 func resolveVaultTarget(value string) (vaultTarget, error) {

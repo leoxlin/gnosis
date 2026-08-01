@@ -90,7 +90,7 @@ func TestCursorIsVersionedAndAtomicallyReplaceable(t *testing.T) {
 	if err != nil || empty.Version != 1 || empty.Value != "" {
 		t.Fatalf("empty cursor = %+v, %v", empty, err)
 	}
-	written, err := store.CommitCursor("owner/repo", "next")
+	written, err := store.CommitCursor(empty, "next")
 	if err != nil {
 		t.Fatal(err)
 	}

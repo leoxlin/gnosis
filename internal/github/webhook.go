@@ -55,7 +55,7 @@ func Webhook(vaultPath string) http.HandlerFunc {
 			return
 		}
 		deliveryID := strings.TrimSpace(request.Header.Get("X-GitHub-Delivery"))
-		store, err := evidence.New(config.EvidenceDir)
+		store, err := configuredEvidenceStore(request.Context(), config)
 		if err != nil {
 			writeWebhookError(response, http.StatusInternalServerError, err)
 			return

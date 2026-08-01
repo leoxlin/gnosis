@@ -29,7 +29,7 @@ operational failures exit non-zero.
 | Command | Purpose | Flags |
 |---|---|---|
 | `gnosis create vault` | Scaffold an OKF-compatible vault | `--name <name>`, `--concepts`, `--force` |
-| `gnosis apply workspace` | Write workspace composition | `--import <path-or-git-url>` repeatable, `--github-wiki <owner/repository>`, `--name <name>`, `--force` |
+| `gnosis apply workspace` | Write workspace composition | `--import <path-or-git-url>` repeatable, `--github-wiki <owner/repository>`, or `--name <name> --s3-bucket <bucket> --s3-region <region> [--s3-prefix <prefix>]`; `--force` |
 | `gnosis apply page <uri>` | Validate and write one typed page | `--filename <file>`/`-f`, `--update` |
 | `gnosis plan knowledge-change <uri>` | Validate and diff one complete page without writing | `--filename <file>`/`-f`, exactly one of `--expected-absent` or `--expected-revision <revision>` |
 | `gnosis apply knowledge-change <uri>` | Revalidate and apply one accepted plan | plan flags plus `--digest <digest>` |
@@ -173,6 +173,17 @@ credentials. Remote targets do not select branches, revisions, subdirectories,
 queries, or fragments. SCP-like `git@host:path` locators are not supported;
 use an explicit `ssh://` URL. Cloning a repository that does not yet exist is
 also outside this workflow.
+
+## Configured S3 vaults
+
+`gnosis apply workspace --name <name> --s3-bucket <bucket> --s3-region
+<region> [--s3-prefix <prefix>]` creates an S3-backed primary vault
+configuration. Reads synchronize the committed snapshot before loading pages;
+changed page and index operations publish a complete snapshot with a
+conditional current-pointer update. Concurrent publication returns a conflict.
+
+AWS authentication uses the standard SDK credential chain and is not accepted
+as command flags or gnosis configuration fields.
 
 ## Canonical URIs
 

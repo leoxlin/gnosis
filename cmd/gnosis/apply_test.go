@@ -40,6 +40,26 @@ vault_log = true
 	}
 }
 
+func TestApplyWorkspaceS3(t *testing.T) {
+	workspace := t.TempDir()
+	t.Chdir(workspace)
+	var stdout, stderr bytes.Buffer
+	if err := run([]string{
+		"apply", "workspace", "--name", "team", "--s3-bucket", "bucket", "--s3-region", "us-east-1", "--s3-prefix", "vault/team",
+	}, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	content, err := os.ReadFile(filepath.Join(workspace, "gnosis.toml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`backend = "s3"`, `s3_bucket = "bucket"`, `s3_region = "us-east-1"`, `s3_prefix = "vault/team"`} {
+		if !strings.Contains(string(content), want) {
+			t.Fatalf("gnosis.toml = %q, missing %q", content, want)
+		}
+	}
+}
+
 func TestApplyWorkspaceRejectsInvalidFlagCombinations(t *testing.T) {
 	for _, test := range []struct {
 		name string
@@ -48,6 +68,8 @@ func TestApplyWorkspaceRejectsInvalidFlagCombinations(t *testing.T) {
 	}{
 		{"missing name", []string{"apply", "workspace", "--github-wiki", "OWNER/REPOSITORY"}, "--name is required"},
 		{"mixed import", []string{"apply", "workspace", "--github-wiki", "OWNER/REPOSITORY", "--name", "wiki", "--import", "local"}, "cannot be combined"},
+		{"incomplete s3", []string{"apply", "workspace", "--name", "team", "--s3-bucket", "bucket"}, "required together"},
+		{"mixed s3 import", []string{"apply", "workspace", "--name", "team", "--s3-bucket", "bucket", "--s3-region", "region", "--import", "local"}, "cannot be combined"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer

@@ -64,6 +64,9 @@ func (vault *effectiveVault) prepareDocumentWrite(uri string, content []byte, up
 	targetRoot, hasLocalRoot := vault.localRoot()
 	targetVaultName := vault.config.Vault.Name
 	targetKind := OriginLocal
+	if vault.config.Vault.Backend == s3BackendName {
+		targetKind = OriginS3
+	}
 	targetConfig := vault.config
 	if targetVault == anyVaultAuthority {
 		if len(vault.sources) == 0 {

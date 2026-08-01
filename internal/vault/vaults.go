@@ -17,17 +17,14 @@ func Vaults(root string) (VaultCatalog, error) {
 	entries := make([]Origin, 0, len(effective.sources)+1)
 	hasCore := false
 	for precedence, source := range effective.sources {
-		kind := OriginImport
-		if source.vaultRoot == effective.root {
-			kind = OriginLocal
-		}
+		kind, root := effective.sourceOrigin(source)
 		if source.config.Vault.Name == "core" {
 			hasCore = true
 		}
 		entries = append(entries, Origin{
 			Vault:      source.config.Vault.Name,
 			Kind:       kind,
-			Root:       source.vaultRoot,
+			Root:       root,
 			Precedence: precedence,
 		})
 	}

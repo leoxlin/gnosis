@@ -22,7 +22,7 @@ type effectiveVault struct {
 	root    string
 	config  Config
 	sources []vaultSource
-	backend *gitBackend
+	backend preparedBackend
 }
 
 func loadEffectiveVault(root string) (*effectiveVault, error) {
@@ -172,6 +172,16 @@ func (c *vaultComposer) compose(root string, config Config) error {
 			}
 			c.vault.backend = backend
 			vaultRoot = backend.root
+		} else if config.Vault.Backend == s3BackendName {
+			if root != c.vault.root {
+				return fmt.Errorf("S3 backends are supported only for the primary vault")
+			}
+			backend, err := prepareS3Backend(config.Vault)
+			if err != nil {
+				return err
+			}
+			c.vault.backend = backend
+			vaultRoot = backend.preparedRoot()
 		} else {
 			var err error
 			vaultRoot, err = resolveVaultRoot(config, root)
@@ -302,14 +312,11 @@ func (v *effectiveVault) loadPages(tolerateInvalid bool) ([]*effectivePage, erro
 				return nil
 			}
 
-			kind := OriginImport
-			if source.vaultRoot == v.root {
-				kind = OriginLocal
-			}
+			kind, originRoot := v.sourceOrigin(source)
 			page, err := v.readSearchPage(source, path, Origin{
 				Vault:      source.config.Vault.Name,
 				Kind:       kind,
-				Root:       source.path,
+				Root:       originRoot,
 				Path:       path,
 				Precedence: precedence,
 			}, tolerateInvalid)
@@ -332,6 +339,16 @@ func (v *effectiveVault) loadPages(tolerateInvalid bool) ([]*effectivePage, erro
 		return nil, err
 	}
 	return pages, nil
+}
+
+func (v *effectiveVault) sourceOrigin(source vaultSource) (OriginKind, string) {
+	if source.config.Vault.Backend == s3BackendName {
+		return OriginS3, s3Location(source.config.Vault)
+	}
+	if source.vaultRoot == v.root {
+		return OriginLocal, source.path
+	}
+	return OriginImport, source.path
 }
 
 func (v *effectiveVault) appendBundledPages(pages *[]*effectivePage, seenPaths, seenRelativePaths map[string]struct{}, tolerateInvalid bool) error {
