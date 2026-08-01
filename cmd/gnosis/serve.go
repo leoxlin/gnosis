@@ -190,6 +190,10 @@ func newMCPServer(vaultPath string) *mcp.Server {
 }
 
 func newMCPServerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bool) *mcp.Server {
+	return newMCPServerWithOptions(vaultPath, allowKnowledgeWrites, nil)
+}
+
+func newMCPServerWithOptions(vaultPath string, allowKnowledgeWrites bool, codeService *codeintel.Service) *mcp.Server {
 	observer := newResourceObserver(vaultPath)
 	server := mcp.NewServer(
 		&mcp.Implementation{Name: "gnosis", Version: "0.1.0"},
@@ -203,7 +207,7 @@ func newMCPServerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bool
 	)
 	observer.attach(server)
 	addMCPResources(server, vaultPath, observer)
-	addCodeMCPTools(server, vaultPath)
+	addCodeMCPTools(server, vaultPath, codeService)
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_vaults",
 		Description: "List the effective gnosis vaults",
@@ -382,30 +386,34 @@ func newMCPServerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bool
 	return server
 }
 
-func addCodeMCPTools(server *mcp.Server, workspace string) {
+type codeReadView interface {
+	Search(string, string, int) codeintel.SearchResult
+	ReadSymbol(string) (codeintel.SymbolResult, error)
+	Diagnostics(string, string, string, int) codeintel.DiagnosticResult
+	Trace(string, string, int) (codeintel.TraceResult, error)
+	Neighbors(string, string, int) (codeintel.TraceResult, error)
+	Path(string, string, string, int, int) (codeintel.TraceResult, error)
+}
+
+func addCodeMCPTools(server *mcp.Server, workspace string, codeService *codeintel.Service) {
 	mcp.AddTool(server, &mcp.Tool{Name: "search_code", Description: "Search one current configured code index with deterministic bounds"}, func(ctx context.Context, _ *mcp.CallToolRequest, input searchCodeInput) (*mcp.CallToolResult, codeintel.SearchResult, error) {
-		reader, err := currentCodeReader(ctx, workspace, input.Scope)
-		if err != nil {
-			return nil, codeintel.SearchResult{}, err
-		}
-		defer reader.Close()
-		return nil, reader.Search(input.Query, input.Language, intValue(input.Limit)), nil
+		var result codeintel.SearchResult
+		err := withCurrentCode(ctx, workspace, codeService, input.Scope, func(reader codeReadView) error {
+			result = reader.Search(input.Query, input.Language, intValue(input.Limit))
+			return nil
+		})
+		return nil, result, err
 	})
 	mcp.AddTool(server, &mcp.Tool{Name: "get_code_symbol", Description: "Read one exact symbol from a current configured code index"}, func(ctx context.Context, _ *mcp.CallToolRequest, input getCodeSymbolInput) (*mcp.CallToolResult, codeintel.SymbolResult, error) {
-		reader, err := currentCodeReader(ctx, workspace, input.Scope)
-		if err != nil {
-			return nil, codeintel.SymbolResult{}, err
-		}
-		defer reader.Close()
-		result, err := reader.ReadSymbol(input.ID)
+		var result codeintel.SymbolResult
+		err := withCurrentCode(ctx, workspace, codeService, input.Scope, func(reader codeReadView) error {
+			var err error
+			result, err = reader.ReadSymbol(input.ID)
+			return err
+		})
 		return nil, result, err
 	})
 	mcp.AddTool(server, &mcp.Tool{Name: "trace_code", Description: "Read bounded incoming or outgoing normalized code relations"}, func(ctx context.Context, _ *mcp.CallToolRequest, input traceCodeInput) (*mcp.CallToolResult, codeintel.TraceResult, error) {
-		reader, err := currentCodeReader(ctx, workspace, input.Scope)
-		if err != nil {
-			return nil, codeintel.TraceResult{}, err
-		}
-		defer reader.Close()
 		direction := input.Direction
 		if direction == "" {
 			direction = "outgoing"
@@ -414,30 +422,38 @@ func addCodeMCPTools(server *mcp.Server, workspace string) {
 			return nil, codeintel.TraceResult{}, errors.New("direction must be incoming or outgoing")
 		}
 		var result codeintel.TraceResult
-		switch input.Mode {
-		case "", "relations":
-			result, err = reader.Trace(input.ID, direction, intValue(input.Limit))
-		case "neighbors":
-			result, err = reader.Neighbors(input.ID, direction, intValue(input.Limit))
-		case "path":
-			if input.TargetID == "" {
-				return nil, codeintel.TraceResult{}, errors.New("target_id is required for path mode")
+		err := withCurrentCode(ctx, workspace, codeService, input.Scope, func(reader codeReadView) error {
+			var err error
+			switch input.Mode {
+			case "", "relations":
+				result, err = reader.Trace(input.ID, direction, intValue(input.Limit))
+			case "neighbors":
+				result, err = reader.Neighbors(input.ID, direction, intValue(input.Limit))
+			case "path":
+				if input.TargetID == "" {
+					return errors.New("target_id is required for path mode")
+				}
+				result, err = reader.Path(input.ID, input.TargetID, direction, intValue(input.Depth), intValue(input.Limit))
+			default:
+				return errors.New("mode must be relations, neighbors, or path")
 			}
-			result, err = reader.Path(input.ID, input.TargetID, direction, intValue(input.Depth), intValue(input.Limit))
-		default:
-			return nil, codeintel.TraceResult{}, errors.New("mode must be relations, neighbors, or path")
-		}
+			return err
+		})
 		return nil, result, err
 	})
 	mcp.AddTool(server, &mcp.Tool{Name: "get_code_diagnostics", Description: "Read bounded diagnostics from one current configured code index"}, func(ctx context.Context, _ *mcp.CallToolRequest, input getCodeDiagnosticsInput) (*mcp.CallToolResult, codeintel.DiagnosticResult, error) {
-		reader, err := currentCodeReader(ctx, workspace, input.Scope)
-		if err != nil {
-			return nil, codeintel.DiagnosticResult{}, err
-		}
-		defer reader.Close()
-		return nil, reader.Diagnostics(input.Path, input.Language, input.Category, intValue(input.Limit)), nil
+		var result codeintel.DiagnosticResult
+		err := withCurrentCode(ctx, workspace, codeService, input.Scope, func(reader codeReadView) error {
+			result = reader.Diagnostics(input.Path, input.Language, input.Category, intValue(input.Limit))
+			return nil
+		})
+		return nil, result, err
 	})
 	mcp.AddTool(server, &mcp.Tool{Name: "get_code_index_status", Description: "Read code-index freshness, counts, coverage provenance, and snapshot identity"}, func(ctx context.Context, _ *mcp.CallToolRequest, input getCodeStatusInput) (*mcp.CallToolResult, codeintel.StatusResult, error) {
+		if codeService != nil {
+			status, err := codeService.Status(ctx, input.Scope)
+			return nil, status, err
+		}
 		reader, err := codeintel.Open(workspace, input.Scope)
 		if err != nil {
 			return nil, codeintel.StatusResult{}, err
@@ -449,6 +465,18 @@ func addCodeMCPTools(server *mcp.Server, workspace string) {
 		}
 		return nil, status, nil
 	})
+}
+
+func withCurrentCode(ctx context.Context, workspace string, service *codeintel.Service, scope string, callback func(codeReadView) error) error {
+	if service != nil {
+		return service.ReadCurrent(ctx, scope, func(view codeintel.ReadView) error { return callback(view) })
+	}
+	reader, err := currentCodeReader(ctx, workspace, scope)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	return callback(reader)
 }
 
 func currentCodeReader(ctx context.Context, workspace, scope string) (*codeintel.Reader, error) {
@@ -765,10 +793,12 @@ func newServeMCPCommand(options *rootOptions) *cobra.Command {
 			"gnosis --vault <name> serve mcp\n" +
 			"gnosis --vault <name> serve mcp --allow-knowledge-writes",
 		RunE: func(command *cobra.Command, _ []string) error {
-			return newMCPServerWithKnowledgeWrites(
-				options.vaultPath,
-				allowKnowledgeWrites,
-			).Run(command.Context(), &mcp.StdioTransport{})
+			service, err := codeintel.OpenService(command.Context(), options.vaultPath)
+			if err != nil {
+				return err
+			}
+			runErr := newMCPServerWithOptions(options.vaultPath, allowKnowledgeWrites, service).Run(command.Context(), &mcp.StdioTransport{})
+			return errors.Join(runErr, service.Close())
 		},
 	}
 	command.Flags().BoolVar(

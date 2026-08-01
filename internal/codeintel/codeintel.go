@@ -29,15 +29,17 @@ var (
 )
 
 type Scope struct {
-	Name           string   `json:"name"`
-	Root           string   `json:"root"`
-	Languages      []string `json:"languages"`
-	MaxFiles       int      `json:"max_files"`
-	MaxFileBytes   int64    `json:"max_file_bytes"`
-	MaxRecords     int      `json:"max_records"`
-	MaxDiagnostics int      `json:"max_diagnostics"`
-	MaxResults     int      `json:"max_results"`
-	MaxTraversal   int      `json:"max_traversal"`
+	Name           string        `json:"name"`
+	Root           string        `json:"root"`
+	Languages      []string      `json:"languages"`
+	Live           bool          `json:"live"`
+	FreshnessWait  time.Duration `json:"freshness_wait"`
+	MaxFiles       int           `json:"max_files"`
+	MaxFileBytes   int64         `json:"max_file_bytes"`
+	MaxRecords     int           `json:"max_records"`
+	MaxDiagnostics int           `json:"max_diagnostics"`
+	MaxResults     int           `json:"max_results"`
+	MaxTraversal   int           `json:"max_traversal"`
 }
 
 type Snapshot struct {
@@ -137,6 +139,7 @@ type SearchResult struct {
 	Truncated  bool                        `json:"truncated"`
 	Symbols    []Symbol                    `json:"symbols"`
 	Coverage   []analyzer.Coverage         `json:"coverage,omitempty"`
+	Freshness  *LiveFreshness              `json:"freshness,omitempty"`
 }
 
 type SymbolResult struct {
@@ -146,6 +149,7 @@ type SymbolResult struct {
 	Provenance analyzer.AnalyzerProvenance `json:"provenance"`
 	Symbol     Symbol                      `json:"symbol"`
 	Coverage   []analyzer.Coverage         `json:"coverage,omitempty"`
+	Freshness  *LiveFreshness              `json:"freshness,omitempty"`
 }
 
 type DiagnosticResult struct {
@@ -157,6 +161,7 @@ type DiagnosticResult struct {
 	Truncated   bool                        `json:"truncated"`
 	Diagnostics []Diagnostic                `json:"diagnostics"`
 	Coverage    []analyzer.Coverage         `json:"coverage,omitempty"`
+	Freshness   *LiveFreshness              `json:"freshness,omitempty"`
 }
 
 type TraceResult struct {
@@ -170,6 +175,7 @@ type TraceResult struct {
 	Relations  []Relation                  `json:"relations"`
 	Symbols    []Symbol                    `json:"symbols,omitempty"`
 	Coverage   []analyzer.Coverage         `json:"coverage,omitempty"`
+	Freshness  *LiveFreshness              `json:"freshness,omitempty"`
 }
 
 type StatusResult struct {
@@ -182,6 +188,14 @@ type StatusResult struct {
 	Symbols     int                          `json:"symbols"`
 	Relations   int                          `json:"relations"`
 	Diagnostics int                          `json:"diagnostics"`
+	Live        bool                         `json:"live,omitempty"`
+	State       LiveState                    `json:"state,omitempty"`
+	Epoch       string                       `json:"workspace_epoch,omitempty"`
+	Observed    Watermark                    `json:"observed_watermark,omitempty"`
+	Published   Watermark                    `json:"published_watermark,omitempty"`
+	Reason      string                       `json:"reason,omitempty"`
+	Guidance    string                       `json:"guidance,omitempty"`
+	Bounds      *LiveBounds                  `json:"bounds,omitempty"`
 }
 
 func ResolveScope(workspace, name string) (Scope, error) {
@@ -191,6 +205,7 @@ func ResolveScope(workspace, name string) (Scope, error) {
 	}
 	return Scope{
 		Name: configured.Name, Root: configured.Root, Languages: append([]string(nil), configured.Languages...),
+		Live: configured.Live, FreshnessWait: configured.FreshnessWaitDuration(),
 		MaxFiles: configured.MaxFiles, MaxFileBytes: configured.MaxFileBytes,
 		MaxRecords: configured.MaxRecords, MaxDiagnostics: configured.MaxDiagnostics,
 		MaxResults: configured.MaxResults, MaxTraversal: configured.MaxTraversal,
@@ -526,9 +541,16 @@ func resolveRelations(manifest *Manifest) {
 }
 
 func publish(scopeDir string, manifest *Manifest) error {
+	if err := writeGeneration(scopeDir, manifest); err != nil {
+		return err
+	}
+	return writeCurrent(scopeDir, manifest.Generation)
+}
+
+func writeGeneration(scopeDir string, manifest *Manifest) error {
 	generationDir := filepath.Join(scopeDir, "generations", manifest.Generation)
 	if _, err := os.Stat(filepath.Join(generationDir, "generation.json")); err == nil {
-		return writeCurrent(scopeDir, manifest.Generation)
+		return nil
 	}
 	temporary, err := os.MkdirTemp(scopeDir, ".generation-*")
 	if err != nil {
@@ -571,17 +593,41 @@ func publish(scopeDir string, manifest *Manifest) error {
 	if err := syncDir(filepath.Dir(generationDir)); err != nil {
 		return err
 	}
-	return writeCurrent(scopeDir, manifest.Generation)
+	return nil
+}
+
+type liveSelection struct {
+	WorkspaceEpoch    string    `json:"workspace_epoch"`
+	VerifiedWatermark Watermark `json:"verified_watermark"`
+}
+
+type selector struct {
+	Version      int            `json:"version"`
+	GenerationID string         `json:"generation_id"`
+	Live         *liveSelection `json:"live"`
 }
 
 func writeCurrent(scopeDir, generation string) error {
+	return writeSelector(scopeDir, selector{Version: 2, GenerationID: generation})
+}
+
+func writeSelector(scopeDir string, selected selector) error {
+	if selected.Version != 2 || !validGenerationID(selected.GenerationID) {
+		return errors.New("invalid code-index selector")
+	}
 	temporary, err := os.CreateTemp(scopeDir, ".current-*")
 	if err != nil {
 		return err
 	}
 	name := temporary.Name()
 	defer os.Remove(name)
-	if _, err := temporary.WriteString(generation + "\n"); err != nil {
+	data, err := json.Marshal(selected)
+	if err != nil {
+		temporary.Close()
+		return err
+	}
+	data = append(data, '\n')
+	if _, err := temporary.Write(data); err != nil {
 		temporary.Close()
 		return err
 	}
@@ -906,15 +952,34 @@ func validGeneration(manifest Manifest, generation string) bool {
 }
 
 func readCurrent(scopeDir string) (string, error) {
+	selected, err := readSelector(scopeDir)
+	return selected.GenerationID, err
+}
+
+func readSelector(scopeDir string) (selector, error) {
 	data, err := os.ReadFile(filepath.Join(scopeDir, "current"))
 	if err != nil {
-		return "", err
+		return selector{}, err
 	}
-	generation := strings.TrimSpace(string(data))
-	if generation == "" || strings.ContainsAny(generation, "/\\\x00") {
-		return "", errors.New("invalid current generation")
+	value := strings.TrimSpace(string(data))
+	if validGenerationID(value) {
+		return selector{Version: 1, GenerationID: value}, nil
 	}
-	return generation, nil
+	var selected selector
+	if err := json.Unmarshal(data, &selected); err != nil {
+		return selector{}, errors.New("invalid current selector")
+	}
+	if selected.Version != 2 {
+		return selector{}, fmt.Errorf("unsupported current selector version %d", selected.Version)
+	}
+	if !validGenerationID(selected.GenerationID) || selected.Live != nil && (selected.Live.WorkspaceEpoch == "" || selected.Live.VerifiedWatermark == 0) {
+		return selector{}, errors.New("invalid current selector")
+	}
+	return selected, nil
+}
+
+func validGenerationID(value string) bool {
+	return len(value) == 64 && strings.Trim(value, "0123456789abcdef") == ""
 }
 
 func git(ctx context.Context, root string, arguments ...string) (string, error) {

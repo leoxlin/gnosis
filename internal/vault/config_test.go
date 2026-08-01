@@ -30,7 +30,7 @@ languages = ["go", "typescript"]
 	if err != nil {
 		t.Fatal(err)
 	}
-	if scope.Name != "app" || scope.MaxFiles != DefaultCodeMaxFiles || scope.MaxResults != DefaultCodeMaxResults {
+	if scope.Name != "app" || scope.Live || scope.FreshnessWaitDuration() != DefaultCodeFreshnessWait || scope.MaxFiles != DefaultCodeMaxFiles || scope.MaxResults != DefaultCodeMaxResults {
 		t.Fatalf("scope = %+v", scope)
 	}
 	if _, err := CodeScope(root, "missing"); err == nil {
@@ -43,6 +43,8 @@ func TestCodeScopeConfigurationRejectsInvalidCombinations(t *testing.T) {
 		"[[code_scopes]]\nname = \"app\"\nroot = \".\"\nlanguages = []\n",
 		"[[code_scopes]]\nname = \"app\"\nroot = \".\"\nlanguages = [\"Go\"]\n",
 		"[[code_scopes]]\nname = \"app\"\nroot = \".\"\nlanguages = [\"go\"]\nmax_files = -1\n",
+		"[[code_scopes]]\nname = \"app\"\nroot = \".\"\nlanguages = [\"go\"]\nfreshness_wait = \"0s\"\n",
+		"[[code_scopes]]\nname = \"app\"\nroot = \".\"\nlanguages = [\"go\"]\nfreshness_wait = \"invalid\"\n",
 		"[[code_scopes]]\nname = \"app\"\nroot = \".\"\nlanguages = [\"go\"]\n[[code_scopes]]\nname = \"app\"\nroot = \".\"\nlanguages = [\"go\"]\n",
 	}
 	for _, content := range cases {

@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
+	"gnosis/internal/codeintel"
 	evidencecontext "gnosis/internal/evidencecontext"
 	githubsource "gnosis/internal/github"
 	"gnosis/internal/vault"
@@ -89,13 +90,18 @@ func serveHTTPWithOptions(
 	allowKnowledgeWrites,
 	githubWebhooks bool,
 	output io.Writer,
-) error {
+) (returned error) {
+	codeService, err := codeintel.OpenService(ctx, vaultPath)
+	if err != nil {
+		return fmt.Errorf("serve http: open live code service: %w", err)
+	}
+	defer func() { returned = errors.Join(returned, codeService.Close()) }()
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return fmt.Errorf("serve http: listen: %w", err)
 	}
 	server := &http.Server{
-		Handler:           newHTTPHandlerWithOptions(vaultPath, allowKnowledgeWrites, githubWebhooks),
+		Handler:           newHTTPHandlerWithCodeService(vaultPath, allowKnowledgeWrites, githubWebhooks, codeService),
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       time.Minute,
 	}
@@ -134,6 +140,10 @@ func newHTTPHandlerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bo
 }
 
 func newHTTPHandlerWithOptions(vaultPath string, allowKnowledgeWrites, githubWebhooks bool) http.Handler {
+	return newHTTPHandlerWithCodeService(vaultPath, allowKnowledgeWrites, githubWebhooks, nil)
+}
+
+func newHTTPHandlerWithCodeService(vaultPath string, allowKnowledgeWrites, githubWebhooks bool, codeService *codeintel.Service) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", serveUI)
 	mux.HandleFunc("GET /api/v1/vaults", serveVaults(vaultPath))
@@ -157,7 +167,7 @@ func newHTTPHandlerWithOptions(vaultPath string, allowKnowledgeWrites, githubWeb
 		)
 	}
 	mcpHandler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
-		return newMCPServerWithKnowledgeWrites(vaultPath, allowKnowledgeWrites)
+		return newMCPServerWithOptions(vaultPath, allowKnowledgeWrites, codeService)
 	}, nil)
 	mux.Handle("/mcp", http.NewCrossOriginProtection().Handler(mcpHandler))
 	return mux

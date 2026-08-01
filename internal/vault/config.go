@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pelletier/go-toml/v2"
 	"gnosis/internal/s3store"
@@ -34,6 +35,8 @@ type CodeScopeConfig struct {
 	Name           string   `toml:"name"`
 	Root           string   `toml:"root"`
 	Languages      []string `toml:"languages"`
+	Live           bool     `toml:"live"`
+	FreshnessWait  string   `toml:"freshness_wait"`
 	MaxFiles       int      `toml:"max_files"`
 	MaxFileBytes   int64    `toml:"max_file_bytes"`
 	MaxRecords     int      `toml:"max_records"`
@@ -49,6 +52,8 @@ const (
 	DefaultCodeMaxDiagnostics = 10_000
 	DefaultCodeMaxResults     = 100
 	DefaultCodeMaxTraversal   = 1_000
+	DefaultCodeFreshnessWait  = 2 * time.Second
+	MaxCodeFreshnessWait      = 30 * time.Second
 )
 
 // VaultConfig holds local vault settings.
@@ -323,6 +328,39 @@ func CodeScope(start, name string) (CodeScopeConfig, error) {
 	return CodeScopeConfig{}, fmt.Errorf("code scope %q is not configured", name)
 }
 
+// CodeScopes resolves every configured code scope from the workspace.
+func CodeScopes(start string) ([]CodeScopeConfig, error) {
+	path, err := findConfigPath(start)
+	if err != nil {
+		return nil, err
+	}
+	if path == "" {
+		return nil, fmt.Errorf("no gnosis configuration found")
+	}
+	config, err := loadConfigPath(path)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]CodeScopeConfig, 0, len(config.CodeScopes))
+	for _, configured := range config.CodeScopes {
+		scope, err := CodeScope(filepath.Dir(path), configured.Name)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, scope)
+	}
+	return result, nil
+}
+
+// FreshnessWaitDuration returns the validated caller-visible freshness bound.
+func (scope CodeScopeConfig) FreshnessWaitDuration() time.Duration {
+	if scope.FreshnessWait == "" {
+		return DefaultCodeFreshnessWait
+	}
+	duration, _ := time.ParseDuration(scope.FreshnessWait)
+	return duration
+}
+
 func validateCodeScopes(scopes []CodeScopeConfig, root string) error {
 	seen := map[string]bool{}
 	for index, scope := range scopes {
@@ -362,11 +400,18 @@ func validateCodeScopes(scopes []CodeScopeConfig, root string) error {
 		if defaults.MaxFiles < 1 || defaults.MaxFileBytes < 1 || defaults.MaxRecords < 1 || defaults.MaxDiagnostics < 1 || defaults.MaxResults < 1 || defaults.MaxTraversal < 1 {
 			return fmt.Errorf("%s bounds must be positive", prefix)
 		}
+		freshnessWait := defaults.FreshnessWaitDuration()
+		if freshnessWait <= 0 || freshnessWait > MaxCodeFreshnessWait {
+			return fmt.Errorf("%s.freshness_wait must be greater than zero and at most %s", prefix, MaxCodeFreshnessWait)
+		}
 	}
 	return nil
 }
 
 func (scope CodeScopeConfig) withDefaults() CodeScopeConfig {
+	if scope.FreshnessWait == "" {
+		scope.FreshnessWait = DefaultCodeFreshnessWait.String()
+	}
 	if scope.MaxFiles == 0 {
 		scope.MaxFiles = DefaultCodeMaxFiles
 	}

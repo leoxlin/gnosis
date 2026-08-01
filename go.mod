@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.33
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.106.2
 	github.com/aws/smithy-go v1.27.5
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/mem0ai/mem0-go v0.0.0-20260725104438-256d6d5a570a
 	github.com/modelcontextprotocol/go-sdk v1.6.1
