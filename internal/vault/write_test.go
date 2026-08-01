@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,13 +15,13 @@ func TestWriteDocumentWritesToURITarget(t *testing.T) {
 	content := []byte("---\ntype: Note\ntitle: A New Note\n---\n\n# A New Note\n")
 
 	target := "gnosis://Workspace/notes/custom-name.md"
-	written, err := WriteDocument(root, target, content, false)
+	written, err := WriteDocument(context.Background(), root, target, content, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := filepath.Join(root, "local", "notes", "custom-name.md")
-	if written != want {
-		t.Fatalf("path = %q, want %q", written, want)
+	if written.Path != want {
+		t.Fatalf("path = %q, want %q", written.Path, want)
 	}
 	got, err := os.ReadFile(want)
 	if err != nil || string(got) != string(content) {
@@ -37,19 +38,19 @@ func TestWriteDocumentAcceptsAnyVaultTargetByPrecedence(t *testing.T) {
 	write(t, imported, "notes/existing.md", "---\ntype: Note\ntitle: Existing\n---\n")
 	content := []byte("---\ntype: Note\ntitle: Any vault\n---\n")
 
-	written, err := WriteDocument(workspace, "gnosis://_/notes/new.md", content, false)
+	written, err := WriteDocument(context.Background(), workspace, "gnosis://_/notes/new.md", content, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := filepath.Join(workspace, "local", "notes", "new.md")
-	if written != want {
-		t.Fatalf("path = %q, want %q", written, want)
+	if written.Path != want {
+		t.Fatalf("path = %q, want %q", written.Path, want)
 	}
 
-	if _, err := WriteDocument(workspace, "gnosis://_/notes/existing.md", content, false); err == nil || !strings.Contains(err.Error(), "--update") {
+	if _, err := WriteDocument(context.Background(), workspace, "gnosis://_/notes/existing.md", content, false); err == nil || !strings.Contains(err.Error(), "--update") {
 		t.Fatalf("collision error = %v", err)
 	}
-	if _, err := WriteDocument(workspace, "gnosis://_/notes/existing.md", content, true); err != nil {
+	if _, err := WriteDocument(context.Background(), workspace, "gnosis://_/notes/existing.md", content, true); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(workspace, "local", "notes", "existing.md")); err != nil {
@@ -78,7 +79,7 @@ func TestWriteDocumentValidatesTargetURIAndConceptPath(t *testing.T) {
 		{"gnosis://Local/notes/index.md", "reserved name"},
 		{"gnosis://Local/notes/log.md", "reserved name"},
 	} {
-		if _, err := WriteDocument(root, test.uri, content, false); err == nil || !strings.Contains(err.Error(), test.want) {
+		if _, err := WriteDocument(context.Background(), root, test.uri, content, false); err == nil || !strings.Contains(err.Error(), test.want) {
 			t.Fatalf("WriteDocument(%q) error = %v, want %q", test.uri, err, test.want)
 		}
 	}
@@ -97,10 +98,10 @@ func TestWriteDocumentRequiresUpdateToShadowExternalTarget(t *testing.T) {
 	content := []byte("---\ntype: Note\ntitle: Imported Note\n---\n\n# Local\n")
 	target := "gnosis://Workspace/notes/imported-note.md"
 
-	if _, err := WriteDocument(workspace, target, content, false); err == nil || !strings.Contains(err.Error(), "--update") {
+	if _, err := WriteDocument(context.Background(), workspace, target, content, false); err == nil || !strings.Contains(err.Error(), "--update") {
 		t.Fatalf("collision error = %v", err)
 	}
-	if _, err := WriteDocument(workspace, target, content, true); err != nil {
+	if _, err := WriteDocument(context.Background(), workspace, target, content, true); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(workspace, "local", "notes", "imported-note.md")); err != nil {
@@ -117,7 +118,7 @@ func TestWriteDocumentRequiresCurrentLocalVault(t *testing.T) {
 	writeConfig(t, workspace, "[[vaults]]\nvault_name = \"Imported\"\nvault_root = \"imported\"\n")
 	writeConfig(t, imported, "[vault]\nvault_name = \"Imported\"\nvault_root = \".\"\n")
 	content := []byte("---\ntype: Note\ntitle: A Note\n---\n")
-	if _, err := WriteDocument(workspace, "gnosis://Imported/notes/a-note.md", content, false); err == nil || !strings.Contains(err.Error(), "local vault") {
+	if _, err := WriteDocument(context.Background(), workspace, "gnosis://Imported/notes/a-note.md", content, false); err == nil || !strings.Contains(err.Error(), "local vault") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -138,7 +139,7 @@ func TestWriteDocumentValidatesMaintenanceTargetsBeforeWriting(t *testing.T) {
 		{"self", "gnosis://test/notes/self.md", "gnosis://test/notes/self.md", "distinct"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := WriteDocument(root, test.uri, content(test.target), false)
+			_, err := WriteDocument(context.Background(), root, test.uri, content(test.target), false)
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want %q", err, test.want)
 			}
@@ -158,7 +159,7 @@ maintenance:
     target: gnosis://test/notes/target.md
 ---
 `)
-	if _, err := WriteDocument(root, "gnosis://test/notes/source.md", source, false); err != nil {
+	if _, err := WriteDocument(context.Background(), root, "gnosis://test/notes/source.md", source, false); err != nil {
 		t.Fatal(err)
 	}
 	page, err := ReadPage(root, "gnosis://test/notes/source.md")

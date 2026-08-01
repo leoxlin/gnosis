@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,7 +30,7 @@ tags:
   nested: value
 ---
 `)
-	_, err := WriteDocument(root, "gnosis://test/notes/invalid-tags.md", content, false)
+	_, err := WriteDocument(context.Background(), root, "gnosis://test/notes/invalid-tags.md", content, false)
 	if err == nil || !strings.Contains(err.Error(), "tags") {
 		t.Fatalf("error = %v, want invalid tags", err)
 	}
@@ -116,7 +117,7 @@ vault_log = false
 			write(t, root, "concepts/note.md", "---\ntype: Concept\ntitle: Note\npath: notes\n---\n")
 			content := []byte("---\ntype: Note\n" + test.fields + "---\n\n# Note\n")
 
-			if _, err := WriteDocument(root, "gnosis://test/notes/input.md", content, false); err == nil || !strings.Contains(err.Error(), test.want) {
+			if _, err := WriteDocument(context.Background(), root, "gnosis://test/notes/input.md", content, false); err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("write error = %v, want %q", err, test.want)
 			}
 			write(t, root, "notes/existing.md", string(content))
@@ -210,7 +211,7 @@ relationships:
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			_, err := WriteDocument(root, "gnosis://test/notes/"+test.path+".md", []byte(test.content), false)
+			_, err := WriteDocument(context.Background(), root, "gnosis://test/notes/"+test.path+".md", []byte(test.content), false)
 			if err == nil || !strings.Contains(err.Error(), test.want) {
 				t.Fatalf("error = %v, want %q", err, test.want)
 			}

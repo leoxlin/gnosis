@@ -2,30 +2,44 @@ package vault
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
+
+// WriteResult reports one authoritative page write and its post-commit deliveries.
+type WriteResult struct {
+	URI           string               `json:"uri"`
+	Operation     string               `json:"operation"`
+	Path          string               `json:"path,omitempty"`
+	PriorRevision string               `json:"prior_revision,omitempty"`
+	Revision      string               `json:"revision"`
+	Changed       bool                 `json:"changed"`
+	Deliveries    []HookDeliveryResult `json:"deliveries,omitempty"`
+}
 
 // WriteDocument writes content into the vault selected by the target URI.
 // Concrete authorities remain restricted to the current local vault.
-func WriteDocument(root, uri string, content []byte, update bool) (string, error) {
+func WriteDocument(ctx context.Context, root, uri string, content []byte, update bool) (WriteResult, error) {
 	vault, err := loadEffectiveVault(root)
 	if err != nil {
-		return "", fmt.Errorf("write: resolve current directory: %w", err)
+		return WriteResult{}, fmt.Errorf("write: resolve current directory: %w", err)
 	}
 	prepared, err := vault.prepareDocumentWrite(uri, content, update)
 	if err != nil {
-		return "", err
+		return WriteResult{}, err
 	}
-	return vault.writePreparedDocument(prepared)
+	return vault.writePreparedDocument(ctx, prepared, directWriteOperation(prepared), "")
 }
 
 type preparedDocumentWrite struct {
 	content     []byte
 	destination string
 	candidate   *effectivePage
+	current     *effectivePage
 	pages       []*effectivePage
 	config      Config
 }
@@ -121,6 +135,7 @@ func (vault *effectiveVault) prepareDocumentWrite(uri string, content []byte, up
 		content:     content,
 		destination: destination,
 		candidate:   candidate,
+		current:     currentPageForChange(pages, candidate.document.URI),
 		pages:       pages,
 		config:      targetConfig,
 	}, nil
@@ -145,18 +160,59 @@ func validateMaintenanceCandidate(page *effectivePage, resolver *documentResolve
 	return nil
 }
 
-func (vault *effectiveVault) writePreparedDocument(prepared preparedDocumentWrite) (string, error) {
+func (vault *effectiveVault) writePreparedDocument(
+	ctx context.Context,
+	prepared preparedDocumentWrite,
+	operation string,
+	knowledgeChange string,
+) (WriteResult, error) {
+	result := WriteResult{
+		URI:       prepared.candidate.document.URI,
+		Operation: operation,
+		Path:      prepared.destination,
+		Revision:  prepared.candidate.document.Revision,
+		Changed:   operation != "no-op",
+	}
+	if prepared.current != nil {
+		result.PriorRevision = prepared.current.document.Revision
+	}
+	if !result.Changed {
+		return result, nil
+	}
 	destination := prepared.destination
 	if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
-		return "", err
+		return result, err
 	}
 	if err := atomicWriteFile(destination, prepared.content, 0o644); err != nil {
-		return "", err
+		return result, err
 	}
 	if err := vault.publish("gnosis: update vault"); err != nil {
-		return destination, fmt.Errorf("write: publish backend: %w", err)
+		return result, fmt.Errorf("write: publish backend: %w", err)
 	}
-	return destination, nil
+	event := newVaultWriteEvent(prepared, operation, knowledgeChange, time.Now())
+	result.Deliveries = dispatchHooks(ctx, prepared.config.Hooks, event)
+	return result, nil
+}
+
+func directWriteOperation(prepared preparedDocumentWrite) string {
+	switch {
+	case prepared.current == nil:
+		return "create"
+	case bytes.Equal(prepared.current.data, prepared.content):
+		return "no-op"
+	case archivedCandidate(prepared.current, prepared.candidate):
+		return "archive"
+	case supersessionCandidate(prepared.current, prepared.candidate):
+		return "supersession"
+	default:
+		return "update"
+	}
+}
+
+func supersessionCandidate(current, candidate *effectivePage) bool {
+	before := strings.TrimSpace(metadataScalar(current.fields, "superseded_by"))
+	after := strings.TrimSpace(metadataScalar(candidate.fields, "superseded_by"))
+	return before == "" && after != ""
 }
 
 func writeURIDestination(rawURI, vaultName, localRoot string) (string, string, error) {

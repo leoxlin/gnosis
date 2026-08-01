@@ -245,8 +245,8 @@ func newMCPServerWithKnowledgeWrites(vaultPath string, allowKnowledgeWrites bool
 		mcp.AddTool(server, &mcp.Tool{
 			Name:        "apply_knowledge_change",
 			Description: "Apply one accepted revision-bound knowledge change; host approval is required",
-		}, func(_ context.Context, _ *mcp.CallToolRequest, input applyKnowledgeChangeInput) (*mcp.CallToolResult, vault.KnowledgeChangeResult, error) {
-			result, err := vault.ApplyKnowledgeChange(vaultPath, input.knowledgeChange(), input.Digest)
+		}, func(ctx context.Context, _ *mcp.CallToolRequest, input applyKnowledgeChangeInput) (*mcp.CallToolResult, vault.KnowledgeChangeResult, error) {
+			result, err := vault.ApplyKnowledgeChange(ctx, vaultPath, input.knowledgeChange(), input.Digest)
 			return nil, result, err
 		})
 	}

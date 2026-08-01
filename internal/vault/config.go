@@ -23,6 +23,7 @@ const (
 type Config struct {
 	Vault  VaultConfig           `toml:"vault"`
 	Vaults []DeclaredVaultConfig `toml:"vaults"`
+	Hooks  []HookConfig          `toml:"hooks"`
 }
 
 // VaultConfig holds local vault settings.
@@ -217,6 +218,9 @@ func validateConfig(config Config, root string) error {
 		if err := validateDeclaredVaultRoot(declared, root); err != nil {
 			return fmt.Errorf("vaults[%d]: %w", i, err)
 		}
+	}
+	if err := validateHooks(config.Hooks, config.Vault.Name); err != nil {
+		return err
 	}
 	return nil
 }

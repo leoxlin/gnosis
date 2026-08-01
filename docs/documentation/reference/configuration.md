@@ -76,6 +76,80 @@ HTTPS credentials, SSH passwords, queries, fragments, branch or revision
 selection, repository subdirectories, and SCP-like `git@host:path` syntax are
 not supported.
 
+## `[[hooks]]`
+
+Hooks run synchronously, in declaration order, after a changed authoritative
+page is persisted and any required remote publication succeeds. A delivery
+failure is returned with the successful mutation; it does not roll back,
+repeat, or queue the write. Plans, rejected writes, no-ops, reads, and generated
+indexes do not run hooks.
+
+Each hook requires a unique `name`, a `kind` of `command` or `webhook`, and one
+scope:
+
+| Scope | Target |
+|---|---|
+| `vault` | No `target`; matches every page in the configured vault |
+| `page` | One exact canonical page URI |
+| `prefix` | One canonical URI prefix; matching is path-segment aware |
+
+`timeout` is optional, defaults to `10s`, and cannot exceed `60s`.
+
+Command hooks use an exact argument vector without a shell. The event JSON is
+provided on standard input:
+
+```toml
+[[hooks]]
+name = "refresh-search"
+kind = "command"
+scope = "prefix"
+target = "gnosis://knowledge/concepts"
+timeout = "5s"
+command = ["/usr/local/bin/refresh-search", "--source", "gnosis"]
+```
+
+Webhook hooks POST the same JSON bytes. HTTPS is required except for loopback
+development URLs. `secret_env` names an environment variable containing an
+HMAC-SHA256 key; gnosis sends the resulting
+`X-Gnosis-Signature: sha256=<hex>` header without exposing the secret:
+
+```toml
+[[hooks]]
+name = "notify-catalog"
+kind = "webhook"
+scope = "vault"
+timeout = "10s"
+url = "https://catalog.example.com/hooks/gnosis"
+secret_env = "GNOSIS_CATALOG_HOOK_SECRET"
+```
+
+The bounded version 1 event envelope has this shape:
+
+```json
+{
+  "version": 1,
+  "id": "sha256:...",
+  "vault": "knowledge",
+  "uri": "gnosis://knowledge/concepts/example.md",
+  "operation": "update",
+  "prior_revision": "sha256:...",
+  "new_revision": "sha256:...",
+  "origin": {
+    "vault": "knowledge",
+    "kind": "local",
+    "root": "/path/to/vault",
+    "path": "/path/to/vault/concepts/example.md",
+    "precedence": 0
+  },
+  "occurred_at": "2026-07-29T13:00:00Z",
+  "knowledge_change": "sha256:..."
+}
+```
+
+The event ID is deterministic from the vault, URI, new revision, and operation.
+`prior_revision` and `knowledge_change` are omitted when unavailable. Webhooks
+also receive `X-Gnosis-Event-Version` and `X-Gnosis-Event-ID` headers.
+
 ## Semantic search environment
 
 | Variable | Meaning |

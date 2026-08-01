@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
@@ -52,11 +53,12 @@ type KnowledgeChangePlan struct {
 
 // KnowledgeChangeResult reports the actual mutation performed by apply.
 type KnowledgeChangeResult struct {
-	URI       string `json:"uri"`
-	Operation string `json:"operation"`
-	Path      string `json:"path,omitempty"`
-	Revision  string `json:"revision"`
-	Changed   bool   `json:"changed"`
+	URI        string               `json:"uri"`
+	Operation  string               `json:"operation"`
+	Path       string               `json:"path,omitempty"`
+	Revision   string               `json:"revision"`
+	Changed    bool                 `json:"changed"`
+	Deliveries []HookDeliveryResult `json:"deliveries,omitempty"`
 }
 
 // PlanKnowledgeChange validates and describes one page change without writing it.
@@ -70,7 +72,7 @@ func PlanKnowledgeChange(root string, input KnowledgeChangeInput) (KnowledgeChan
 }
 
 // ApplyKnowledgeChange refreshes, revalidates, and conditionally writes one accepted plan.
-func ApplyKnowledgeChange(root string, input KnowledgeChangeInput, digest string) (KnowledgeChangeResult, error) {
+func ApplyKnowledgeChange(ctx context.Context, root string, input KnowledgeChangeInput, digest string) (KnowledgeChangeResult, error) {
 	vault, err := loadEffectiveVault(root)
 	if err != nil {
 		return KnowledgeChangeResult{}, fmt.Errorf("apply knowledge change: %w", err)
@@ -101,8 +103,9 @@ func ApplyKnowledgeChange(root string, input KnowledgeChangeInput, digest string
 		}
 		return result, nil
 	}
-	path, err := vault.writePreparedDocument(*prepared)
-	result.Path = path
+	writeResult, err := vault.writePreparedDocument(ctx, *prepared, plan.Operation, plan.Digest)
+	result.Path = writeResult.Path
+	result.Deliveries = writeResult.Deliveries
 	if err != nil {
 		return result, fmt.Errorf(
 			"apply knowledge change: %w; the local write remains at %s",
@@ -233,6 +236,8 @@ func (vault *effectiveVault) planKnowledgeChange(input KnowledgeChangeInput) (Kn
 		plan.Operation = "no-op"
 	case archivedCandidate(current, prepared.candidate):
 		plan.Operation = "archive"
+	case supersessionCandidate(current, prepared.candidate):
+		plan.Operation = "supersession"
 	default:
 		plan.Operation = "update"
 	}

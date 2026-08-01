@@ -128,7 +128,7 @@ func newApplyPageCommand(
 		Example: "gnosis apply page <gnosis-uri> --filename <file>\n" +
 			"gnosis apply page <gnosis-uri> -f <file> --update\n" +
 			"gnosis apply page <gnosis-uri> < <file>",
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(command *cobra.Command, args []string) error {
 			uri := strings.TrimSpace(args[0])
 			if !vault.IsCanonicalURI(uri) {
 				return newUsageError(errors.New("apply page: argument must be a gnosis uri"))
@@ -153,18 +153,23 @@ func newApplyPageCommand(
 					))
 				}
 			}
-			path, err := vault.WriteDocument(options.vaultPath, uri, content, isUpdate)
+			result, err := vault.WriteDocument(command.Context(), options.vaultPath, uri, content, isUpdate)
 			if err != nil {
 				return fmt.Errorf("apply page: %w", err)
 			}
-			return writeTOON(stdout, toon.NewObject(
+			fields := []toon.Field{
 				toon.Field{Key: "action", Value: "apply"},
 				toon.Field{Key: "resource", Value: "page"},
 				toon.Field{Key: "status", Value: "applied"},
 				toon.Field{Key: "uri", Value: uri},
-				toon.Field{Key: "path", Value: path},
-				toon.Field{Key: "changed", Value: true},
-			))
+				toon.Field{Key: "path", Value: result.Path},
+				toon.Field{Key: "revision", Value: result.Revision},
+				toon.Field{Key: "changed", Value: result.Changed},
+			}
+			if len(result.Deliveries) > 0 {
+				fields = append(fields, toon.Field{Key: "deliveries", Value: hookDeliveryObjects(result.Deliveries)})
+			}
+			return writeTOON(stdout, toon.NewObject(fields...))
 		},
 	}
 	flags := command.Flags()
@@ -205,7 +210,7 @@ func newApplyKnowledgeChangeCommand(
 		Args:  cobra.ExactArgs(1),
 		Example: "gnosis apply knowledge-change <gnosis-uri> --expected-revision <revision> --digest <digest> --filename <file>\n" +
 			"gnosis apply knowledge-change <gnosis-uri> --expected-absent --digest <digest> < <file>",
-		RunE: func(_ *cobra.Command, args []string) error {
+		RunE: func(command *cobra.Command, args []string) error {
 			change, err := knowledgeChangeInput(
 				input,
 				filename,
@@ -217,7 +222,7 @@ func newApplyKnowledgeChangeCommand(
 			if err != nil {
 				return err
 			}
-			result, err := vault.ApplyKnowledgeChange(options.vaultPath, change, digest)
+			result, err := vault.ApplyKnowledgeChange(command.Context(), options.vaultPath, change, digest)
 			if err != nil {
 				return err
 			}

@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -329,7 +330,7 @@ title: Imported write
 description: Must not be published through an import.
 ---
 `)
-	if _, err := WriteDocument(workspace, "gnosis://remote/notes/imported.md", content, false); err == nil ||
+	if _, err := WriteDocument(context.Background(), workspace, "gnosis://remote/notes/imported.md", content, false); err == nil ||
 		!strings.Contains(err.Error(), "local vault") {
 		t.Fatalf("remote import write error = %v", err)
 	}

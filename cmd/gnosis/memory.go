@@ -133,10 +133,14 @@ func writeMemoryResult(output io.Writer, result agentmemory.Result) error {
 		}
 		rows = append(rows, toon.NewObject(fields...))
 	}
-	return writeTOON(output, toon.NewObject(
+	fields := []toon.Field{
 		toon.Field{Key: "count", Value: result.Count},
 		toon.Field{Key: "memories", Value: rows},
-	))
+	}
+	if len(result.Deliveries) > 0 {
+		fields = append(fields, toon.Field{Key: "deliveries", Value: hookDeliveryObjects(result.Deliveries)})
+	}
+	return writeTOON(output, toon.NewObject(fields...))
 }
 
 func memoryArgs(command, argument string) cobra.PositionalArgs {

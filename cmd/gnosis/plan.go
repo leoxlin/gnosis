@@ -149,7 +149,7 @@ func writeKnowledgeChangeResult(output io.Writer, result vault.KnowledgeChangeRe
 	if !result.Changed {
 		status = "no-op"
 	}
-	return writeTOON(output, toon.NewObject(
+	fields := []toon.Field{
 		toon.Field{Key: "action", Value: "apply"},
 		toon.Field{Key: "resource", Value: "knowledge-change"},
 		toon.Field{Key: "status", Value: status},
@@ -158,5 +158,34 @@ func writeKnowledgeChangeResult(output io.Writer, result vault.KnowledgeChangeRe
 		toon.Field{Key: "path", Value: result.Path},
 		toon.Field{Key: "revision", Value: result.Revision},
 		toon.Field{Key: "changed", Value: result.Changed},
-	))
+	}
+	if len(result.Deliveries) > 0 {
+		fields = append(fields, toon.Field{Key: "deliveries", Value: hookDeliveryObjects(result.Deliveries)})
+	}
+	return writeTOON(output, toon.NewObject(fields...))
+}
+
+func hookDeliveryObjects(deliveries []vault.HookDeliveryResult) []toon.Object {
+	rows := make([]toon.Object, 0, len(deliveries))
+	for _, delivery := range deliveries {
+		fields := []toon.Field{
+			{Key: "name", Value: delivery.Name},
+			{Key: "kind", Value: delivery.Kind},
+			{Key: "status", Value: delivery.Status},
+		}
+		if delivery.ExitCode != nil {
+			fields = append(fields, toon.Field{Key: "exit_code", Value: *delivery.ExitCode})
+		}
+		if delivery.HTTPStatus != 0 {
+			fields = append(fields, toon.Field{Key: "http_status", Value: delivery.HTTPStatus})
+		}
+		if delivery.Output != "" {
+			fields = append(fields, toon.Field{Key: "output", Value: delivery.Output})
+		}
+		if delivery.Error != "" {
+			fields = append(fields, toon.Field{Key: "error", Value: delivery.Error})
+		}
+		rows = append(rows, toon.NewObject(fields...))
+	}
+	return rows
 }

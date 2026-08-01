@@ -396,6 +396,44 @@ func TestVaultBackendRequiresWritableVault(t *testing.T) {
 	}
 }
 
+func TestVaultAddReturnsHookDeliveries(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		requests++
+		response.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+	root := memoryVault(t)
+	configPath := filepath.Join(root, "gnosis.toml")
+	config, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config = append(config, []byte(`
+[[hooks]]
+name = "memory"
+kind = "webhook"
+scope = "prefix"
+target = "gnosis://test/memories"
+url = "`+server.URL+`"
+`)...)
+	if err := os.WriteFile(configPath, config, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	service, err := New(Config{UserID: "user", AgentID: "agent"}, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := service.Add(context.Background(), "hooked memory")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if requests != 1 || len(result.Deliveries) != 1 ||
+		result.Deliveries[0].Name != "memory" || result.Deliveries[0].Status != "success" {
+		t.Fatalf("requests = %d, result = %+v", requests, result)
+	}
+}
+
 func TestInvalidOperationsDoNotSendRequests(t *testing.T) {
 	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {

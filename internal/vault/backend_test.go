@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -193,7 +194,7 @@ description: Written through a remote target.
 # Added
 `)
 	before := remoteCommitCount(t, fixture)
-	if _, err := WriteDocument(fixture.url, "gnosis://remote/notes/added.md", content, false); err != nil {
+	if _, err := WriteDocument(context.Background(), fixture.url, "gnosis://remote/notes/added.md", content, false); err != nil {
 		t.Fatal(err)
 	}
 	if got := remoteCommitCount(t, fixture); got != before+1 {
@@ -204,7 +205,7 @@ description: Written through a remote target.
 	}
 
 	rejectTestPushes(t, fixture.remote)
-	if _, err := WriteDocument(fixture.url, "gnosis://remote/notes/added.md", content, true); err != nil {
+	if _, err := WriteDocument(context.Background(), fixture.url, "gnosis://remote/notes/added.md", content, true); err != nil {
 		t.Fatalf("no-op page mutation attempted publication: %v", err)
 	}
 	if got := remoteCommitCount(t, fixture); got != before+1 {
@@ -250,7 +251,7 @@ description: Preserved in the local cache.
 
 # Rejected
 `)
-	if _, err := WriteDocument(fixture.url, "gnosis://remote/notes/rejected.md", content, false); err == nil ||
+	if _, err := WriteDocument(context.Background(), fixture.url, "gnosis://remote/notes/rejected.md", content, false); err == nil ||
 		!strings.Contains(err.Error(), "publish backend") {
 		t.Fatalf("push failure = %v", err)
 	}
@@ -426,7 +427,7 @@ vault_log = false
 	}
 
 	content := []byte("---\ntype: Note\ntitle: Added\ndescription: written through gnosis\n---\n\n# Added\n\nTest.\n")
-	if _, err := WriteDocument(workspace, "gnosis://wiki/notes/added.md", content, false); err != nil {
+	if _, err := WriteDocument(context.Background(), workspace, "gnosis://wiki/notes/added.md", content, false); err != nil {
 		t.Fatal(err)
 	}
 	checkout := filepath.Join(root, "checkout")

@@ -58,12 +58,13 @@ type Record struct {
 
 // Result contains bounded memory records.
 type Result struct {
-	Count    int      `json:"count"`
-	Memories []Record `json:"memories"`
+	Count      int                        `json:"count"`
+	Memories   []Record                   `json:"memories"`
+	Deliveries []vault.HookDeliveryResult `json:"deliveries,omitempty"`
 }
 
 type backend interface {
-	add(context.Context, string) ([]Record, error)
+	add(context.Context, string) ([]Record, []vault.HookDeliveryResult, error)
 	search(context.Context, string, int) ([]Record, error)
 }
 
@@ -154,11 +155,11 @@ func (s *Service) Add(ctx context.Context, text string) (Result, error) {
 	if strings.TrimSpace(text) == "" {
 		return Result{}, fmt.Errorf("add memory: text must not be empty")
 	}
-	records, err := s.backend.add(ctx, text)
+	records, deliveries, err := s.backend.add(ctx, text)
 	if err != nil {
 		return Result{}, err
 	}
-	return Result{Count: len(records), Memories: records}, nil
+	return Result{Count: len(records), Memories: records, Deliveries: deliveries}, nil
 }
 
 // Search retrieves bounded memories from the fixed identity scope.
@@ -191,7 +192,7 @@ type mem0Backend struct {
 	entity mem0.EntityOptions
 }
 
-func (b *mem0Backend) add(ctx context.Context, text string) ([]Record, error) {
+func (b *mem0Backend) add(ctx context.Context, text string) ([]Record, []vault.HookDeliveryResult, error) {
 	infer := true
 	memories, err := b.client.Add(
 		ctx,
@@ -199,9 +200,9 @@ func (b *mem0Backend) add(ctx context.Context, text string) ([]Record, error) {
 		mem0.AddOptions{EntityOptions: b.entity, Infer: &infer},
 	)
 	if err != nil {
-		return nil, requestError("add memory", err)
+		return nil, nil, requestError("add memory", err)
 	}
-	return compactMem0(memories), nil
+	return compactMem0(memories), nil, nil
 }
 
 func (b *mem0Backend) search(ctx context.Context, query string, limit int) ([]Record, error) {
@@ -262,17 +263,17 @@ type memoryPage struct {
 	Status      string         `yaml:"status"`
 }
 
-func (b *vaultBackend) add(_ context.Context, text string) ([]Record, error) {
+func (b *vaultBackend) add(ctx context.Context, text string) ([]Record, []vault.HookDeliveryResult, error) {
 	statementHash := fmt.Sprintf("%x", sha256.Sum256([]byte(text)))
 	existing, err := b.memories()
 	if err != nil {
-		return nil, fmt.Errorf("add memory: load vault: %w", err)
+		return nil, nil, fmt.Errorf("add memory: load vault: %w", err)
 	}
 	for _, document := range existing {
 		if metadataString(document.Metadata, "hash") == statementHash {
 			record := recordFromDocument(document, nil)
 			record.Event = "NOOP"
-			return []Record{record}, nil
+			return []Record{record}, nil, nil
 		}
 	}
 
@@ -295,26 +296,27 @@ func (b *vaultBackend) add(_ context.Context, text string) ([]Record, error) {
 	}
 	frontmatter, err := yaml.Marshal(page)
 	if err != nil {
-		return nil, fmt.Errorf("add memory: encode page: %w", err)
+		return nil, nil, fmt.Errorf("add memory: encode page: %w", err)
 	}
 	content := append([]byte("---\n"), frontmatter...)
 	content = append(content, []byte("---\n\n# Memory\n\n"+text+"\n")...)
-	if _, err := vault.WriteDocument(b.root, uri, content, false); err != nil {
-		return nil, fmt.Errorf("add memory: write vault: %w", err)
+	writeResult, err := vault.WriteDocument(ctx, b.root, uri, content, false)
+	if err != nil {
+		return nil, nil, fmt.Errorf("add memory: write vault: %w", err)
 	}
 
 	documents, err := b.memories()
 	if err != nil {
-		return nil, fmt.Errorf("add memory: reload vault: %w", err)
+		return nil, nil, fmt.Errorf("add memory: reload vault: %w", err)
 	}
 	for _, document := range documents {
 		if metadataString(document.Metadata, "hash") == statementHash {
 			record := recordFromDocument(document, nil)
 			record.Event = "ADD"
-			return []Record{record}, nil
+			return []Record{record}, writeResult.Deliveries, nil
 		}
 	}
-	return nil, fmt.Errorf("add memory: written vault record was not readable")
+	return nil, nil, fmt.Errorf("add memory: written vault record was not readable")
 }
 
 func (b *vaultBackend) search(_ context.Context, query string, limit int) ([]Record, error) {

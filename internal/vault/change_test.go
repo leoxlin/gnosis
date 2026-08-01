@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -57,13 +58,13 @@ func TestKnowledgeChangeApplyRejectsStaleAndChangedPlans(t *testing.T) {
 	}
 
 	input.Candidate = validChangeNote("Existing", "changed")
-	if _, err := ApplyKnowledgeChange(root, input, plan.Digest); err == nil ||
+	if _, err := ApplyKnowledgeChange(context.Background(), root, input, plan.Digest); err == nil ||
 		!strings.Contains(err.Error(), "plan digest changed") {
 		t.Fatalf("changed plan error = %v", err)
 	}
 	input.Candidate = validChangeNote("Existing", "planned")
 	write(t, root, "notes/existing.md", validChangeNote("Existing", "external"))
-	if _, err := ApplyKnowledgeChange(root, input, plan.Digest); err == nil ||
+	if _, err := ApplyKnowledgeChange(context.Background(), root, input, plan.Digest); err == nil ||
 		!strings.Contains(err.Error(), "actual revision") {
 		t.Fatalf("stale plan error = %v", err)
 	}
@@ -105,7 +106,7 @@ retained
 	if err != nil || !plan.Applicable || plan.Operation != "archive" {
 		t.Fatalf("plan = %+v err = %v", plan, err)
 	}
-	result, err := ApplyKnowledgeChange(root, input, plan.Digest)
+	result, err := ApplyKnowledgeChange(context.Background(), root, input, plan.Digest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,7 +150,7 @@ first
 	if !strings.Contains(plan.Diff, "-maintenance:") {
 		t.Fatalf("diff does not clear maintenance: %s", plan.Diff)
 	}
-	if _, err := ApplyKnowledgeChange(root, input, plan.Digest); err != nil {
+	if _, err := ApplyKnowledgeChange(context.Background(), root, input, plan.Digest); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Join(root, "notes", "existing.md"))
@@ -279,7 +280,7 @@ func TestKnowledgeChangeApplyCreatesOneRemoteCommitAndRetainsFailedPush(t *testi
 		t.Fatalf("plan = %+v err = %v", plan, err)
 	}
 	before := remoteCommitCount(t, fixture)
-	if _, err := ApplyKnowledgeChange(fixture.url, input, plan.Digest); err != nil {
+	if _, err := ApplyKnowledgeChange(context.Background(), fixture.url, input, plan.Digest); err != nil {
 		t.Fatal(err)
 	}
 	if got := remoteCommitCount(t, fixture); got != before+1 {
@@ -302,7 +303,7 @@ func TestKnowledgeChangeApplyCreatesOneRemoteCommitAndRetainsFailedPush(t *testi
 	beforeLocal := localCommitCount(t, target.root)
 	beforeRemote := remoteCommitCount(t, fixture)
 	rejectTestPushes(t, fixture.remote)
-	result, err := ApplyKnowledgeChange(fixture.url, failedInput, failedPlan.Digest)
+	result, err := ApplyKnowledgeChange(context.Background(), fixture.url, failedInput, failedPlan.Digest)
 	if err == nil || !strings.Contains(err.Error(), "local write remains") {
 		t.Fatalf("push error = %v", err)
 	}
